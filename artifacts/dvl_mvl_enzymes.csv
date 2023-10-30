@@ -1,0 +1,14 @@
+,path,reaction,uniprot_id,link,annotation_score,organism
+,0,1,A4IDL2,https://www.brenda-enzymes.org/enzyme.php?ecno=2.1.1.41&UniProtAcc=A4IDL2&OrganismID=2949,,
+,0,1,A8IJ34,https://www.brenda-enzymes.org/enzyme.php?ecno=2.1.1.142&UniProtAcc=A8IJ34&OrganismID=1318,,
+,0,1,A8IJ34,https://www.brenda-enzymes.org/enzyme.php?ecno=2.1.1.41&UniProtAcc=A8IJ34&OrganismID=1318,,
+,0,1,D2D5G4,https://www.brenda-enzymes.org/enzyme.php?ecno=2.1.1.142&UniProtAcc=D2D5G4&OrganismID=2483,,
+,0,1,P25087,https://www.brenda-enzymes.org/enzyme.php?ecno=2.1.1.41&UniProtAcc=P25087&OrganismID=984,5,yeast
+,0,1,Q43445,https://www.brenda-enzymes.org/enzyme.php?ecno=2.1.1.142&UniProtAcc=Q43445&OrganismID=2483,2,soybean
+,0,1,Q45KX5,,1,
+,0,1,Q96WX4,https://www.brenda-enzymes.org/enzyme.php?ecno=2.1.1.41&UniProtAcc=Q96WX4&OrganismID=4924,4,pneumocystis carinii
+,0,1,Q96WX4,https://www.brenda-enzymes.org/enzyme.php?ecno=2.1.1.142&UniProtAcc=Q96WX4&OrganismID=4924,4,pneumocystis carinii
+,0,1,Q9LM02,https://www.brenda-enzymes.org/enzyme.php?ecno=2.1.1.142&UniProtAcc=Q9LM02&OrganismID=399,4,arabidopsis thaliana
+,0,0,A0A0W4ZCX9,https://www.brenda-enzymes.org/enzyme.php?ecno=1.3.1.71&UniProtAcc=A0A0W4ZCX9&OrganismID=4924,1,pneumocystis carinii
+,0,0,P36209,https://www.rhea-db.org/rhea/18501,4,schizosaccharomyces pombe
+,0,0,Q39085,https://www.brenda-enzymes.org/enzyme.php?ecno=1.3.1.72&UniProtAcc=Q39085&OrganismID=399,5,arabidopsis thaliana

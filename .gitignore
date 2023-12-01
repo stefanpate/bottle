@@ -3,3 +3,5 @@ artifacts/documents/
 artifacts/mevalonate_uniprot/
 core*
 *.ipynb_checkpoints*
+*__pycache__*
+

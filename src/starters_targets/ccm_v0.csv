@@ -1,0 +1,9 @@
+id,smiles
+succinate,O=C([O-])CCC(=O)[O-]
+fumarate,O=C([O-])C=CC(=O)[O-]
+malate,O=C([O-])CC(O)C(=O)[O-]
+oxaloacetate,O=C([O-])CC(=O)C(=O)[O-]
+ketoglutarate,O=C([O-])CCC(=O)C(=O)[O-]
+citrate,O=C([O-])CC(O)(CC(=O)[O-])C(=O)[O-]
+pyruvate,CC(=O)C(=O)[O-]
+acetate,CC(=O)[O-]

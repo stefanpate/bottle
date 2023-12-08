@@ -14,7 +14,7 @@ from rdkit.Chem import CanonSmiles
 
 # Directories and files
 st_dir = "../src/starters_targets/"
-input_cpds = st_dir + "succinate.csv"
+input_cpds = st_dir + "methylene_molecules.csv"
 target_cpds = st_dir + "mvacid.csv"
 rule_list = '../src/rules/JN3604IMT_rules.tsv'
 
@@ -69,4 +69,4 @@ if tani_sample:
 pk.transform_all(processes, generations)
 pk.prune_network_to_targets()
 
-pk.pickle_pickaxe("/projects/b1039/spn1560/bottle/succinate_to_mvacid_gen_4_tan_sample_n_samples_1000.pk") # Save results
+pk.pickle_pickaxe(save_to) # Save results

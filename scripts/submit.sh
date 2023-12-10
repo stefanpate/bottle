@@ -4,7 +4,7 @@
 #SBATCH -N 1
 #SBATCH -n 50
 #SBATCH --mem=0
-#SBATCH -t 36:00:00
+#SBATCH -t 48:00:00
 #SBATCH --job-name="ccm2methylenes"
 #SBATCH -o outlog
 #SBATCH -e errlog

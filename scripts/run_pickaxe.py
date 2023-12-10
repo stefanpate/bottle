@@ -14,8 +14,10 @@ from rdkit.Chem import CanonSmiles
 
 # Directories and files
 st_dir = "../src/starters_targets/"
-input_cpds = st_dir + "methylene_molecules.csv"
-target_cpds = st_dir + "mvacid.csv"
+input_cpds = "ccm_v0"
+target_cpds = "methylene_molecules"
+input_cpds_fn = st_dir + input_cpds + ".csv"
+target_cpds_fn = st_dir + target_cpds + ".csv"
 rule_list = '../src/rules/JN3604IMT_rules.tsv'
 
 # Pickaxe settings
@@ -30,7 +32,7 @@ tani_sample = True # False
 sample_size = 1000 # 10
 weight = None # 5
 
-save_to = f"/projects/b1039/spn1560/bottle/{input_cpds.split('/')[-1]}_to_{target_cpds.split('/')[-1]}_gen_{generations}_tan_sample_{int(tani_sample)}_n_samples_{sample_size}.pk"
+save_to = f"/projects/b1039/spn1560/bottle/{input_cpds}_to_{target_cpds}_gen_{generations}_tan_sample_{int(tani_sample)}_n_samples_{sample_size}.pk"
 
 
 _, coreactant_list, rule_name = metacyc_intermediate(
@@ -46,9 +48,9 @@ pk = Pickaxe(
         filter_after_final_gen=True,
     )
 
-pk.load_compound_set(compound_file=input_cpds)
+pk.load_compound_set(compound_file=input_cpds_fn)
 
-pk.load_targets(target_cpds)
+pk.load_targets(target_cpds_fn)
 
 
 # Apply filters

@@ -1,19 +1,9 @@
-from src.utils import sanitize, sort_x_by_y
+from src.utils import sort_x_by_y
 from rdkit import Chem
 from rdkit.Chem import Draw, rdChemReactions, AllChem, rdFMCS
 from rxnmapper import RXNMapper
 rxnmapper = RXNMapper()
 import random
-
-def entry2smarts(rxn_entry):
-    '''
-    Convert our standard rxn json
-    entry into a reaction smarts
-    '''
-    reactants = sanitize(list(rxn_entry[0].values()))
-    products = sanitize(list(rxn_entry[1].values()))
-    sma = ".".join(reactants) + ">>" + ".".join(products)
-    return sma
 
 def atom_map(rxn_sma):
     return rxnmapper.get_attention_guided_atom_maps([rxn_sma])[0]['mapped_rxn']
@@ -107,8 +97,15 @@ def get_property_hashes(mol, aidxs):
             # Neighbor is at "begin atom idx" and part of substructure
             if (bond.GetBeginAtomIdx() != idx) & (bond.GetBeginAtomIdx() in aidxs):
                 bonds.append((bond.GetBondType(), bond.GetBeginAtom().GetAtomicNum()))
+
+        if bonds:
+            # Bonds have to be in consistent order
+            bond_type, neighbor_atom_num = list(zip(*bonds))
+            neighbor_atom_num, bond_type = sort_x_by_y(neighbor_atom_num, bond_type)
+            bonds = list(zip(bond_type, neighbor_atom_num))
+
+            this_prop += bonds # Append bond & neighbor info
         
-        this_prop += bonds # Append bond & neighbor info
         this_prop = tuple(this_prop)
         prop_hashes.append(hash(this_prop))
 
@@ -145,20 +142,20 @@ def align_atom_map_nums(rxns, rcs, rc_idxs, rc_atoms):
         
         # Get atom map #'s from rxn1 rxn ctr
         rc_amap_nums = []
-        for elt in rc1_atom_idxs:
-            rc_amap_nums.append(rc1.GetAtomWithIdx(elt).GetAtomMapNum())
+        for elt2 in rc1_atom_idxs:
+            rc_amap_nums.append(rc1.GetAtomWithIdx(elt2).GetAtomMapNum())
 
         # Property hashes of rxn ctr from rc1 and mol2
-        # give true id of each atom 
+        # give true id of each atom
         mol2_prop_hashes = get_property_hashes(mol2, ratoms2)
         rc1_prop_hashes = get_property_hashes(rc1, rc1_atom_idxs)
-
-        assert mol2_prop_hashes == rc1_prop_hashes
 
         # Sort rxn ctr idxs from rxn2 sub and atom map #'s from 
         # rxn1 sub by their true identity
         ratoms2, mol2_prop_hashes = tuple(sort_x_by_y(ratoms2, mol2_prop_hashes))
         rc_amap_nums, rc1_prop_hashes = tuple(sort_x_by_y(rc_amap_nums, rc1_prop_hashes))
+        
+        assert mol2_prop_hashes == rc1_prop_hashes
 
         # Re-label mol from rxn2
         for i, elt in enumerate(ratoms2):

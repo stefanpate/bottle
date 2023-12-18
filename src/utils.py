@@ -28,6 +28,16 @@ def sanitize(list_of_smiles):
         sanitized_smiles.append(Chem.MolToSmiles(temp_mol))    
     return sanitized_smiles
 
+def rxn_entry_to_smarts(rxn_entry):
+    '''
+    Convert our standard rxn json
+    entry into a reaction smarts
+    '''
+    reactants = sanitize(list(rxn_entry[0].values()))
+    products = sanitize(list(rxn_entry[1].values()))
+    sma = ".".join(reactants) + ">>" + ".".join(products)
+    return sma
+
 def shuffle_mol(mol):
     '''
     '''

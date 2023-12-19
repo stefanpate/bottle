@@ -1,9 +1,8 @@
 from src.utils import sort_x_by_y
 from rdkit import Chem
-from rdkit.Chem import Draw, rdChemReactions, AllChem, rdFMCS
+from rdkit.Chem import rdFMCS
 from rxnmapper import RXNMapper
 rxnmapper = RXNMapper()
-import random
 
 def atom_map(rxn_sma):
     return rxnmapper.get_attention_guided_atom_maps([rxn_sma])[0]['mapped_rxn']

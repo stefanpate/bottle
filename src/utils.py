@@ -1,5 +1,10 @@
 import json
 from rdkit import Chem
+import os
+
+def ensure_dirs(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 def sort_x_by_y(x, y, reverse=False):
     yx = list(zip(y, x))

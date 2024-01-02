@@ -10,7 +10,40 @@ import numpy as np
 SVG
 '''
 
-def draw_rxn_svg(rxn_sma):
+def draw_pwy_svg(sma_hash_pairs, pwy_fn=None):
+    fns = []
+    widths = []
+    for pair in sma_hash_pairs:
+        pred_fn, pred_width = draw_rxn_svg(*pair[0])
+        known_fn, known_width = draw_rxn_svg(*pair[1])
+        fns.append((pred_fn, known_fn))
+        widths.append((pred_width, known_width))
+
+    max_pred_width = max(list(zip(*widths))[0])
+    max_known_width = max(list(zip(*widths))[1])
+    elements = []
+    for i, row in enumerate(fns):
+        for j, half in enumerate(row):
+            pred_delta = max_pred_width - widths[i][j]
+            elements.append(sc.SVG(half).move(pred_delta + j * (max_pred_width + 40 - pred_delta), 200 * i))
+
+        elements.append(sc.SVG('../artifacts/mol_svgs/double_border.svg').move(max_pred_width, 200 * i))
+    
+
+    pwy_svg = sc.Figure(max_pred_width + 40 + max_known_width, 200 * len(fns),
+            *elements
+            )
+    
+    if pwy_fn:
+        pwy_svg.save(pwy_fn)
+    else:
+        return pwy_svg
+        
+
+
+
+
+def draw_rxn_svg(rxn_sma, rhash=None):
     reactants, products = [elt.split('.') for elt in rxn_sma.split('>>')]
     reactants, products = Counter(reactants), Counter(products)
 
@@ -56,7 +89,13 @@ def draw_rxn_svg(rxn_sma):
     rxn = sc.Figure(movex[-1], 200,
             *elements
             )
-    return rxn
+    width = movex[-1]
+
+    if rhash:
+        fn = f"../artifacts/rxn_svgs/{rhash}.svg"
+        rxn.save(fn)
+
+    return fn, width
 
 def draw_mol_svg(smiles, stoich):
     mol = Chem.MolFromSmiles(smiles)

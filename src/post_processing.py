@@ -36,6 +36,10 @@ class pathway:
         break. Need to ensure entries always sorted
         in expansion object.
         '''
+        # Computes an average of averages. First average
+        # is over prc mcs of reactants in each known reaction
+        # Second average over known reactions associated w/ 
+        # a predicted reaction
         self.prc_mcs = []
         for rh in self.rhashes:
             krs = pred_rxns[rh].known_rxns

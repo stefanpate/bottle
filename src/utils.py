@@ -73,3 +73,14 @@ def shuffle_mol(mol):
     shuffle_mol = Chem.Mol(shuffle_mol)
     Chem.SanitizeMol(shuffle_mol) # Trust in Greg Landrum
     return shuffle_mol
+
+def rm_atom_map_num(smarts):    
+    rxn = AllChem.ReactionFromSmarts(smarts, useSmiles=True)
+    for elt in rxn.GetReactants():
+        for atom in elt.GetAtoms():
+            atom.SetAtomMapNum(0)
+    for elt in rxn.GetProducts():
+        for atom in elt.GetAtoms():
+            atom.SetAtomMapNum(0)
+    unmapped_smarts = AllChem.ReactionToSmiles(rxn)
+    return unmapped_smarts

@@ -112,7 +112,7 @@ def get_property_hashes(mol, aidxs):
 
     return prop_hashes
 
-def align_atom_map_nums(rxns, rcs, rc_idxs, rc_atoms):
+def align_atom_map_nums(rxns, rcs, rc_atoms):
     '''
     Re-label atom map #'s in substrate pairs
     so that reaction centers of aligned subs
@@ -124,8 +124,6 @@ def align_atom_map_nums(rxns, rcs, rc_idxs, rc_atoms):
         - rxns: List of rxn objects [rxn1, rxn2]
         - rcs: List of lists of rxn ctr mol objects
         for the substrates of rxn1 & rxn2
-        - rc_idxs: List of aligned substrate idx pairs
-        (rxn1_idx, rxn2_idx)
         - rc_atoms: List of tuples of reacting atom
         idxs
     Returns
@@ -133,16 +131,15 @@ def align_atom_map_nums(rxns, rcs, rc_idxs, rc_atoms):
         atom map numbers for rxn2 substrates
     '''
     rxns = rxns.copy() # Defensive copy; avoid side effects
-    for elt in rc_idxs:
-        rc1 = rcs[0][elt[0]] # Get rxn ctr from rxn1
-        mol2 = rxns[1].GetReactantTemplate(elt[1]) # And corresponding substrate from rxn2
-        ratoms2 = rc_atoms[1][elt[1]] # And rxn ctr atom idxs of this molecule
+    for j, rc1 in enumerate(rcs[0]): # For rxn ctr from rxn 1
+        mol2 = rxns[1].GetReactantTemplate(j) # Get corresponding substrate from rxn2
+        ratoms2 = rc_atoms[1][j] # And rxn ctr atom idxs of this molecule
         rc1_atom_idxs = [i for i in range(len(rc1.GetAtoms()))]
         
         # Get atom map #'s from rxn1 rxn ctr
         rc_amap_nums = []
-        for elt2 in rc1_atom_idxs:
-            rc_amap_nums.append(rc1.GetAtomWithIdx(elt2).GetAtomMapNum())
+        for elt in rc1_atom_idxs:
+            rc_amap_nums.append(rc1.GetAtomWithIdx(elt).GetAtomMapNum())
 
         # Property hashes of rxn ctr from rc1 and mol2
         # give true id of each atom
@@ -162,7 +159,7 @@ def align_atom_map_nums(rxns, rcs, rc_idxs, rc_atoms):
 
     return rxns
 
-def get_prc_mcs(rxns, rcs, rc_idxs, rc_atoms, norm='min atoms'):
+def get_prc_mcs(rxns, rcs, rc_atoms, norm='min atoms'):
     '''
     Returns peri-reaction-center maximum common
     substructure for each aligned pair of substrates
@@ -170,15 +167,13 @@ def get_prc_mcs(rxns, rcs, rc_idxs, rc_atoms, norm='min atoms'):
         - rxns: List of rxn objects [rxn1, rxn2]
         - rcs: List of lists of rxn ctr mol objects
         for the substrates of rxn1 & rxn2
-        - rc_idxs: List of aligned substrate idx pairs
-        (rxn1_idx, rxn2_idx)
         - rc_atoms: List of tuples of reacting atom
         idxs
         - norm: Normalization to get an index out of
         prcmcs. 'min atoms' (default) normalizes by smaller
         of the two substrates, 'max atoms' by the larger
     Returns
-        - prc_mcs: List of prcmcs index values
+        - prc_mcs: List of prc_mcs index values
     '''
     # Set isotopes to customise FindMCS w/ atom map #
     for i, rxn in enumerate(rxns):
@@ -197,9 +192,9 @@ def get_prc_mcs(rxns, rcs, rc_idxs, rc_atoms, norm='min atoms'):
 
     # Get prc mcs
     prc_mcs = []
-    for elt in rc_idxs:
-        subs = [rxns[0].GetReactantTemplate(elt[0]), rxns[1].GetReactantTemplate(elt[1])]
-        rc = rcs[0][elt[0]] # Rxn ctr from rxn1 has right atom map # for FindMCS seed
+    for i in range(rxns[0].GetNumReactantTemplates()):
+        subs = [rxns[0].GetReactantTemplate(i), rxns[1].GetReactantTemplate(i)]
+        rc = rcs[0][i] # Rxn ctr from rxn1 has right atom map # for FindMCS seed
 
         res = rdFMCS.FindMCS(subs, seedSmarts=Chem.MolToSmarts(rc),
                                 atomCompare=rdFMCS.AtomCompare.CompareIsotopes,

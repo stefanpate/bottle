@@ -1,5 +1,6 @@
 import json
 from rdkit import Chem
+from rdkit.Chem import AllChem
 import os
 
 def ensure_dirs(path):
@@ -74,13 +75,23 @@ def shuffle_mol(mol):
     Chem.SanitizeMol(shuffle_mol) # Trust in Greg Landrum
     return shuffle_mol
 
-def rm_atom_map_num(smarts):    
+def rm_atom_map_num(smarts):
     rxn = AllChem.ReactionFromSmarts(smarts, useSmiles=True)
+
+    # Remove atom map num and write mol smarts in order
+    reactant_smas = []   
     for elt in rxn.GetReactants():
         for atom in elt.GetAtoms():
             atom.SetAtomMapNum(0)
+
+        reactant_smas.append(Chem.MolToSmiles(elt))
+
+    product_smas = []
     for elt in rxn.GetProducts():
         for atom in elt.GetAtoms():
             atom.SetAtomMapNum(0)
-    unmapped_smarts = AllChem.ReactionToSmiles(rxn)
+
+        product_smas.append(Chem.MolToSmiles(elt))
+
+    unmapped_smarts = '.'.join(reactant_smas) + '>>' + '.'.join(product_smas)
     return unmapped_smarts

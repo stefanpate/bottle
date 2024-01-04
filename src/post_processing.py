@@ -46,7 +46,7 @@ class pathway:
             kr_mean_mcs = 0
             for i, elt in enumerate(krs):
                 if elt[0] is None:
-                    break
+                    break # This is where assumption of sorting comes in
                 elif i > 0:
                     kr_mean_mcs = (kr_mean_mcs * i + sum(elt[0]) / len(elt[0])) / (i + 1) # Rolling ave
                 else:

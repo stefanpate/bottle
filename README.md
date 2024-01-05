@@ -1,4 +1,4 @@
-# Hierarchical EC prediction
+# Computationally-assisted synthesis planning for recyclable-by-design polymers
 
 ## Installation. 
 

@@ -1,0 +1,55 @@
+----------------------------------------
+Intializing pickaxe object
+
+Done intializing pickaxe object
+----------------------------------------
+
+8 compounds loaded...
+(8 after removing stereochemistry)
+2 target compounds loaded
+
+----------------------------------------
+Filtering Generation 0
+
+Sampling 1000 Compounds Based on a Weighted Similarity Distribution
+Filtering Generation 0 via Similarity Sampling.
+-- Number to sample is less than number of compounds. Returning all compounds.
+num sampled =  8
+8 of 8 compounds selected after Similarity Sampling of generation 0--took 0.00039386749267578125s.
+
+Done filtering Generation 0
+----------------------------------------
+
+----------------------------------------
+Expanding Generation 1
+
+Generation 1: 0 percent complete
+Generation 1: 12 percent complete
+Generation 1: 25 percent complete
+Generation 1: 38 percent complete
+Generation 1: 50 percent complete
+Generation 1: 62 percent complete
+Generation 1: 75 percent complete
+Generation 1: 88 percent complete
+Generation 1 finished in 11.954939365386963 s and contains:
+		667 new compounds
+		870 new reactions
+
+Done expanding Generation: 1.
+----------------------------------------
+
+----------------------------------------
+Filtering Generation 1
+
+Sampling 1000 Compounds Based on a Weighted Similarity Distribution
+Filtering Generation 1 via Similarity Sampling.
+-- Number to sample is less than number of compounds. Returning all compounds.
+num sampled =  668
+668 of 668 compounds selected after Similarity Sampling of generation 1--took 0.0011305809020996094s.
+
+Done filtering Generation 1
+----------------------------------------
+
+----------------------------------------
+Expanding Generation 2
+

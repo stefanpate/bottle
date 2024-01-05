@@ -1,3 +1,10 @@
-data/
+data/raw_expansions/
 artifacts/documents/
 artifacts/mevalonate_uniprot/
+artifacts/mol_svgs/
+artifacts/rxn_svgs/
+artifacts/tmp_pdfs/
+core*
+*.ipynb_checkpoints*
+*__pycache__*
+

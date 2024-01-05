@@ -13,12 +13,12 @@ from minedatabase.filters import (
 from rdkit.Chem import CanonSmiles
 
 # Directories and files
-st_dir = "../src/starters_targets/"
+st_dir = "../data/starters_targets/"
 input_cpds = "ccm_v0"
 target_cpds = "methylene_molecules"
 input_cpds_fn = st_dir + input_cpds + ".csv"
 target_cpds_fn = st_dir + target_cpds + ".csv"
-rule_list = '../src/rules/JN3604IMT_rules.tsv'
+rule_list = '../data/rules/JN3604IMT_rules.tsv'
 
 # Pickaxe settings
 processes = 50

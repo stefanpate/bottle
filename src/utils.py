@@ -44,37 +44,6 @@ def rxn_entry_to_smarts(rxn_entry):
     sma = ".".join(reactants) + ">>" + ".".join(products)
     return sma
 
-def shuffle_mol(mol):
-    '''
-    '''
-    idxs = [i for i in range(len(list(mol.GetAtoms())))]
-    random.shuffle(idxs)
-    shuffle_mol = Chem.RWMol() # New mol object to be edited
-    old2new = {}
-    # Add atoms, set formal charge
-    for i, elt in enumerate(idxs):
-        atom = mol.GetAtomWithIdx(elt)
-        fc = atom.GetFormalCharge()
-        amap_num = atom.GetAtomMapNum()
-        anum = atom.GetAtomicNum()
-        old2new[elt] = i
-        shuffle_mol.AddAtom(Chem.Atom(anum))
-        shuffle_mol.GetAtomWithIdx(i).SetFormalCharge(fc)
-        shuffle_mol.GetAtomWithIdx(i).SetAtomMapNum(amap_num)
-
-    # Add bonds
-    for a1 in idxs:
-        for a2 in idxs:
-            if a1 < a2:
-                bond = mol.GetBondBetweenAtoms(a1, a2)
-                if bond is not None:
-                    b_type = bond.GetBondType() # Single, double, ...
-                    shuffle_mol.AddBond(old2new[a1], old2new[a2], b_type)
-
-    shuffle_mol = Chem.Mol(shuffle_mol)
-    Chem.SanitizeMol(shuffle_mol) # Trust in Greg Landrum
-    return shuffle_mol
-
 def rm_atom_map_num(smarts):
     rxn = AllChem.ReactionFromSmarts(smarts, useSmiles=True)
 

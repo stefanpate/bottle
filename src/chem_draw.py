@@ -27,7 +27,7 @@ def draw_pwy_svg(sma_hash_pairs, pwy_fn=None):
             pred_delta = max_pred_width - widths[i][j]
             elements.append(sc.SVG(half).move(pred_delta + j * (max_pred_width + 40 - pred_delta), 200 * i))
 
-        elements.append(sc.SVG('../artifacts/mol_svgs/double_border.svg').move(max_pred_width, 200 * i))
+        elements.append(sc.SVG('../artifacts/double_border.svg').move(max_pred_width, 200 * i))
     
 
     pwy_svg = sc.Figure(max_pred_width + 40 + max_known_width, 200 * len(fns),
@@ -43,16 +43,20 @@ def draw_pwy_svg(sma_hash_pairs, pwy_fn=None):
 
 
 
-def draw_rxn_svg(rxn_sma, rhash=None):
+def draw_rxn_svg(rxn_sma, rhash=None, hilite_atoms=None):
     reactants, products = [elt.split('.') for elt in rxn_sma.split('>>')]
     reactants, products = Counter(reactants), Counter(products)
 
     fns = []
     movex = [0]
+    reactant_ctr = 0
     plus_ctr = 0
     element_ctr = 0
     for smi, stoich in reactants.items():
-        fn, width = draw_mol_svg(smi, stoich)
+        if hilite_atoms:
+            fn, width = draw_mol_svg(smi, stoich, hilite_atoms[reactant_ctr])
+        else:
+            fn, width = draw_mol_svg(smi, stoich)
         fns.append(fn)
         movex.append(movex[element_ctr] + width)
         element_ctr +=1
@@ -63,10 +67,12 @@ def draw_rxn_svg(rxn_sma, rhash=None):
             element_ctr +=1
 
         plus_ctr += 1
+        reactant_ctr += 1
         
     fns.append('../artifacts/arrow.svg')
     movex.append(movex[element_ctr] + 40)
     element_ctr +=1
+
 
     plus_ctr = 0
     for smi, stoich in products.items():
@@ -95,18 +101,23 @@ def draw_rxn_svg(rxn_sma, rhash=None):
         fn = f"../artifacts/rxn_svgs/{rhash}.svg"
         rxn.save(fn)
 
-    return fn, width
+    return fn, width # FIX. If not supplying rhash, will give strange result for fn
 
-def draw_mol_svg(smiles, stoich):
+def draw_mol_svg(smiles, stoich, hilite_atoms=None):
     mol = Chem.MolFromSmiles(smiles)
     nb = mol.GetNumAtoms()
     width = int(np.log10(nb) * 200) + 25
     d2d = Draw.MolDraw2DSVG(width, 200)
 
-    if stoich > 1:
+    if (stoich > 1) & (hilite_atoms is None):
+        d2d.DrawMolecule(mol, legend=f"({stoich})", highlightAtoms=hilite_atoms)
+    elif stoich > 1:
         d2d.DrawMolecule(mol, legend=f"({stoich})")
-    else:
+    elif (stoich == 1) & (hilite_atoms is None):
         d2d.DrawMolecule(mol)
+    else:
+        d2d.DrawMolecule(mol, highlightAtoms=hilite_atoms)
+        
 
     d2d.FinishDrawing()
     fn = f"../artifacts/mol_svgs/{hash((smiles, stoich))}.svg"

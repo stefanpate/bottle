@@ -30,8 +30,11 @@ def sanitize(list_of_smiles):
     sanitized_smiles = []
     for elt in list_of_smiles:
         temp_mol = Chem.MolFromSmiles(elt)
-        Chem.rdmolops.RemoveStereochemistry(temp_mol)
-        sanitized_smiles.append(Chem.MolToSmiles(temp_mol))    
+        if temp_mol:
+            Chem.rdmolops.RemoveStereochemistry(temp_mol)
+            sanitized_smiles.append(Chem.MolToSmiles(temp_mol))
+        else:
+            sanitized_smiles.append(None)
     return sanitized_smiles
 
 def rxn_entry_to_smarts(rxn_entry):

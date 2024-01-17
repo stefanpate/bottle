@@ -9,7 +9,7 @@ starters = 'succinate'
 targets = 'mvacid'
 st_pair = ('succinate', 'mvacid')
 generations = 4
-num_processes = 1 # Cores to use
+n_workers = 2 # Cores to use
 ################################
 
 expansion_dir = '../data/processed_expansions/'
@@ -27,24 +27,39 @@ with open(paths_path, 'rb') as f:
 this_paths = paths[st_pair]
 
 # initialize multiprocessing Queue
-q = Queue()
+qin = Queue()
+qout = Queue()
 
 # add all relevant pathway numbers to a shared multiprocessing Queue
-for i, elt in enumerate(this_paths):
-    q.put(elt)
+for elt in this_paths[:2]:
+    qin.put(elt)
+
 
 # define concentration lower and upper bounds (recommended by Dylan Brown of Lucks lab)
 lb = 1e-6 # 1 micro-mol
 ub = 500e-6 # 500 micro-mol
 
-# start calculating pathway MDF values by multiprocessing
-for i in range(num_processes):
+workers = [Process(target=thermo.calc_pathway_mdf, args=(qin, qout, lb, ub, pred_rxns)) for i in range(n_workers)]
 
-    p = Process(target = thermo.calc_pathway_mdf, args=(q,
-                                                        lb,
-                                                        ub,
-                                                        pred_rxns,
-                                                        )).start()
+for elt in workers:
+    elt.start()
+
+for elt in workers:
+    elt.join()
+
+new_this_paths = []
+while not qout.empty():
+    new_this_paths.append(qout.get())
+
+paths[st_pair] = new_this_paths
+
+# with open(rxns_path, 'wb') as f:
+#     pickle.dump(pred_rxns, f)
+
+with open('../data/test_thermo_multi.pk', 'wb') as f:
+    pickle.dump(paths, f)
+
+print('saved')
 
 
 

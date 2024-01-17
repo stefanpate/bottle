@@ -4,12 +4,15 @@ from src.pathway_utils import get_stoich_pk
 
 
 class pathway:
-    def __init__(self, rhashes, starter_hash=None, target_hash=None, prc_mcs=None, dG=None):
+    def __init__(self, rhashes, starter_hash=None, target_hash=None, prc_mcs=None):
         self.starter = starter_hash
         self.target = target_hash
         self.rhashes = rhashes # Hash ids for the path's reactions, in order
         self.prc_mcs = prc_mcs # Average (over known rxns) peri-rxn-ctr MCS score for each predicted rxn (tuple)
-        self.dG = dG # Placeholder for thermo
+        self.mdf = None # Min-max driving force
+        self.dG_opt = None # dGrs given optimized concentrations
+        self.conc_opt = None # Optimized substrate concentrations
+        
 
     def min_mcs(self):
         if self.prc_mcs is None:
@@ -60,6 +63,8 @@ class reaction:
         self.smarts = smarts
         self.rules = rules
         self.known_rxns = known_rxns
+        self.dG_std = None # Standard Gibbs FE. (value, error)
+        self.dG_phys = None # Physiological Gibbs FE. (value, error)
 
     def sort_known_rxns(self):
         '''

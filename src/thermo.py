@@ -1,72 +1,14 @@
-import os
 from multiprocessing import Queue
 from equilibrator_assets.local_compound_cache import LocalCompoundCache
 from equilibrator_api import ComponentContribution, Q_
 import cvxpy
 import pymongo
 import numpy as np
-# import matplotlib.pyplot as plt
 
 lc = LocalCompoundCache()
 lc.load_cache('../data/compounds.sqlite')
 
 cc = ComponentContribution(ccache=lc.ccache)
-
-def get_relevant_pathways_frm_mongo(mongo_client_ID: str,
-                                    exp_ID: str,
-                                    known_ints_thres: float = None):
-    """
-    Query MongoDB to obtain pathway numbers for a specific Pickaxe expansion
-
-    :param mongo_client_ID: unique connection string to access MongoDB
-    :param exp_ID: expansion ID to access (eg: YC_00001)
-    :param known_ints_thres: minimum ratio of known metabolites in a pathway (eg: 0.0 or 1.0)
-
-    :return mongo_client: connection object to MongoDB
-    :return pathways_of_interest_list: pathway numbers that meet the above criterion
-    """
-
-    # access MongoDB to get relevant db & collection
-    mongo_client = pymongo.MongoClient(mongo_client_ID)
-    selected_db = mongo_client[exp_ID]
-    pathways_col = selected_db['pathways']
-
-    if known_ints_thres:
-
-        relevant_pathways = pathways_col.find(
-            {"proportion_known_intermediates":
-                 {"$eq": str(known_ints_thres)}})
-    else:
-        relevant_pathways = pathways_col.find()
-
-    pathway_list = []
-
-    for pathway in relevant_pathways:
-        pathway_list.append(pathway['pathway_num'])
-
-    return mongo_client, pathway_list
-
-def get_pk_rxn_strs_frm_pathway(mongo_client: any,
-                                exp_ID: str,
-                                pathway_num: int):
-    """
-    Query MongoDB to obtain pickaxe reaction strings for reactions in a specific expansion's specific pathway
-
-    :param mongo_client: MongoDB connection object
-    :param exp_ID: expansion ID to access (eg: YC_00001)
-    :param pathway_num: specific pathway number within expansion database to query
-
-    :return pk_rxn_strs_list (list): list of pickaxe reaction strings for all reactions in a single pathway
-    """
-    selected_db = mongo_client[exp_ID]
-
-    pathways_collection = selected_db['pathways']
-
-    # Get the specific pathway doc from the pathway collection
-    pathway_doc = pathways_collection.find_one({"pathway_num": int(pathway_num)})
-    pk_rxn_strs_list = pathway_doc['reactions (SMILES)']
-
-    return pk_rxn_strs_list
 
 def reformat_pickaxe_rxn_strs(pk_rxns: list):
     """
@@ -258,7 +200,8 @@ def get_mdf_frm_rxn_objects(pathway_rxn_objects_list: list, lb: float, ub: float
     eq_compound_ids = list(S.index)
     return max_df, best_case_rxn_energies, best_case_concentrations, eq_compound_ids
 
-def calc_pathway_mdf(q: Queue,
+def calc_pathway_mdf(qin: Queue,
+                     qout: Queue,
                      lb: float,
                      ub: float,
                      pred_rxns):
@@ -271,9 +214,9 @@ def calc_pathway_mdf(q: Queue,
     :return:
     """
 
-    while not q.empty():
+    while not qin.empty():
         # Get path
-        path = q.get()
+        path = qin.get()
         pk_rxns = [pred_rxns[elt] for elt in path.rhashes]
         
         # reformat reaction strings
@@ -297,17 +240,17 @@ def calc_pathway_mdf(q: Queue,
         else:
             max_df, best_case_rxn_energies, best_case_concentrations, eq_compound_ids = None, None, None, None
 
-        d = {"pathway": pathway_num,
-                 "MDF": max_df,
-                 "physiological_dG_values": pathway_phys_dG_vals,
-                 "physiological_dG_errors": pathway_phys_dG_errors,
-                 "standard_dG_values": pathway_std_dG_vals,
-                 "standard_dG_errors": pathway_std_dG_errors,
-                 "optimized_dG_values": best_case_rxn_energies,
-                 "eQuilibrator_compound_IDs": eq_compound_ids,
-                 "optimized_concentrations": best_case_concentrations}
+        path.mdf = max_df
+        path.dG_opt = best_case_rxn_energies
+        path.conc_opt = best_case_concentrations
 
-        print(d)
+        qout.put(path)
+
+        # for i, elt in enumerate(pk_rxns):
+        #     elt.dG_std = (pathway_std_dG_vals[i], pathway_std_dG_errors[i])
+        #     elt.dG_phys = (pathway_phys_dG_vals[i], pathway_phys_dG_errors[i])
+
+        print(path, path.mdf)
 
 
 if __name__ == '__main__':
@@ -354,3 +297,12 @@ if __name__ == '__main__':
             best_case_concentrations, eq_compound_ids = get_mdf_frm_rxn_objects(pathway_rxn_objects_list,
                                                                                                lb, ub)
     print('done w/ mdf')
+
+    paths[st_pair][0].mdf = max_df
+    pred_rxns[path1.rhashes[0]].dG_std = (pathway_std_dG_vals[0], pathway_std_dG_errors[0])
+
+    with open(rxns_path, 'wb') as f:
+        pickle.dump(pred_rxns, f)
+
+    with open(paths_path, 'wb') as f:
+        pickle.dump(paths, f)

@@ -1,46 +1,24 @@
-from multiprocessing import Queue
+from multiprocessing import Process, Queue, Pool
 from equilibrator_assets.local_compound_cache import LocalCompoundCache
+from equilibrator_cache.compound_cache import CompoundCache
 from equilibrator_api import ComponentContribution, Q_
 import cvxpy
-import pymongo
 import numpy as np
+from pathlib import Path
+import sqlalchemy
+
+from sqlalchemy.orm import joinedload, contains_eager, aliased, subqueryload
+from equilibrator_cache.models import Compound, CompoundIdentifier
+
+from minedatabase.utils import get_compound_hash
+
+pwd = Path(__file__).parent
+EQ_URI = open(pwd / "../scripts/Database/eq_uris.txt").read().strip("\n")
 
 lc = LocalCompoundCache()
-lc.load_cache('../data/compounds.sqlite')
+lc.ccache = CompoundCache(sqlalchemy.create_engine(EQ_URI))
 
 cc = ComponentContribution(ccache=lc.ccache)
-
-def reformat_pickaxe_rxn_strs(pk_rxns: list):
-    """
-    Reformat pickaxe reaction strings to a string of the form: "smiles_A + smiles_B = smiles_C + smiles_D"
-    pickaxe reaction strings look like: (1) O=C(O)c1cc(O)c(O)c(O)c1 + (1) O=C=O => (1) O=C(O)c1cc(O)c(O)c(O)c1C(=O)O
-    reformatting these strings can help with eQuilibrator calculations
-
-    :param pk_rxn_strs_list: list of pickaxe formatted reaction strings
-    :return cleaned_rxn_strs_list: list of reformatted reaction strings
-    """
-    reformatted_rxns = []
-    for elt in pk_rxns:
-        rxn = elt.smarts
-        reactants, products = [side.split('.') for side in rxn.split('>>')]
-        this_rxn = ' + '.join(reactants) + ' = ' + ' + '.join(products)
-        reformatted_rxns.append(this_rxn)
-    return reformatted_rxns
-
-def parse_rxn(rxn_str: str):
-    """
-    Separates a reaction string into a list of reactants and of products
-    reaction string is of the form substrate_smiles + cofactor_smiles = product_smiles + cofactor_smiles
-    this will return [substrate, cofactor] and [product, cofactor]
-
-    :param rxn_str (str): reaction string of the form: "smiles_A + smiles_B = smiles_C + smiles_D"
-    :return reactants_list (list): list of reactant smiles
-    :return products_list (list): list of product smiles
-    """
-    reactants, products = rxn_str.split(' = ')
-    reactants_list = reactants.split(' + ')
-    products_list = products.split(' + ')
-    return reactants_list, products_list
 
 def rxn_constructor_in_accession_IDs(reactants_list: list,
                                      products_list: list):
@@ -53,6 +31,7 @@ def rxn_constructor_in_accession_IDs(reactants_list: list,
     :param products_list (list): list of products on the RHS (includes cofactors)
     :return rxn_str_in_db_accessions (str): reaction string consisting of eQuilibrator accession IDs
     """
+    # Replace with [eq_dict(reacant_id) for reactant_id in reactants_list]
     reactant_cpd_objects = lc.get_compounds(reactants_list)  # create eQuilibrator compound objects for all LHS species
     product_cpd_objects = lc.get_compounds(products_list)  # create eQuilibrator compound objects for all RHS species
     rxn_str_in_db_accessions = ''  # initialize empty string
@@ -103,7 +82,9 @@ def calc_dG_frm_rxn_str(new_rxn_str: str):
     :return std_dG_error (float): error in estimating dG value at standard conditions
     """
 
-    rxn_object = cc.parse_reaction_formula(new_rxn_str)
+    rxn_object = cc.parse_reaction_formula(new_rxn_str, )
+
+    PhasedReaction.parse_formula(self.ccache.get_compound, formula)
 
     cc.p_h = Q_(7.4)
     cc.p_mg = Q_(3.0)
@@ -117,49 +98,6 @@ def calc_dG_frm_rxn_str(new_rxn_str: str):
 
     return rxn_object, phys_dG_value, phys_dG_error, std_dG_value, std_dG_error
 
-def calc_pathway_dG_vals(reformatted_rxn_strs_list: list):
-    """
-    Calculate dG of pathway
-
-    :param reformatted_rxn_strs_list:
-
-    :return pathway_rxn_objects_list (list): list of eQuilibrator reaction objects for all pathway reactions
-    :return pathway_phys_dG_vals (list): list of reaction dG values at physiological conditions (1 mM concentrations)
-    :return pathway_phys_dG_errors (list): list of dG errors in estimating dG at physiological conditions
-    :return pathway_std_dG_vals (list): list of reaction dG at standard conditions (1M concentrations)
-    :return pathway_std_dG_errors (list): list of dG errors in estimating dG at standard conditions
-    """
-
-    # initialize empty list to store eQuilibrator rxn objects for all reactions in pathway
-    pathway_rxn_objects_list = []
-    pathway_phys_dG_vals = []
-    pathway_phys_dG_errors = []
-    pathway_std_dG_vals = []
-    pathway_std_dG_errors = []
-
-    for rxn_str in reformatted_rxn_strs_list:
-
-        # parse reaction string into a list of reactants and products (includes cofactors)
-        reactants_list, products_list = parse_rxn(rxn_str)
-
-        # generate new reaction string containing eQuilibrator accession IDs rather than SMILES
-        new_rxn_str = rxn_constructor_in_accession_IDs(reactants_list, products_list)
-
-        try:
-            # get reaction object, physiological and standard dG vals as well as errors for this reaction
-            rxn_object, phys_dG_value, phys_dG_error, std_dG_value, std_dG_error = calc_dG_frm_rxn_str(new_rxn_str)
-
-            # store reaction object and dG values
-            pathway_rxn_objects_list.append(rxn_object)
-            pathway_phys_dG_vals.append(phys_dG_value)
-            pathway_phys_dG_errors.append(phys_dG_error)
-            pathway_std_dG_vals.append(std_dG_value)
-            pathway_std_dG_errors.append(std_dG_error)
-
-        except Exception as e:
-            print(e)
-
-    return pathway_rxn_objects_list, pathway_phys_dG_vals, pathway_phys_dG_errors, pathway_std_dG_vals, pathway_std_dG_errors
 
 def get_mdf_frm_rxn_objects(pathway_rxn_objects_list: list, lb: float, ub: float):
 
@@ -215,17 +153,16 @@ def calc_pathway_mdf(qin: Queue,
     """
 
     while not qin.empty():
-        # Get path
         path = qin.get()
-        pk_rxns = [pred_rxns[elt] for elt in path.rhashes]
-        
-        # reformat reaction strings
-        reformatted_rxn_strs_list = reformat_pickaxe_rxn_strs(pk_rxns)
 
-        # get eQuilibrator reaction objects and dG values for all reactions in pathway
-        pathway_rxn_objects_list, pathway_phys_dG_vals, \
-        pathway_phys_dG_errors, pathway_std_dG_vals, pathway_std_dG_errors \
-            = calc_pathway_dG_vals(reformatted_rxn_strs_list)
+        pathway_rxn_objects_list = []
+        pathway_phys_dG_errors = []
+        pathway_std_dG_errors = []
+        for elt in path.rhashes:
+            rxn = pred_rxns[elt]
+            pathway_rxn_objects_list.append(rxn.eQ_rxn)
+            pathway_phys_dG_errors.append(rxn.dG_phys[1])
+            pathway_std_dG_errors.append(rxn.dG_std[1])
 
         # if dG estimation errors are within reason
         if all( abs(i) < 500 for i in pathway_phys_dG_errors ) and all( abs(j) < 500 for j in pathway_std_dG_errors):
@@ -235,8 +172,6 @@ def calc_pathway_mdf(qin: Queue,
             best_case_concentrations, eq_compound_ids = get_mdf_frm_rxn_objects(pathway_rxn_objects_list,
                                                                                                lb, ub)
 
-            eq_compound_ids = [str(id) for id in eq_compound_ids]
-
         else:
             max_df, best_case_rxn_energies, best_case_concentrations, eq_compound_ids = None, None, None, None
 
@@ -245,16 +180,36 @@ def calc_pathway_mdf(qin: Queue,
         path.conc_opt = best_case_concentrations
 
         qout.put(path)
-
-        # for i, elt in enumerate(pk_rxns):
-        #     elt.dG_std = (pathway_std_dG_vals[i], pathway_std_dG_errors[i])
-        #     elt.dG_phys = (pathway_phys_dG_vals[i], pathway_phys_dG_errors[i])
-
         print(path, path.mdf)
 
 
+def rxn_thermo_calcs(qin, qout):
+    while not qin.empty():
+        rxn_id, rxn = qin.get()                
+        reactants, products = [side.split('.') for side in rxn.smarts.split('>>')]
+        rxn_accession = rxn_constructor_in_accession_IDs(reactants, products)
+        eQ_rxn, phys_dG_value, phys_dG_error, std_dG_value, std_dG_error = calc_dG_frm_rxn_str(rxn_accession)
+        rxn.dG_std = (std_dG_value, std_dG_error)
+        rxn.dG_phys = (phys_dG_value, phys_dG_error)
+        rxn.eQ_rxn = eQ_rxn
+        qout.put((rxn_id, rxn))
+        print(rxn_id, qin.qsize())
+
+
+def pool_f(elt):
+    rxn_id, rxn = elt                
+    print(rxn_id)
+    reactants, products = [side.split('.') for side in rxn.smarts.split('>>')]
+    rxn_accession = rxn_constructor_in_accession_IDs(reactants, products)
+    eQ_rxn, phys_dG_value, phys_dG_error, std_dG_value, std_dG_error = calc_dG_frm_rxn_str(rxn_accession)
+    rxn.dG_std = (std_dG_value, std_dG_error)
+    rxn.dG_phys = (phys_dG_value, phys_dG_error)
+    rxn.eQ_rxn = eQ_rxn
+    return (rxn_id, rxn)
+
 if __name__ == '__main__':
     import pickle
+    import time
     '''
     Params
     '''
@@ -262,8 +217,7 @@ if __name__ == '__main__':
     targets = 'mvacid'
     st_pair = ('succinate', 'mvacid')
     generations = 4
-    lb = 1e-6 # 1 micro-mol
-    ub = 500e-6 # 500 micro-mol
+    n_workers = 2 # Cores to use
     ################################
 
     expansion_dir = '../data/processed_expansions/'
@@ -278,31 +232,106 @@ if __name__ == '__main__':
     with open(paths_path, 'rb') as f:
         paths = pickle.load(f)
 
+    rxn_smarts = [rxn.smarts for rxn in pred_rxns.values()]
+    cpd_smiles = set()
+    for smarts in rxn_smarts:
+        cpd_smiles.add(smarts)
+
+    cpd_ids = [get_compound_hash(smiles) for smiles in cpd_smiles]
+
+    # Query and make eq_dict
+    eq_dict = dict()
+    # Assuming cpd_chunk is a list of CompoundIdentifier accessions
+    compounds_with_matching_identifiers = (
+        lc.ccache.session.query(Compound)
+        .options(
+            joinedload(Compound.magnesium_dissociation_constants),
+            joinedload(Compound.microspecies),
+            subqueryload(Compound.identifiers).subqueryload(CompoundIdentifier.registry),
+        )
+        .join(Compound.identifiers)
+        .join(CompoundIdentifier.registry)
+        .filter(
+            CompoundIdentifier.registry_id == 2,
+            CompoundIdentifier.accession.in_(cpd_smiles)
+        )
+    ).all()
+
+    for cpd_entry in compounds_with_matching_identifiers:
+        cpd_entry.identifiers = [entry for entry in cpd_entry.identifiers if entry.registry_id == 2]
+
+    eq_dict.update({cpd_entry.identifiers[0].accession.strip("pk_"): cpd_entry for cpd_entry in compounds_with_matching_identifiers})
+
     this_paths = paths[st_pair]
-    path1 = this_paths[0]
-    pk_rxns = [pred_rxns[elt] for elt in path1.rhashes]
 
+    # # initialize multiprocessing Queue
+    # qin = Queue()
+    # qout = Queue()
 
-    # Test reformatting of rxn strs
-    reformatted_rxn_strs_list = reformat_pickaxe_rxn_strs(pk_rxns)
-    print('done reformatting rxn strs')
+    # for k, v in list(pred_rxns.items())[:4]:
+    #     qin.put((k, v))
 
-    # get eQuilibrator reaction objects and dG values for all reactions in pathway
-    pathway_rxn_objects_list, pathway_phys_dG_vals, \
-    pathway_phys_dG_errors, pathway_std_dG_vals, pathway_std_dG_errors \
-        = calc_pathway_dG_vals(reformatted_rxn_strs_list)
-    print('done getting dG vals')
+    # workers = [Process(target=rxn_thermo_calcs, args=(qin, qout)) for i in range(n_workers)]
 
-    max_df, best_case_rxn_energies, \
+    # for elt in workers:
+    #     elt.start()
+
+    # for elt in workers:
+    #     elt.join()
+
+    # ctr = 0
+    # while not qout.empty():
+    #     rxn_id, rxn = qout.get()
+    #     pred_rxns[rxn_id] = rxn
+    #     ctr += 1
+        
+    # Pool
+    # pool = Pool(processes=n_workers)
+    # pred_rxns = pool.map(pool_f, pred_rxns.items())
+        
+    # In series
+    start = time.perf_counter()
+    pred_rxns = dict(map(pool_f, list(pred_rxns.items())[:100]))
+    print(f"it took {time.perf_counter() - start}")
+
+    # assert ctr == len(pred_rxns)
+
+    # with open(rxns_path, 'wb') as f:
+    #     pickle.dump(pred_rxns, f)
+        
+    # with open('../data/test_dgrs.pk', 'wb') as f:
+    #     pickle.dump(pred_rxns, f)
+
+    # print('saved')
+
+    fake_path = list(pred_rxns.values())[:1]
+
+            
+    pathway_rxn_objects_list = []
+    pathway_phys_dG_errors = []
+    pathway_std_dG_errors = []
+    lb = 1e-6 # 1 micro-mol
+    ub = 500e-6 # 500 micro-mol
+
+    for rxn in fake_path:
+        # rxn = pred_rxns[elt]
+        pathway_rxn_objects_list.append(rxn.eQ_rxn)
+        pathway_phys_dG_errors.append(rxn.dG_phys[1])
+        pathway_std_dG_errors.append(rxn.dG_std[1])
+
+        # if dG estimation errors are within reason
+        if all( abs(i) < 500 for i in pathway_phys_dG_errors ) and all( abs(j) < 500 for j in pathway_std_dG_errors):
+
+            # then calculate mdf for pathway
+            max_df, best_case_rxn_energies, \
             best_case_concentrations, eq_compound_ids = get_mdf_frm_rxn_objects(pathway_rxn_objects_list,
-                                                                                               lb, ub)
-    print('done w/ mdf')
+                                                                                                lb, ub)
 
-    paths[st_pair][0].mdf = max_df
-    pred_rxns[path1.rhashes[0]].dG_std = (pathway_std_dG_vals[0], pathway_std_dG_errors[0])
+        else:
+            max_df, best_case_rxn_energies, best_case_concentrations, eq_compound_ids = None, None, None, None
 
-    with open(rxns_path, 'wb') as f:
-        pickle.dump(pred_rxns, f)
-
-    with open(paths_path, 'wb') as f:
-        pickle.dump(paths, f)
+    print('done')
+    '''
+    # rxns time
+    10 14
+    '''

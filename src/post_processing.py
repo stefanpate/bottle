@@ -65,6 +65,8 @@ class reaction:
         self.known_rxns = known_rxns
         self.dG_std = None # Standard Gibbs FE. (value, error)
         self.dG_phys = None # Physiological Gibbs FE. (value, error)
+        self.eQ_rxn = None
+        self.pk_id_rxn = None # pk ids in the same format as smarts
 
     def sort_known_rxns(self):
         '''
@@ -94,4 +96,6 @@ def rxn_hash_2_rxn_sma(rhash, pk):
     products = ".".join([".".join([smi]*stoich) for smi, stoich in rxn_stoich.items() if stoich >= 0])
     reactants = ".".join([".".join([smi]*abs(stoich)) for smi, stoich in rxn_stoich.items() if stoich <= 0])
     rxn_sma = ">>".join([reactants, products])
+
+    # 
     return rxn_sma

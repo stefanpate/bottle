@@ -8,3 +8,4 @@ core*
 *.ipynb_checkpoints*
 *__pycache__*
 data/compounds.sqlite
+scripts/Database/compounds.sqlite

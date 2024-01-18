@@ -1,0 +1,7 @@
+load database
+    from /home/stef/bottle/scripts/Database/compounds.sqlite
+    into postgresql:///eq_compounds
+
+with include drop, create tables, create indexes, reset sequences, batch size = 4GB, prefetch rows = 500
+
+set work_mem to '3 GB', maintenance_work_mem to '2 GB';

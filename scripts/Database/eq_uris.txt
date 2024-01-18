@@ -1,0 +1,1 @@
+postgresql://stef:password@localhost/eq_compounds

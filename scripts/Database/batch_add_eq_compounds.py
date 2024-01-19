@@ -84,7 +84,8 @@ def yield_chunks_from_pickaxe(pk: Pickaxe, chunk_size: int) -> Generator[List[Tu
             A generator containing lists of compound SMILES and compound IDs
         """
     #TODO Only using 100 cpds, delete that for more
-    compound_list = [(cpd["SMILES"], cpd["_id"]) for cpd in pk.compounds.values()]
+    white_list = ['C98634908f9c25af583dabc72a1d5a2e26b154f77', 'X85753d94c72a1ae851d34ac6ac8b0c9828cfc734', 'C8f24b2071926f02213b99cb6f7df5e035b9ce890', 'Cec77ea281f69ca989bbef0a4c7794128a196c716', 'C53ebd0b2e0c6e4c57239f8730243822487e19930', 'C8917b48859fb749bc90b2140befd2422c11bbba0', 'C38fa6d3508da96f383e5b60ec41001692bc645cf', 'Xc9b0df14e690ee411edec0aad2286b732e431b96', 'C4d0068f7803b26ab3c9d318cf8abdd4d4a584534', 'C484f65e0d1a503c751d32a31cc561c8d7d786824', 'C50cfd439c30042ba827bc8c0353b45f6ae72f270', 'C6ec1611229ff4fc7a19244967c7716266fc021a1']
+    compound_list = [(cpd["SMILES"], cpd["_id"]) for cpd in pk.compounds.values() if cpd["_id"] in white_list]
 
     for i in range(0, len(compound_list), chunk_size):
         yield compound_list[i : i + chunk_size]
@@ -191,7 +192,7 @@ def get_compounds_in_queue(
                     header=f"Child Process {pid} | Loop {loop}: Succesfully added compounds.",
                     footer=""
                 )
-
+                
                 good_compounds.put((df_compounds_to_add.struct, df_compounds_to_add.name))
 
             except TimeOutException:
@@ -216,20 +217,20 @@ def get_compounds_in_queue(
             signal.alarm(0)
 
         # Shut everything down and return
-        lcp.ccache.session.close()
-        del lcp
-        process_timer.print_time_from_start(
-            print_message=True,
-            header=f"{'-'*15}\nChild Process {pid} | Loop {loop}: Succesfully terminated.",
-            footer="-"*15
-        )
-        return True
+    lcp.ccache.session.close()
+    del lcp
+    process_timer.print_time_from_start(
+        print_message=True,
+        header=f"{'-'*15}\nChild Process {pid} | Loop {loop}: Succesfully terminated.",
+        footer="-"*15
+    )
+    return True
 
 # This is the parent function that spawns children
 def insert_chunk_queue(pk, n_processes, chunk_size, bypass_chemaxon, save_empty_compounds):
     """Insert chunked compounds in queue"""
     children = []
-    timeout = 3600
+    timeout = 20
     n_compounds = len(pk.compounds)
 
     # Make queues for communication between parent and child
@@ -298,7 +299,8 @@ def insert_chunk_queue(pk, n_processes, chunk_size, bypass_chemaxon, save_empty_
                 header=f"{'-'*15}\nParent Process Checkpoint Update.\n\tProgress: {(good_i + bad_i)} of {n_compounds//chunk_size + (1 if n_compounds%chunk_size else 0)}\n\tGood: {good_i*chunk_size}\n\tBad: {bad_i*chunk_size}",
                 footer="-"*15
             )
-
+    # TODO
+    # Check how children were closed
     for child in children:
         p.join()
 
@@ -313,7 +315,7 @@ def insert_chunk_queue(pk, n_processes, chunk_size, bypass_chemaxon, save_empty_
 def main():
     #TODO argparse stuff for inputs
     n_processes = 1
-    chunk_size = 1000
+    chunk_size = 1
     bypass_chemaxon = True
     save_empty_compounds = True
 
@@ -342,5 +344,8 @@ if __name__ == "__main__":
     # If you don't do this it shares resources, namely the local compound cache
     # This really screws with adding things, as there is now only one compound cache
     set_start_method("spawn")
+
+    # If you don't do spawn the local cache will get shared (potentially, may not actually happen) between the processes
+    # This is just a way to keep the children independent
 
     main()

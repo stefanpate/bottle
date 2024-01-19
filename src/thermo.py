@@ -9,6 +9,7 @@ import sqlalchemy
 
 from sqlalchemy.orm import joinedload, contains_eager, aliased, subqueryload
 from equilibrator_cache.models import Compound, CompoundIdentifier
+from equilibrator_api.phased_reaction import PhasedReaction
 
 from minedatabase.utils import get_compound_hash
 
@@ -21,7 +22,8 @@ lc.ccache = CompoundCache(sqlalchemy.create_engine(EQ_URI))
 cc = ComponentContribution(ccache=lc.ccache)
 
 def rxn_constructor_in_accession_IDs(reactants_list: list,
-                                     products_list: list):
+                                     products_list: list,
+                                     eq_dict: dict):
     """
     Construct a reaction string of the form substrate + cofactor = product + cofactor
     except instead of SMILES, eQuilibrator accession IDs are used instead for all species
@@ -32,15 +34,21 @@ def rxn_constructor_in_accession_IDs(reactants_list: list,
     :return rxn_str_in_db_accessions (str): reaction string consisting of eQuilibrator accession IDs
     """
     # Replace with [eq_dict(reacant_id) for reactant_id in reactants_list]
-    reactant_cpd_objects = lc.get_compounds(reactants_list)  # create eQuilibrator compound objects for all LHS species
-    product_cpd_objects = lc.get_compounds(products_list)  # create eQuilibrator compound objects for all RHS species
-    rxn_str_in_db_accessions = ''  # initialize empty string
+    # Commented from Yash
+    # reactant_cpd_objects = lc.get_compounds(reactants_list)  # create eQuilibrator compound objects for all LHS species
+    # product_cpd_objects = lc.get_compounds(products_list)  # create eQuilibrator compound objects for all RHS species
+    try:
+        reactant_cpd_objects = [eq_dict[reactant_id] for reactant_id in reactants_list]
+        product_cpd_objects = [eq_dict[product_id] for product_id in products_list]
+        rxn_str_in_db_accessions = ''  # initialize empty string
+    except KeyError:
+        return "FAILED"
 
     # try:
     for reactant in reactant_cpd_objects:
 
         # get eQuilibrator accession IDs for all LHS species (if decomposable)
-        reactant_accession = reactant.get_accession()
+        reactant_accession = [identifier.accession.split("_")[1] for identifier in reactant.identifiers if identifier.registry_id == 2][0]
         rxn_str_in_db_accessions += reactant_accession
         rxn_str_in_db_accessions += ' + '
 
@@ -53,7 +61,7 @@ def rxn_constructor_in_accession_IDs(reactants_list: list,
     for product in product_cpd_objects:
 
         # get eQuilibrator accession IDs for all RHS species (if decomposable)
-        product_accession = product.get_accession()
+        product_accession = [identifier.accession.split("_")[1] for identifier in product.identifiers if identifier.registry_id == 2][0]
         rxn_str_in_db_accessions += product_accession
         rxn_str_in_db_accessions += ' + '
 
@@ -61,6 +69,7 @@ def rxn_constructor_in_accession_IDs(reactants_list: list,
     rxn_str_in_db_accessions = rxn_str_in_db_accessions.rstrip(' + ')
 
     # return reaction string in terms of eQuilibrator accession IDs
+    # The string looks something like C0001 + X0002 = C0002 + X0001
     return rxn_str_in_db_accessions
 
     # except Exception as e:
@@ -69,7 +78,7 @@ def rxn_constructor_in_accession_IDs(reactants_list: list,
     #     # if even one species on either LHS or RHS cannot be decomposed, return None
     #     return None
 
-def calc_dG_frm_rxn_str(new_rxn_str: str):
+def calc_dG_frm_rxn_str(new_rxn_str: str, eq_dict: dict):
     """
     Calculate dG value and estimation errors at physiological and standard conditions
 
@@ -82,9 +91,11 @@ def calc_dG_frm_rxn_str(new_rxn_str: str):
     :return std_dG_error (float): error in estimating dG value at standard conditions
     """
 
-    rxn_object = cc.parse_reaction_formula(new_rxn_str, )
+    # Old from yash
+    # rxn_object = cc.parse_reaction_formula(new_rxn_str, )
 
-    PhasedReaction.parse_formula(self.ccache.get_compound, formula)
+    # Assume that everything coming in here is valid, i.e. all reaction cpds are in eq_dict
+    rxn_object = PhasedReaction.parse_formula(lambda k: eq_dict[k], new_rxn_str)
 
     cc.p_h = Q_(7.4)
     cc.p_mg = Q_(3.0)
@@ -200,8 +211,14 @@ def pool_f(elt):
     rxn_id, rxn = elt                
     print(rxn_id)
     reactants, products = [side.split('.') for side in rxn.smarts.split('>>')]
-    rxn_accession = rxn_constructor_in_accession_IDs(reactants, products)
-    eQ_rxn, phys_dG_value, phys_dG_error, std_dG_value, std_dG_error = calc_dG_frm_rxn_str(rxn_accession)
+    #TODO fix this name!
+    reactants = [elt[1].pkid2smi[reactant_smi] for reactant_smi in reactants]
+    products = [elt[1].pkid2smi[product_smi] for product_smi in products]
+    rxn_accession = rxn_constructor_in_accession_IDs(reactants, products, eq_dict)
+    if rxn_accession == "FAILED":
+        return (rxn_id, "FAILED")
+    
+    eQ_rxn, phys_dG_value, phys_dG_error, std_dG_value, std_dG_error = calc_dG_frm_rxn_str(rxn_accession, eq_dict)
     rxn.dG_std = (std_dG_value, std_dG_error)
     rxn.dG_phys = (phys_dG_value, phys_dG_error)
     rxn.eQ_rxn = eQ_rxn
@@ -229,19 +246,20 @@ if __name__ == '__main__':
     with open(rxns_path, 'rb') as f:
         pred_rxns = pickle.load(f)
 
+    import re
+    pattern = "([^.>>]+)"
+    cpd_ids = set()
+    for rxn in pred_rxns.values():
+        cpd_ids.update(rxn.pkid2smi.values())
+
+
     with open(paths_path, 'rb') as f:
-        paths = pickle.load(f)
+        paths = pickle.load(f)    
 
-    rxn_smarts = [rxn.smarts for rxn in pred_rxns.values()]
-    cpd_smiles = set()
-    for smarts in rxn_smarts:
-        cpd_smiles.add(smarts)
-
-    cpd_ids = [get_compound_hash(smiles) for smiles in cpd_smiles]
-
-    # Query and make eq_dict
+    # Query to find Compounds with matching CompoundIdentifiers (registry_id is 2)
     eq_dict = dict()
-    # Assuming cpd_chunk is a list of CompoundIdentifier accessions
+
+    # Finds all cpd_id matching equilibrator objects.
     compounds_with_matching_identifiers = (
         lc.ccache.session.query(Compound)
         .options(
@@ -252,16 +270,19 @@ if __name__ == '__main__':
         .join(Compound.identifiers)
         .join(CompoundIdentifier.registry)
         .filter(
-            CompoundIdentifier.registry_id == 2,
-            CompoundIdentifier.accession.in_(cpd_smiles)
+            CompoundIdentifier.registry_id == 3,
+            CompoundIdentifier.accession.in_(cpd_ids)
         )
     ).all()
 
+    # This is key to not change database
+    for compound in compounds_with_matching_identifiers:
+        lc.ccache.session.expunge(compound)
+        
     for cpd_entry in compounds_with_matching_identifiers:
         cpd_entry.identifiers = [entry for entry in cpd_entry.identifiers if entry.registry_id == 2]
 
-    eq_dict.update({cpd_entry.identifiers[0].accession.strip("pk_"): cpd_entry for cpd_entry in compounds_with_matching_identifiers})
-
+    eq_dict = {cpd_entry.identifiers[0].accession.strip("pk_"): cpd_entry for cpd_entry in compounds_with_matching_identifiers}
     this_paths = paths[st_pair]
 
     # # initialize multiprocessing Queue
@@ -314,6 +335,9 @@ if __name__ == '__main__':
     ub = 500e-6 # 500 micro-mol
 
     for rxn in fake_path:
+        if rxn == "FAILED":
+            print(f"{rxn[0]} failed to be constructed as an equilibrator PhasedReaction object. Exiting MDF.")
+
         # rxn = pred_rxns[elt]
         pathway_rxn_objects_list.append(rxn.eQ_rxn)
         pathway_phys_dG_errors.append(rxn.dG_phys[1])
@@ -335,3 +359,25 @@ if __name__ == '__main__':
     # rxns time
     10 14
     '''
+
+    # Load in your pickaxe object
+    #  I think here it's actually reaction prediction objects
+
+    # 2. Identify ALL compound ids (pk_###) and add to a set
+    # 3. Use a sqlalchemy query
+    #     Selects Compound objects
+    #     Loads in eagerly (so we have loaded in memory, not as a DB connection)
+    #     Loads microspecies, magnesium, etc. that we need to calculate dG things
+    #     Filters results so you only get things in the cpd_ids set
+    #     Detach these from the postgres instance so we don't delete
+    #     Remove all identifiers except for the coco one with pk_### in it
+
+    # 4. Generate eq_dict from these results
+    #       {"C####": Compound, "X###": Compound}
+
+    # 5. Using your rxn_preds, pass this and eq_dict to pool_f
+    # 6. Use your code as was written, with two modifications
+    #       a) Remove lc.get_compounds and use eq_dict instead (2-3x order of magnitude speed increase at best)
+    #       b) Use PhasedReaction directly instead of parse reaction string. This takes a function to get values (labmda k: eq_dict[k]) as well as a reaction string, which was generated with pickaxe ids.
+
+    # 7. Your code is exactly the same from here on out

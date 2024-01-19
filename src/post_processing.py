@@ -58,7 +58,7 @@ class pathway:
             self.prc_mcs.append(kr_mean_mcs)
 
 class reaction:
-    def __init__(self, rid, smarts, rules=[], known_rxns=[]):
+    def __init__(self, rid, smarts, smi2pkid=None, rules=[], known_rxns=[]):
         self.rid = rid
         self.smarts = smarts
         self.rules = rules
@@ -66,7 +66,7 @@ class reaction:
         self.dG_std = None # Standard Gibbs FE. (value, error)
         self.dG_phys = None # Physiological Gibbs FE. (value, error)
         self.eQ_rxn = None
-        self.pk_id_rxn = None # pk ids in the same format as smarts
+        self.smi2pkid = smi2pkid # pk ids : smiles
 
     def sort_known_rxns(self):
         '''
@@ -96,6 +96,14 @@ def rxn_hash_2_rxn_sma(rhash, pk):
     products = ".".join([".".join([smi]*stoich) for smi, stoich in rxn_stoich.items() if stoich >= 0])
     reactants = ".".join([".".join([smi]*abs(stoich)) for smi, stoich in rxn_stoich.items() if stoich <= 0])
     rxn_sma = ">>".join([reactants, products])
-
-    # 
     return rxn_sma
+
+def get_smi2pkid(rhash, pk):
+    smi2pkid = {}
+    for elt in pk.reactions[rhash]['Reactants']:
+        smi2pkid[pk.compounds[elt[1]]['SMILES']] = elt[1]
+
+    for elt in pk.reactions[rhash]['Products']:
+        smi2pkid[pk.compounds[elt[1]]['SMILES']] = elt[1]
+    
+    return smi2pkid

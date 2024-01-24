@@ -7,5 +7,5 @@ artifacts/tmp_pdfs/
 core*
 *.ipynb_checkpoints*
 *__pycache__*
-scripts/Database/compounds.sqlite
 data/compounds.sqlite
+scripts/Database/compounds.sqlite

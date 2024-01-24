@@ -4,12 +4,15 @@ from src.pathway_utils import get_stoich_pk
 
 
 class pathway:
-    def __init__(self, rhashes, starter_hash=None, target_hash=None, prc_mcs=None, dG=None):
+    def __init__(self, rhashes, starter_hash=None, target_hash=None, prc_mcs=None):
         self.starter = starter_hash
         self.target = target_hash
         self.rhashes = rhashes # Hash ids for the path's reactions, in order
         self.prc_mcs = prc_mcs # Average (over known rxns) peri-rxn-ctr MCS score for each predicted rxn (tuple)
-        self.dG = dG # Placeholder for thermo
+        self.mdf = None # Min-max driving force
+        self.dG_opt = None # dGrs given optimized concentrations
+        self.conc_opt = None # Optimized substrate concentrations
+        
 
     def min_mcs(self):
         if self.prc_mcs is None:
@@ -55,11 +58,15 @@ class pathway:
             self.prc_mcs.append(kr_mean_mcs)
 
 class reaction:
-    def __init__(self, rid, smarts, rules=[], known_rxns=[]):
+    def __init__(self, rid, smarts, smi2pkid=None, rules=[], known_rxns=[]):
         self.rid = rid
         self.smarts = smarts
         self.rules = rules
         self.known_rxns = known_rxns
+        self.dG_std = None # Standard Gibbs FE. (value, error)
+        self.dG_phys = None # Physiological Gibbs FE. (value, error)
+        self.eQ_rxn = None
+        self.smi2pkid = smi2pkid # pk ids : smiles
 
     def sort_known_rxns(self):
         '''
@@ -90,3 +97,13 @@ def rxn_hash_2_rxn_sma(rhash, pk):
     reactants = ".".join([".".join([smi]*abs(stoich)) for smi, stoich in rxn_stoich.items() if stoich <= 0])
     rxn_sma = ">>".join([reactants, products])
     return rxn_sma
+
+def get_smi2pkid(rhash, pk):
+    smi2pkid = {}
+    for elt in pk.reactions[rhash]['Reactants']:
+        smi2pkid[pk.compounds[elt[1]]['SMILES']] = elt[1]
+
+    for elt in pk.reactions[rhash]['Products']:
+        smi2pkid[pk.compounds[elt[1]]['SMILES']] = elt[1]
+    
+    return smi2pkid

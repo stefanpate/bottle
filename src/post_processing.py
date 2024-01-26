@@ -11,6 +11,7 @@ class pathway:
         self.prc_mcs = prc_mcs # Average (over known rxns) peri-rxn-ctr MCS score for each predicted rxn (tuple)
         self.mdf = None # Min-max driving force
         self.dG_opt = None # dGrs given optimized concentrations
+        self.dG_err = None # Uncertainty about dG_opt
         self.conc_opt = None # Optimized substrate concentrations
         
 
@@ -63,9 +64,6 @@ class reaction:
         self.smarts = smarts
         self.rules = rules
         self.known_rxns = known_rxns
-        self.dG_std = None # Standard Gibbs FE. (value, error)
-        self.dG_phys = None # Physiological Gibbs FE. (value, error)
-        self.eQ_rxn = None
         self.smi2pkid = smi2pkid # pk ids : smiles
 
     def sort_known_rxns(self):

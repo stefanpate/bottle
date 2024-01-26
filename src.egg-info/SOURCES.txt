@@ -1,6 +1,5 @@
 README.md
 setup.py
-src/02_process_reported_rxns_w_thermo_chunks.py
 src/__init__.py
 src/chem_draw.py
 src/pathway_utils.py

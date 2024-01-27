@@ -6,7 +6,7 @@ from collections import defaultdict
 import pickle
 
 # Set params
-starters = 'succinate'
+starters = 'methylene_molecules'
 targets = 'mvacid'
 generations = 4
 expansion_dir = '../data/raw_expansions/'
@@ -92,3 +92,5 @@ with open(rxns_path, 'wb') as f:
 
 with open(paths_path, 'wb') as f:
     pickle.dump(paths, f)
+
+print(f"Saved {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")

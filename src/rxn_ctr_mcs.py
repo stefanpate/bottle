@@ -138,6 +138,7 @@ def align_atom_map_nums(rxns, rcs, rc_atoms):
     '''
     rxns = rxns.copy() # Defensive copy; avoid side effects
     for j, rc1 in enumerate(rcs[0]): # For rxn ctr from rxn 1
+        # mol1 = rxns[0].GetReactantTemplate(j)
         mol2 = rxns[1].GetReactantTemplate(j) # Get corresponding substrate from rxn2
         ratoms2 = rc_atoms[1][j] # And rxn ctr atom idxs of this molecule
         rc1_atom_idxs = [i for i in range(len(rc1.GetAtoms()))]
@@ -151,17 +152,16 @@ def align_atom_map_nums(rxns, rcs, rc_atoms):
         # give true id of each atom
         mol2_prop_hashes = get_property_hashes(mol2, ratoms2)
         rc1_prop_hashes = get_property_hashes(rc1, rc1_atom_idxs)
-
-        # Sort rxn ctr idxs from rxn2 sub and atom map #'s from 
-        # rxn1 sub by their true identity
-        ratoms2, mol2_prop_hashes = tuple(sort_x_by_y(ratoms2, mol2_prop_hashes))
-        rc_amap_nums, rc1_prop_hashes = tuple(sort_x_by_y(rc_amap_nums, rc1_prop_hashes))
         
-        assert mol2_prop_hashes == rc1_prop_hashes
+        assert sorted(mol2_prop_hashes) == sorted(rc1_prop_hashes) # Make sure rcs are the same
+
+        # Establish common order to iterate over rc1 and rc2
+        # to align atom map numbers
+        same_order, _ = tuple(sort_x_by_y([i for i in range(len(rc1_prop_hashes))], rc1_prop_hashes))
 
         # Re-label mol from rxn2
-        for i, elt in enumerate(ratoms2):
-            mol2.GetAtomWithIdx(elt).SetAtomMapNum(rc_amap_nums[i])
+        for elt in same_order:
+            mol2.GetAtomWithIdx(ratoms2[elt]).SetAtomMapNum(rc_amap_nums[elt])
 
     return rxns
 
@@ -228,9 +228,9 @@ if __name__ == '__main__':
     from rdkit.Chem import AllChem
     from src.utils import load_json, rxn_entry_to_smarts, rm_atom_map_num
     # Params
-    starters = 'succinate'
+    starters = '2mg'
     targets = 'mvacid'
-    generations = 4
+    generations = 2
 
     expansion_dir = '../data/processed_expansions/'
     fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_1_n_samples_1000.pk" # Expansion file name
@@ -245,9 +245,10 @@ if __name__ == '__main__':
     alignment_issues = [] # Track substrate alignment issues
 
     # Populate pred_rxns, known rxn prc-mcs slot
-    # for x in range(1):
-    for x in range(len(pred_rxns.keys())):
-        h = list(pred_rxns.keys())[x]
+    # for x in range(len(pred_rxns.keys())):
+    #     h = list(pred_rxns.keys())[x]
+    for x in range(1):
+        h = 'R1d92fdcb2d9d3d12189b4eeb56a1bd8d9fe87f31f054034961ebd276fb62d413'
         rxn_sma1 = pred_rxns[h].smarts
 
         # Skip pred reactions that trigger RXNMapper atom mapping errors
@@ -258,7 +259,7 @@ if __name__ == '__main__':
             continue
 
         a = 0 # Number known rxns analyzed
-        for z, kr in enumerate(pred_rxns[h].known_rxns):
+        for z, kr in enumerate(pred_rxns[h].known_rxns[74:75]):
             rxn_sma2 = kr[1]
 
             # Catch stoichiometry mismatches stemming from pickaxe, early post-processing
@@ -291,7 +292,7 @@ if __name__ == '__main__':
                         temp.append(get_sub_mol(t_mol, rc_atoms[i][j]))
                     rcs.append(temp)
             except:
-                continue
+                print('missed it')
 
             # Align substrates of the 2 reactions
             rc_idxs = [] # Each element: (idx for rxn 1, idx for rxn 2)
@@ -346,6 +347,6 @@ if __name__ == '__main__':
             a += 1 # Count known rxn analyzed
             pred_rxns[h].smarts = rm_atom_map_num(am_rxn_sma1) # Update pred_rxn smarts w/ de-am smarts
 
-        print(x, ':', a / (z+1), 'of', z+1)
+        print(x)
 
     print('done')

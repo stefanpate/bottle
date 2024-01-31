@@ -1,4 +1,5 @@
 data/raw_expansions/
+data/pruned_expansions/
 artifacts/documents/
 artifacts/mevalonate_uniprot/
 artifacts/mol_svgs/
@@ -8,5 +9,4 @@ artifacts/pwy_svgs/
 core*
 *.ipynb_checkpoints*
 *__pycache__*
-data/compounds.sqlite
-scripts/Database/compounds.sqlite
+

@@ -101,7 +101,7 @@ def draw_rxn_svg(rxn_sma, rhash=None, hilite_atoms=None):
         fn = f"../artifacts/rxn_svgs/{rhash}.svg"
         rxn.save(fn)
 
-    return fn, width # FIX. If not supplying rhash, will give strange result for fn
+    return fn, width # TODO FIX. If not supplying rhash, will give strange result for fn
 
 def draw_mol_svg(smiles, stoich, hilite_atoms=None):
     mol = Chem.MolFromSmiles(smiles)

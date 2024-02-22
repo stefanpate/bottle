@@ -14,15 +14,15 @@ from rdkit.Chem import CanonSmiles
 
 # Directories and files
 st_dir = "../data/starters_targets/"
-input_cpds = "ccm_v0"
-target_cpds = "methylene_molecules"
+input_cpds = "succinate"
+target_cpds = "2mg"
 input_cpds_fn = st_dir + input_cpds + ".csv"
 target_cpds_fn = st_dir + target_cpds + ".csv"
 rule_list = '../data/rules/JN3604IMT_rules.tsv'
 
 # Pickaxe settings
-processes = 50
-generations = 4
+processes = 1 # 50
+generations = 2
 
 tani_filter = False # True
 tani_threshold = [0, 0, 0.3, 0.3, 0.3]

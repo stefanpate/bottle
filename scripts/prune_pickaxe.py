@@ -1,5 +1,10 @@
+'''
+1. Find paths between starters and targets
+2. Create 
+
+'''
 from src.pathway_utils import get_reverse_paths_to_starting, create_graph_from_pickaxe
-from src.utils import load_json, rxn_entry_to_smarts
+from src.utils import load_json
 from src.post_processing import *
 from minedatabase.pickaxe import Pickaxe
 from minedatabase.utils import get_compound_hash
@@ -9,21 +14,68 @@ import csv
 import pandas as pd
 
 # Set params
-starters = 'ccm_v0'
-targets = 'hopa'
-generations = 4
-expansion_dir = '../data/raw_expansions/'
-pruned_dir = '../data/pruned_expansions/'
-fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_1_n_samples_1000.pk" # Expansion file name
+starters = '2mg'
+targets = 'mvacid'
+generations = 2
+expansion_dir = '../data/raw_expansions/' # To load
+pruned_dir = '../data/pruned_expansions/' # To save
+fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_1_n_samples_1000" # Expansion file name
 
 # Load raw expansion object
 pk = Pickaxe()
-path = expansion_dir + fn
+path = expansion_dir + fn + '.pk'
 pk.load_pickled_pickaxe(path)
+
+pe = ProcessedExpansion() # Initialize processed expansion
+
+# For pruned pk obj
+pruned_rxns = set()
+pruned_cpds = set()
+
+'''
+Load known reaction information
+'''
+known_rxns = load_json("../data/mapping/known_rxns_w_provenance_all_info_jni.json")
+rule2kr = defaultdict(lambda : defaultdict(lambda : {'db_ids':[], 'smarts':None, 'uniprot_ids':[], 'imt_rules':[]})) # Look up known rxns by rule
+for kr, db_entries in known_rxns.items():
+    for db_id, entry in db_entries.items():
+        for rule in entry['imt_rules']:
+            rule2kr[rule][kr]['db_ids'].append(db_id)
+            rule2kr[rule][kr]['uniprot_ids'] += entry['uniprot_ids']
+            rule2kr[rule][kr]['imt_rules'] = entry['imt_rules'] # Confusing
+
+            if rule2kr[rule][kr]['smarts'] is None:
+                rule2kr[rule][kr]['smarts'] = entry['smarts']
+
 
 '''
 Get pathways to target molecule
 '''
+
+
+def construct_pr_list(pk_rids, rule2kr, pk):
+    prs = []
+    for rid in pk_rids:
+        pk_reaction = pk.reactions[rid]
+
+        # Collect known reaction analogues inffo
+        krs = []
+        for rule in pk_reaction["Operators"]:
+            for known_rid, entry in rule2kr[rule].items():
+                db_entries = [DatabaseEntry(x.split(':')[0], x.split(":")[1]) for x in entry['db_ids']]
+                enzymes = [Enzyme(x, None) for x in entry["uniprot_ids"]]
+                kr = KnownReaction(id=known_rid, smarts=entry['smarts'],
+                    imt_rules=entry['imt_rules'], database_entries=db_entries,
+                    enzymes=enzymes)
+                krs.append(kr)
+        
+        # Construct predicted reaction object with analogues
+        sma = rxn_hash_2_rxn_sma(rid, pk)
+        pr = PredictedReaction(id=rid, smarts=sma, imt_rules=list(pk_reaction["Operators"]), analogues=krs)
+        prs.append(pr)
+
+    return prs
+
 print("Finding paths")
 # Create the initial graph
 DG, rxn, edge = create_graph_from_pickaxe(pk, "Biology")
@@ -59,104 +111,29 @@ for i, this_target in enumerate(target_cids):
                 if r[-1] in starting_cpds:
                     s_name = pk.compounds[r[-1]]["ID"]
                     t_name = target_names[i]
-                    paths[(s_name, t_name)].append(pathway(rhashes=elt, starter_hash=r[-1], target_hash=this_target))
+                    prs = construct_pr_list(elt, rule2kr, pk)
+                    pe.add_path(s_name, t_name, prs)
 
-'''
-Prune and create processed object
-'''
-print("Pruning & creating processed object")
-# For pruned pk obj
-pruned_rxns = set()
-pruned_cpds = set()
+                    for pk_rid in elt:
+                        pruned_rxns.add(pk_rid)
+                        for _, cpd_id in pk.reactions[pk_rid]["Reactants"]:
+                            pruned_cpds.add(cpd_id)
+                        for _, cpd_id in pk.reactions[pk_rid]["Products"]:
+                            pruned_cpds.add(cpd_id)
 
-# Make predicted reaction dict for processed expansion
-pred_rxns = {}
-for st_pair in paths:
-    for elt in paths[st_pair]:
-        for this_rhash in elt.rhashes:
-            pruned_rxns.add(this_rhash)
-
-            if this_rhash not in pred_rxns:
-                rxn_sma = rxn_hash_2_rxn_sma(this_rhash, pk)
-                smi2pkid = get_smi2pkid(this_rhash, pk)
-                pred_rxns[this_rhash] = reaction(this_rhash, rxn_sma, smi2pkid)
-
-                for v in smi2pkid.values():
-                    pruned_cpds.add(v)
-
-'''
-Map predicted reactions to know reactions
-'''
-print("Mapping predicted to known reactions")
-# Load rules
-rules_path = '../data/rules/JN3604IMT_rules.tsv'
-rule_df = pd.read_csv(rules_path, delimiter='\t')
-rule_df.set_index('Name', inplace=True)
-
-# Load mapping
-rxn2rule = {}
-db_names = ['_mc_v21', '_brenda', '_kegg']
-suffix = '_imt_rules_enforce_cof.csv'
-for name in db_names:
-    mapping_path = '../data/mapping/mapping' + name + suffix
-    with open(mapping_path, 'r') as f:
-        reader = csv.reader(f)
-        for row in reader:
-            if len(row) == 1:
-                rxn2rule[row[0]] = []
-            else:
-                rxn2rule[row[0]] = row[1:]
-
-# Make rule2rxn
-rule2rxn = {}
-for k,v in rxn2rule.items():
-    for elt in v:
-        if elt not in rule2rxn:
-            rule2rxn[elt] = [k]
-        else:
-            rule2rxn[elt].append(k)
-
-# Load all known reaction json entries into dict
-known_rxns = {}
-pref = '../data/mapping/'
-suffs = ['mc_v21_as_is.json', 'brenda_as_is.json', 'kegg_as_is.json']
-for elt in suffs:
-    known_rxns.update(load_json(pref + elt))
-
-# Populate pred_rxns w/ mapped known reactions
-for k, v in pred_rxns.items():
-    this_rules = list(pk.reactions[k]["Operators"])
-    this_known_rxns = []
-    for elt in this_rules:
-        if elt in rule2rxn:
-            this_rxn_ids = rule2rxn[elt]
-            for this_id in this_rxn_ids:
-                this_sma = rxn_entry_to_smarts(known_rxns[this_id])
-                this_known_rxns.append((None, this_sma, this_id))
-    
-    v.known_rxns = [list(elt) for elt in set(this_known_rxns)]
 
 '''
 Save
 '''
 # Save pruned pks
-print("Saving pruned pk object")
 pk.reactions = {k:pk.reactions[k] for k in pruned_rxns}
 pk.compounds = {k:pk.compounds[k] for k in pruned_cpds}
-pk.pickle_pickaxe(pruned_dir + fn)
+print(f"Pruned pk to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
+print("Saving pruned pk object")
+pk.pickle_pickaxe(pruned_dir + fn + '.pk')
 
-# Save reactions dict and paths list (ultimately will replace with expansion object)
+# Save processed expansion object
 print("Saving processed expansion object")
-rxns_fn = 'predicted_reactions_' + fn
-paths_fn = 'paths_' + fn
 save_dir = '../data/processed_expansions/'
-rxns_path = save_dir + rxns_fn
-paths_path = save_dir + paths_fn
-
-with open(rxns_path, 'wb') as f:
-    pickle.dump(pred_rxns, f)
-
-with open(paths_path, 'wb') as f:
-    pickle.dump(paths, f)
-
-print(f"Saved {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
+with open(save_dir + fn + '.pkl', 'wb') as f:
+    pickle.dump(pe, f)

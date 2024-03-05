@@ -3,8 +3,13 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 import os
 import hashlib
-from typing import List, Tuple, Union
+from typing import Tuple, Union
 import collections
+import itertools
+import rdkit
+from rdkit import Chem
+from rdkit.Chem import AllChem
+import re
 
 StoichTuple = collections.namedtuple("StoichTuple", "c_id, stoich")
 
@@ -156,3 +161,142 @@ def get_reaction_hash(reactants, products):
     rhash = "R" + hashlib.sha256(text_ids_rxn.encode()).hexdigest()
 
     return rhash
+
+
+def postsanitize_smiles(smiles_list):
+    """Postsanitize smiles after running SMARTS.
+    :returns tautomer list of list of smiles"""
+    sanitized_list = []
+    tautomer_smarts = "[#7H1X3&a:1]:[#6&a:2]:[#7H0X2&a:3]>>[#7H0X2:1]:[#6:2]:[#7H1X3:3]"
+    pattern = r'\[\d+\*\]' # Pattern for integer labeled *'s as in rhea
+    for s in smiles_list:
+        s = re.sub(pattern, '*', s)
+        temp_mol = Chem.MolFromSmiles(s, sanitize=False)
+        temp_mol = Chem.RemoveHs(temp_mol, sanitize=False)
+        aromatic_bonds = [
+            i.GetIdx()
+            for i in temp_mol.GetBonds()
+            if i.GetBondType() == Chem.rdchem.BondType.AROMATIC
+        ]
+        for i in temp_mol.GetBonds():
+            if i.GetBondType() == Chem.rdchem.BondType.UNSPECIFIED:
+                i.SetBondType(Chem.rdchem.BondType.SINGLE)
+        try:
+            Chem.SanitizeMol(temp_mol)
+            Chem.rdmolops.RemoveStereochemistry(temp_mol)
+            temp_smiles = Chem.MolToSmiles(temp_mol)
+        except Exception as msg:
+            if "Can't kekulize mol" in str(msg):
+                pyrrole_indices = [
+                    i[0] for i in temp_mol.GetSubstructMatches(Chem.MolFromSmarts("n"))
+                ]
+                # indices to sanitize
+                for s_i in pyrrole_indices:
+                    temp_mol = Chem.MolFromSmiles(s, sanitize=False)
+                    if temp_mol.GetAtomWithIdx(s_i).GetNumExplicitHs() == 0:
+                        temp_mol.GetAtomWithIdx(s_i).SetNumExplicitHs(1)
+                    elif temp_mol.GetAtomWithIdx(s_i).GetNumExplicitHs() == 1:
+                        temp_mol.GetAtomWithIdx(s_i).SetNumExplicitHs(0)
+                    try:
+                        Chem.SanitizeMol(temp_mol)
+                        processed_pyrrole_indices = [
+                            i[0]
+                            for i in temp_mol.GetSubstructMatches(
+                                Chem.MolFromSmarts("n")
+                            )
+                        ]
+                        processed_aromatic_bonds = [
+                            i.GetIdx()
+                            for i in temp_mol.GetBonds()
+                            if i.GetBondType() == Chem.rdchem.BondType.AROMATIC
+                        ]
+                        if (
+                            processed_pyrrole_indices != pyrrole_indices
+                            or aromatic_bonds != processed_aromatic_bonds
+                        ):
+                            continue
+                        Chem.rdmolops.RemoveStereochemistry(temp_mol)
+                        temp_smiles = Chem.MolToSmiles(temp_mol)
+                        break
+                    except:
+                        continue
+                if "temp_smiles" not in vars():
+                    Chem.rdmolops.RemoveStereochemistry(temp_mol)
+                    temp_smiles = Chem.MolToSmiles(temp_mol)
+                    sanitized_list.append([temp_smiles])
+                    continue
+            else:
+                Chem.rdmolops.RemoveStereochemistry(temp_mol)
+                temp_smiles = Chem.MolToSmiles(temp_mol)
+                sanitized_list.append([temp_smiles])
+                continue
+        rxn = AllChem.ReactionFromSmarts(tautomer_smarts)
+        try:
+            tautomer_mols = rxn.RunReactants((Chem.MolFromSmiles(temp_smiles),))
+        except:
+            try:
+                tautomer_mols = rxn.RunReactants(
+                    (Chem.MolFromSmiles(temp_smiles, sanitize=False),)
+                )
+            except:
+                continue
+        tautomer_smiles = [Chem.MolToSmiles(m[0]) for m in tautomer_mols]
+        sanitized_list.append(sorted(set(tautomer_smiles + [temp_smiles])))
+    return list(itertools.product(*sanitized_list))
+
+_REACTIONS = None # Used in neutralise_charges below (cf. minedatabase.utils)
+
+def neutralise_charges(
+    mol: rdkit.Chem.rdchem.Mol, reactions=None
+) -> rdkit.Chem.rdchem.Mol:
+    """Neutralize all charges in an rdkit mol.
+
+    Parameters
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        Molecule to neutralize.
+    reactions : list, optional
+        patterns to neutralize, by default None.
+
+    Returns
+    -------
+    mol : rdkit.Chem.rdchem.Mol
+        Neutralized molecule.
+    """
+
+    def _initialise_neutralisation_reactions():
+        patts = (
+            # Imidazoles
+            ("[n+;H]", "n"),
+            # Amines
+            ("[N+;!H0]", "N"),
+            # Carboxylic acids and alcohols
+            ("[$([O-]);!$([O-][#7])]", "O"),
+            # Thiols
+            ("[S-;X1]", "S"),
+            # Sulfonamides
+            ("[$([N-;X2]S(=O)=O)]", "N"),
+            # Enamines
+            ("[$([N-;X2][C,N]=C)]", "N"),
+            # Tetrazoles
+            ("[n-]", "[nH]"),
+            # Sulfoxides
+            ("[$([S-]=O)]", "S"),
+            # Amides
+            ("[$([N-]C=O)]", "N"),
+        )
+        return [
+            (AllChem.MolFromSmarts(x), AllChem.MolFromSmiles(y, False))
+            for x, y in patts
+        ]
+
+    global _REACTIONS  # pylint: disable=global-statement
+    if reactions is None:
+        if _REACTIONS is None:
+            _REACTIONS = _initialise_neutralisation_reactions()
+        reactions = _REACTIONS
+    for (reactant, product) in reactions:
+        while mol.HasSubstructMatch(reactant):
+            rms = AllChem.ReplaceSubstructs(mol, reactant, product)
+            mol = rms[0]
+    return mol

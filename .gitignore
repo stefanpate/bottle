@@ -1,9 +1,11 @@
 data/raw_expansions/
+data/pruned_expansions/
 artifacts/documents/
 artifacts/mevalonate_uniprot/
 artifacts/mol_svgs/
 artifacts/rxn_svgs/
 artifacts/tmp_pdfs/
+artifacts/pwy_svgs/
 core*
 *.ipynb_checkpoints*
 *__pycache__*

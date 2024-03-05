@@ -59,9 +59,15 @@ def align_substrates(rcs, remaining):
         for j in remaining[1]:
             rc1 = rcs[0][i]
             rc2 = rcs[1][j]
-            res = rdFMCS.FindMCS([rc1, rc2], bondCompare=rdFMCS.BondCompare.CompareOrder,
-               atomCompare=rdFMCS.AtomCompare.CompareElements, matchValences=True
+            res = rdFMCS.FindMCS([rc1, rc2], 
+                                bondCompare=rdFMCS.BondCompare.CompareOrderExact,
+                                atomCompare=rdFMCS.AtomCompare.CompareElements,
+                                matchValences=True, 
+                                matchChiralTag=False,
+                                ringMatchesRingOnly=True,
+                                completeRingsOnly=True
                )
+            
             if (res.numAtoms == max(rc1.GetNumAtoms(), rc2.GetNumAtoms())) &\
                 (res.numBonds == max(rc1.GetNumBonds(), rc2.GetNumBonds())):
                 idx_pair = (i, j)
@@ -132,6 +138,7 @@ def align_atom_map_nums(rxns, rcs, rc_atoms):
     '''
     rxns = rxns.copy() # Defensive copy; avoid side effects
     for j, rc1 in enumerate(rcs[0]): # For rxn ctr from rxn 1
+        # mol1 = rxns[0].GetReactantTemplate(j)
         mol2 = rxns[1].GetReactantTemplate(j) # Get corresponding substrate from rxn2
         ratoms2 = rc_atoms[1][j] # And rxn ctr atom idxs of this molecule
         rc1_atom_idxs = [i for i in range(len(rc1.GetAtoms()))]
@@ -145,17 +152,16 @@ def align_atom_map_nums(rxns, rcs, rc_atoms):
         # give true id of each atom
         mol2_prop_hashes = get_property_hashes(mol2, ratoms2)
         rc1_prop_hashes = get_property_hashes(rc1, rc1_atom_idxs)
-
-        # Sort rxn ctr idxs from rxn2 sub and atom map #'s from 
-        # rxn1 sub by their true identity
-        ratoms2, mol2_prop_hashes = tuple(sort_x_by_y(ratoms2, mol2_prop_hashes))
-        rc_amap_nums, rc1_prop_hashes = tuple(sort_x_by_y(rc_amap_nums, rc1_prop_hashes))
         
-        assert mol2_prop_hashes == rc1_prop_hashes
+        assert sorted(mol2_prop_hashes) == sorted(rc1_prop_hashes) # Make sure rcs are the same
+
+        # Establish common order to iterate over rc1 and rc2
+        # to align atom map numbers
+        same_order, _ = tuple(sort_x_by_y([i for i in range(len(rc1_prop_hashes))], rc1_prop_hashes))
 
         # Re-label mol from rxn2
-        for i, elt in enumerate(ratoms2):
-            mol2.GetAtomWithIdx(elt).SetAtomMapNum(rc_amap_nums[i])
+        for elt in same_order:
+            mol2.GetAtomWithIdx(ratoms2[elt]).SetAtomMapNum(rc_amap_nums[elt])
 
     return rxns
 
@@ -194,12 +200,18 @@ def get_prc_mcs(rxns, rcs, rc_atoms, norm='min atoms'):
     prc_mcs = []
     for i in range(rxns[0].GetNumReactantTemplates()):
         subs = [rxns[0].GetReactantTemplate(i), rxns[1].GetReactantTemplate(i)]
+        for elt in subs:
+            Chem.SanitizeMol(elt)
         rc = rcs[0][i] # Rxn ctr from rxn1 has right atom map # for FindMCS seed
 
         res = rdFMCS.FindMCS(subs, seedSmarts=Chem.MolToSmarts(rc),
                                 atomCompare=rdFMCS.AtomCompare.CompareIsotopes,
-                                bondCompare=rdFMCS.BondCompare.CompareOrder
-                            ) # Left out matchValences for now... unk issue
+                                bondCompare=rdFMCS.BondCompare.CompareOrderExact,
+                                matchChiralTag=False,
+                                ringMatchesRingOnly=True,
+                                completeRingsOnly=True,
+                                matchValences=True
+                            )
         
         # Compute prc mcs index
         if norm == 'min atoms':
@@ -212,6 +224,129 @@ def get_prc_mcs(rxns, rcs, rc_atoms, norm='min atoms'):
 
 # Tests
 if __name__ == '__main__':
-    # Test that align atom map nums
-    pass
+    import pickle
+    from rdkit.Chem import AllChem
+    from src.utils import load_json, rxn_entry_to_smarts, rm_atom_map_num
+    # Params
+    starters = '2mg'
+    targets = 'mvacid'
+    generations = 2
 
+    expansion_dir = '../data/processed_expansions/'
+    fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_1_n_samples_1000.pk" # Expansion file name
+    rxns_path = expansion_dir + 'predicted_reactions_' + fn
+    paths_path = expansion_dir + 'paths_' + fn
+
+    with open(rxns_path, 'rb') as f:
+        pred_rxns = pickle.load(f)
+
+    pr_am_errors = [] # Track predicted rxn am errors
+    kr_am_errors = [] # Track known rxn am errors
+    alignment_issues = [] # Track substrate alignment issues
+
+    # Populate pred_rxns, known rxn prc-mcs slot
+    # for x in range(len(pred_rxns.keys())):
+    #     h = list(pred_rxns.keys())[x]
+    for x in range(1):
+        h = 'R1d92fdcb2d9d3d12189b4eeb56a1bd8d9fe87f31f054034961ebd276fb62d413'
+        rxn_sma1 = pred_rxns[h].smarts
+
+        # Skip pred reactions that trigger RXNMapper atom mapping errors
+        try:
+            am_rxn_sma1 = atom_map(rxn_sma1)
+        except:
+            pr_am_errors.append(h)
+            continue
+
+        a = 0 # Number known rxns analyzed
+        for z, kr in enumerate(pred_rxns[h].known_rxns[74:75]):
+            rxn_sma2 = kr[1]
+
+            # Catch stoichiometry mismatches stemming from pickaxe, early post-processing
+            if tuple([len(elt.split('.')) for elt in rxn_sma2.split('>>')]) != tuple([len(elt.split('.')) for elt in rxn_sma1.split('>>')]):
+                print(x, z, 'stoich_error')
+                continue
+
+            # Skip pred reactions that trigger RXNMapper atom mapping errors
+            try:
+                am_rxn_sma2 = atom_map(rxn_sma2)
+            except:
+                kr_am_errors.append((h, z, kr[-1]))
+                continue
+
+            # Construct reaction objects
+            rxns = []
+            for elt in [am_rxn_sma1, am_rxn_sma2]:
+                temp = AllChem.ReactionFromSmarts(elt, useSmiles=True)
+                temp.Initialize()
+                rxns.append(temp)
+
+            rc_atoms = [elt.GetReactingAtoms() for elt in rxns] # Get reaction center atom idxs
+
+            # Construct rxn ctr mol objs
+            try: # REMOVE after addressing KekulizationException in get_sub_mol
+                rcs = []
+                for i, t_rxn in enumerate(rxns):
+                    temp = []
+                    for j, t_mol in enumerate(t_rxn.GetReactants()):
+                        temp.append(get_sub_mol(t_mol, rc_atoms[i][j]))
+                    rcs.append(temp)
+            except:
+                print('missed it')
+
+            # Align substrates of the 2 reactions
+            rc_idxs = [] # Each element: (idx for rxn 1, idx for rxn 2)
+            remaining = [[i for i in range(len(elt))] for elt in rcs]
+            while (len(remaining[0]) > 0) & (len(remaining[1]) > 0):
+                idx_pair = align_substrates(rcs, remaining)
+
+                if idx_pair is None:
+                    break
+                else:
+                    rc_idxs.append(idx_pair)
+                    remaining[0].remove(idx_pair[0])
+                    remaining[1].remove(idx_pair[1])
+
+            # Skip if you haven't aligned every reactant pred to known
+            if len(rc_idxs) < len(rxn_sma1.split('>>')[0].split('.')):
+                alignment_issues.append((h, z, kr[-1]))
+                continue
+
+            # For reaction 2 (known reaction) Re-order rcs, rc_atoms,
+            # internal order of reactants in the reaction object in rxns
+            # and the smarts stored in the known_reactions attribute of the
+            # associated predicted reaction
+
+            # Sort reaction 2 rc_idxs by reaction 1 rc_idxs
+            rxn_1_rc_idxs, rxn_2_rc_idxs = list(zip(*rc_idxs))
+            if rxn_1_rc_idxs != rxn_2_rc_idxs:
+                rxn_2_rc_idxs, rxn_1_rc_idxs = sort_x_by_y(rxn_2_rc_idxs, rxn_1_rc_idxs)
+
+                # Re-order atom-mapped smarts string, and then update known_rxns entry
+                # with de-atom-mapped version of this string because atom mapper changes
+                # reactant order and its this order that rcs, rcatoms, rc_idxs all come from
+                am_ro_sma2 = am_rxn_sma2.split('>>')[0].split('.') # Get list of reactant strings
+                am_ro_sma2 = '.'.join([am_ro_sma2[elt] for elt in rxn_2_rc_idxs]) # Re-join in new order
+                am_rxn_sma2 = am_ro_sma2 + '>>' + am_rxn_sma2.split('>>')[1] # Join with products side
+
+                # Re-construct reaction object from re-ordered, am smarts
+                temp = AllChem.ReactionFromSmarts(am_rxn_sma2, useSmiles=True)
+                temp.Initialize()
+                rxns[1] = temp
+
+                rc_atoms[1] = rxns[1].GetReactingAtoms() # Update rc_atoms
+                rcs[1] = [get_sub_mol(elt, rc_atoms[1][i]) for i, elt in enumerate(rxns[1].GetReactants())] # Update rc mol obj
+            
+            pred_rxns[h].known_rxns[z][1] = rm_atom_map_num(am_rxn_sma2) # Update known_reaction entry w/ de-am smarts
+            rxns = align_atom_map_nums(rxns, rcs, rc_atoms)
+
+            # Compute MCS seeded by reaction center
+            prc_mcs = get_prc_mcs(rxns, rcs, rc_atoms) 
+            pred_rxns[h].known_rxns[z][0] = prc_mcs # Update pred_rxns
+            
+            a += 1 # Count known rxn analyzed
+            pred_rxns[h].smarts = rm_atom_map_num(am_rxn_sma1) # Update pred_rxn smarts w/ de-am smarts
+
+        print(x)
+
+    print('done')

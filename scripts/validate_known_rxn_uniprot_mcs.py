@@ -81,8 +81,6 @@ For all rows in rhea directions
     else continue
     put in tuple, enter in dict under all ids
 '''
-
-
 # Multiple rhea ids will map to 
 # same tuple of reaction info
 rhea_id_to_rhashes = {}
@@ -284,7 +282,7 @@ for key, kr in unmatched_by_rhash.items():
                 rhea_rhashes_to_smarts[rhea_hash].add(rhea_smarts[1])
 
 matches_by_mcs = {} # Indexed in same way as side_by_side
-for i, k in tqdm(enumerate(list(side_by_side.keys())[:200])):
+for i, k in tqdm(enumerate(side_by_side.keys())):
     kr_rhash = k[0]
     rhea_rhash = k[1]
     kr_smarts = unmatched_by_rhash[kr_rhash]['smarts']

@@ -9,4 +9,4 @@ artifacts/pwy_svgs/
 core*
 *.ipynb_checkpoints*
 *__pycache__*
-
+data/mapping/jni_uniprot.json

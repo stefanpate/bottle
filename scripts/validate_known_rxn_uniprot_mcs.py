@@ -1,15 +1,11 @@
-from src.utils import load_json, save_json, get_compound_hash, get_reaction_hash, postsanitize_smiles, neutralise_charges
+from src.utils import load_json, get_compound_hash, get_reaction_hash, postsanitize_smiles, neutralise_charges
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 from rdkit import Chem
-from rdkit.Chem import AllChem
 from rdkit.Chem import rdFMCS
 from collections import Counter, defaultdict
 from copy import deepcopy
 from itertools import permutations
 from tqdm import tqdm
-import os
 import pickle
 import logging
 
@@ -151,13 +147,13 @@ def mcs_index(smi1, smi2, do_valence, norm):
     mol1, mol2 = [Chem.MolFromSmiles(elt, sanitize=True) for elt in [smi1, smi2]]
     
     if mol1 is None and mol2 is None:
-        logging.warning(f"None mol return for smiles: {smi1}, {smi2}")
+        logging.warning(f"None mol returned for smiles: {smi1}, {smi2}")
         return None, None
     elif mol1 is None:
-        logging.warning(f"None mol return for smiles: {smi1}")
+        logging.warning(f"None mol returned for smiles: {smi1}")
         return None, None
     elif mol2 is None:
-        logging.warning(f"None mol return for smiles: {smi2}")
+        logging.warning(f"None mol returned for smiles: {smi2}")
         return None, None        
 
     res = rdFMCS.FindMCS([mol1, mol2], 
@@ -180,31 +176,36 @@ def mcs_index(smi1, smi2, do_valence, norm):
     
     return mcs_idx, tot  
 
-def mcs_align(smarts1, smarts2, norm='min', do_valence=True):
-    r1, _ = smarts_to_sub_smiles(smarts1)
-    r2, _ = smarts_to_sub_smiles(smarts2)
-    r1, r2 = [list(set(elt)) for elt in [r1, r2]]
-    if len(r1) != len(r2):
+def mcs_align(smarts1, smarts2, norm='max', do_valence=True):
+    r1, p1 = smarts_to_sub_smiles(smarts1)
+    r2, p2 = smarts_to_sub_smiles(smarts2)
+    r1, r2, p1, p2 = [list(set(elt)) for elt in [r1, r2, p1, p2]] # Remove stoich
+    
+    if len(r1 + p1) != len(r2 + p2):
+        logging.warning(f"Unequal number of unique substrates for {smarts1}, {smarts2}")
         return 0
-
+    
+    subs1 = r1 + p1
     rxn_mcs_idxs = []
     for rperm in permutations(r2):
-        running_mcs, running_tot = 0, 0
-        for elt in zip(r1, rperm):
-            this_mcs, this_tot = mcs_index(elt[0], elt[1], do_valence, norm)
-            
-            # Timeout or san issue
-            if this_mcs is None and this_tot is None:
-                return 0
-            
-            running_mcs += this_mcs
-            running_tot += this_tot
+        for pperm in permutations(p2):
+            subs2 = rperm + pperm
+            running_mcs, running_tot = 0, 0
+            for elt in zip(subs1, subs2):
+                this_mcs, this_tot = mcs_index(elt[0], elt[1], do_valence, norm)
+                
+                # Timeout or san issue
+                if this_mcs is None and this_tot is None:
+                    return 0
+                
+                running_mcs += this_mcs
+                running_tot += this_tot
 
-        if running_tot == 0:
-            atom_ave_mcs = 0
-        else:
-            atom_ave_mcs = running_mcs / running_tot
-        rxn_mcs_idxs.append(atom_ave_mcs)
+            if running_tot == 0:
+                atom_ave_mcs = 0
+            else:
+                atom_ave_mcs = running_mcs / running_tot
+            rxn_mcs_idxs.append(atom_ave_mcs)
 
     rxn_mcs = max(rxn_mcs_idxs)
     return rxn_mcs
@@ -283,14 +284,14 @@ for key, kr in unmatched_by_rhash.items():
                 rhea_rhashes_to_smarts[rhea_hash].add(rhea_smarts[1])
 
 matches_by_mcs = {} # Indexed in same way as side_by_side
-for i, k in tqdm(enumerate(side_by_side.keys())):
+for i, k in tqdm(enumerate(list(side_by_side.keys())[:200])):
     kr_rhash = k[0]
     rhea_rhash = k[1]
     kr_smarts = unmatched_by_rhash[kr_rhash]['smarts']
     
     mcses = []
     for sma in rhea_rhashes_to_smarts[rhea_rhash]:
-        rxn_mcs = mcs_align(kr_smarts, sma, norm='min', do_valence=True)
+        rxn_mcs = mcs_align(kr_smarts, sma, norm='max', do_valence=True)
         mcses.append(rxn_mcs)
     
     matches_by_mcs[(kr_rhash, rhea_rhash)] = max(mcses)

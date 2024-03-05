@@ -1,17 +1,17 @@
-from src.utils import load_json, save_json, get_compound_hash, get_reaction_hash
+from src.utils import load_json, save_json, get_compound_hash, get_reaction_hash, postsanitize_smiles, neutralise_charges
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdFMCS
-from minedatabase.utils import postsanitize_smiles, neutralise_charges
 from collections import Counter, defaultdict
 from copy import deepcopy
 from itertools import permutations
 from tqdm import tqdm
 import os
 import pickle
+import logging
 
 def sanitize(reactants, products):
     return postsanitize_smiles(reactants)[0], postsanitize_smiles(products)[0]
@@ -150,7 +150,14 @@ def is_stoichless_rhash_equivalent(x, putative_rhash, jni_up, rhea_id_to_rhashes
 def mcs_index(smi1, smi2, do_valence, norm):
     mol1, mol2 = [Chem.MolFromSmiles(elt, sanitize=True) for elt in [smi1, smi2]]
     
-    if mol1 is None or mol2 is None:
+    if mol1 is None and mol2 is None:
+        logging.warning(f"None mol return for smiles: {smi1}, {smi2}")
+        return None, None
+    elif mol1 is None:
+        logging.warning(f"None mol return for smiles: {smi1}")
+        return None, None
+    elif mol2 is None:
+        logging.warning(f"None mol return for smiles: {smi2}")
         return None, None        
 
     res = rdFMCS.FindMCS([mol1, mol2], 
@@ -164,6 +171,7 @@ def mcs_index(smi1, smi2, do_valence, norm):
             )
 
     if res.canceled:
+        logging.warning(f"MCS timeout for smiles: {smi1}, {smi2}")
         return None, None
     elif norm == 'min':
         mcs_idx, tot = res.numAtoms, min(mol1.GetNumAtoms(), mol2.GetNumAtoms())
@@ -187,8 +195,7 @@ def mcs_align(smarts1, smarts2, norm='min', do_valence=True):
             
             # Timeout or san issue
             if this_mcs is None and this_tot is None:
-                running_mcs, running_tot = 0, 0
-                break
+                return 0
             
             running_mcs += this_mcs
             running_tot += this_tot

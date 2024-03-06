@@ -2,13 +2,13 @@
 #SBATCH -A b1039
 #SBATCH -p b1039
 #SBATCH -N 1
-#SBATCH -n 50
-#SBATCH --mem=0
+#SBATCH -n 1
+#SBATCH --mem=16G
 #SBATCH -t 48:00:00
-#SBATCH --job-name="ccm2methylenes"
-#SBATCH -o outlog
-#SBATCH -e errlog
+#SBATCH --job-name="val_kr_uniprot"
+#SBATCH -o ../logs/outlog_validation_jni_uniprot
+#SBATCH -e ../logs/errlog_validation_jni_uniprot
 ulimit -c 0
 module load python/anaconda3.6
 source activate mine
-python run_pickaxe.py
+python -u validate_known_rxn_uniprot_mcs.py

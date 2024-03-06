@@ -151,7 +151,6 @@ def mcs_index(smi1, smi2, do_valence, norm):
     mol1, mol2 = [Chem.MolFromSmiles(elt, sanitize=True) for elt in [smi1, smi2]]
     
     if mol1 is None or mol2 is None:
-        print('mol was none')
         return None, None        
 
     res = rdFMCS.FindMCS([mol1, mol2], 
@@ -291,7 +290,7 @@ for i, k in tqdm(enumerate(side_by_side.keys())):
 
     if i % 500 == 0:
         print(f"Saving {i}th reaction-pair")
-        with open("../data/mapping/mcs_similarity_known_rhea_rxn_pairs.pkl") as f:
+        with open("../data/mapping/mcs_similarity_known_rhea_rxn_pairs.pkl", 'wb') as f:
             pickle.dump(matches_by_mcs, f)
 
         

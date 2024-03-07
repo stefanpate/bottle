@@ -10,3 +10,4 @@ core*
 *.ipynb_checkpoints*
 *__pycache__*
 data/mapping/jni_uniprot.json
+data/mapping/known_rxns_jni_w_enzyme_validation.json

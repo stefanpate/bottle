@@ -7,8 +7,8 @@ from src.pathway_utils import get_stoich_pk
 from collections import namedtuple, defaultdict
 from typing import List
 
-DatabaseEntry = namedtuple("DatabaseEntry", "db, id")
-Enzyme = namedtuple("Enzyme", "uniprot_id, sequence")
+DatabaseEntry = namedtuple("DatabaseEntry", "db, id", defaults=[None, None])
+Enzyme = namedtuple("Enzyme", "uniprot_id, sequence, validation_score, existence, reviewed, organism", defaults=[None, None, None, None, None, None])
 
 class Reaction:
         def __init__(self, id, smarts, imt_rules=[]):

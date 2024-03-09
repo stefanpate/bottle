@@ -1,11 +1,9 @@
 from src.rxn_ctr_mcs import *
 from src.utils import load_json, rm_atom_map_num
 from src.post_processing import *
-from minedatabase.pickaxe import Pickaxe
 from rdkit.Chem import AllChem
 import pickle
 
-# Load processed expansion
 starters = '2mg'
 targets = 'mvacid'
 generations = 2
@@ -115,15 +113,15 @@ for prid, pr in pe.predicted_reactions.items():
             rc_atoms[1] = rxns[1].GetReactingAtoms() # Update rc_atoms
             rcs[1] = [get_sub_mol(elt, rc_atoms[1][i]) for i, elt in enumerate(rxns[1].GetReactants())] # Update rc mol obj
         
-        kr.smarts = rm_atom_map_num(am_rxn_sma2) # Update known_reaction entry w/ de-am smarts
+        kr.smarts = rm_atom_map_num(am_rxn_sma2) # Update known_reaction entry w/ de-am smarts for consistent ordering in vis
         rxns = align_atom_map_nums(rxns, rcs, rc_atoms)
 
         # Compute MCS seeded by reaction center
         prc_mcs = get_prc_mcs(rxns, rcs, rc_atoms, norm=norm) 
-        pr.prc_mcs = prc_mcs # Update pred_rxns
+        pr._mcs_analogues[n_kr][0] = prc_mcs # Update pred_rxns
         
         a += 1 # Count known rxn analyzed
-        pr.smarts = rm_atom_map_num(am_rxn_sma1) # Update pred_rxn smarts w/ de-am smarts
+        pr.smarts = rm_atom_map_num(am_rxn_sma1) # Update pred_rxn smarts w/ de-am smarts for consistent ordering in vis
 
     print(prid[:5], ':', a / (n_kr + 1), 'of', n_kr + 1)
 

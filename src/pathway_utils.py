@@ -591,3 +591,15 @@ def count_cpds_and_rxns(G):
     reaction_nodes = G.nodes() - compound_nodes
 
     return compound_nodes, reaction_nodes
+
+def pk_rhash_to_smarts(rhash, pk):
+    '''
+    Make reaction smarts string for
+    reaction indexed by rhash in a pk
+    object
+    '''
+    rxn_stoich = get_stoich_pk(rhash, pk)
+    products = ".".join([".".join([smi]*stoich) for smi, stoich in rxn_stoich.items() if stoich >= 0])
+    reactants = ".".join([".".join([smi]*abs(stoich)) for smi, stoich in rxn_stoich.items() if stoich <= 0])
+    rxn_sma = ">>".join([reactants, products])
+    return rxn_sma

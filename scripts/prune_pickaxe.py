@@ -3,7 +3,7 @@
 2. Create 
 
 '''
-from src.pathway_utils import get_reverse_paths_to_starting, create_graph_from_pickaxe
+from src.pathway_utils import get_reverse_paths_to_starting, create_graph_from_pickaxe, pk_rhash_to_smarts
 from src.utils import load_json
 from src.post_processing import *
 from minedatabase.pickaxe import Pickaxe
@@ -35,42 +35,43 @@ pruned_cpds = set()
 '''
 Load known reaction information
 '''
-known_rxns = load_json("../data/mapping/known_rxns_w_provenance_all_info_jni.json")
-rule2kr = defaultdict(lambda : defaultdict(lambda : {'db_ids':[], 'smarts':None, 'uniprot_ids':[], 'imt_rules':[]})) # Look up known rxns by rule
-for kr, db_entries in known_rxns.items():
-    for db_id, entry in db_entries.items():
-        for rule in entry['imt_rules']:
-            rule2kr[rule][kr]['db_ids'].append(db_id)
-            rule2kr[rule][kr]['uniprot_ids'] += entry['uniprot_ids']
-            rule2kr[rule][kr]['imt_rules'] = entry['imt_rules'] # Confusing
+known_rxns = load_json("../data/mapping/known_rxns_jni_w_enzyme_validation.json")
+rule2krhash = defaultdict(list)
+for k,v in known_rxns.items():
 
-            if rule2kr[rule][kr]['smarts'] is None:
-                rule2kr[rule][kr]['smarts'] = entry['smarts']
+    # Convert enzymes and db entries to namedtuples
+    enzymes = [Enzyme(*elt) for elt in v['enzymes']]
+    v['enzymes'] = enzymes
+
+    db_entries = [DatabaseEntry(*elt) for elt in v['db_entries']]
+    v['db_entries'] = db_entries
+
+    # Construct imt rule to knwon rhash lookup
+    for imt_rule in v['imt_rules']:
+        rule2krhash[imt_rule].append(k)
 
 
 '''
 Get pathways to target molecule
 '''
-
-
-def construct_pr_list(pk_rids, rule2kr, pk):
+def construct_pr_list(pk_rids, rule2krhash, known_rxns, pk):
     prs = []
     for rid in pk_rids:
         pk_reaction = pk.reactions[rid]
 
         # Collect known reaction analogues inffo
-        krs = []
+        krs = set()
         for rule in pk_reaction["Operators"]:
-            for known_rid, entry in rule2kr[rule].items():
-                db_entries = [DatabaseEntry(x.split(':')[0], x.split(":")[1]) for x in entry['db_ids']]
-                enzymes = [Enzyme(x, None) for x in entry["uniprot_ids"]]
+            for known_rid in rule2krhash[rule]:
+                entry = known_rxns[known_rid]
                 kr = KnownReaction(id=known_rid, smarts=entry['smarts'],
-                    imt_rules=entry['imt_rules'], database_entries=db_entries,
-                    enzymes=enzymes)
-                krs.append(kr)
-        
+                    imt_rules=entry['imt_rules'], database_entries=entry['db_entries'],
+                    enzymes=entry['enzymes'])
+                krs.add(kr)
+        krs = list(krs)
+
         # Construct predicted reaction object with analogues
-        sma = rxn_hash_2_rxn_sma(rid, pk)
+        sma = pk_rhash_to_smarts(rid, pk)
         pr = PredictedReaction(id=rid, smarts=sma, imt_rules=list(pk_reaction["Operators"]), analogues=krs)
         prs.append(pr)
 
@@ -89,7 +90,7 @@ for n in DG.nodes():
         bad_nodes.append(n)
 
 # Get pathways
-max_depth = generations * 2
+max_depth = generations * 2 # Times 2 because graph is bipartite with mols and rxns
 paths = defaultdict(list)
 
 # Specify Targets / Starting Cpds
@@ -109,11 +110,14 @@ for i, this_target in enumerate(target_cids):
         for elt in this_paths:
             for r in pk.reactions[elt[0]]["Reactants"]:
                 if r[-1] in starting_cpds:
+
+                    # Add paths to processed expansion
                     s_name = pk.compounds[r[-1]]["ID"]
                     t_name = target_names[i]
-                    prs = construct_pr_list(elt, rule2kr, pk)
+                    prs = construct_pr_list(elt, rule2krhash, known_rxns, pk)
                     pe.add_path(s_name, t_name, prs)
-
+                    
+                    # Add reactions & compounds to pruned pk object
                     for pk_rid in elt:
                         pruned_rxns.add(pk_rid)
                         for _, cpd_id in pk.reactions[pk_rid]["Reactants"]:

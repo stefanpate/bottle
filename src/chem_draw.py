@@ -39,10 +39,6 @@ def draw_pwy_svg(sma_hash_pairs, pwy_fn=None):
     else:
         return pwy_svg
         
-
-
-
-
 def draw_rxn_svg(rxn_sma, rhash=None, hilite_atoms=None):
     reactants, products = [elt.split('.') for elt in rxn_sma.split('>>')]
     reactants, products = Counter(reactants), Counter(products)

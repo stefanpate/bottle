@@ -14,9 +14,9 @@ import csv
 import pandas as pd
 
 # Set params
-starters = '2mg'
-targets = 'mvacid'
-generations = 2
+starters = 'ccm_v0'
+targets = 'hopa'
+generations = 3
 expansion_dir = '../data/raw_expansions/' # To load
 pruned_dir = '../data/pruned_expansions/' # To save
 fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_1_n_samples_1000" # Expansion file name

@@ -22,8 +22,11 @@ class KnownReaction(Reaction):
         super().__init__(id, smarts, imt_rules)
         self.database_entries = database_entries
         self.enzymes = enzymes
-        e_scores = [e.validation_score for e in self.enzymes]
-        self.enzyme_max_val = max(e_scores) if e_scores else 0
+        self._sort_enzymes()
+        self.enzyme_max_val = self.enzymes[0].validation_score if len(enzymes) > 0 else 0
+
+    def _sort_enzymes(self):
+        self.enzymes.sort(key=lambda e : e.validation_score, reverse=True)
 
 class PredictedReaction(Reaction):
     _sort_keys = {'prc_mcs_min': lambda mcs_analogue: min(mcs_analogue[0]),
@@ -136,7 +139,7 @@ class ProcessedExpansion:
         self.predicted_reactions = {}
         self._next_path_id = 1
 
-    def get_prc_mcs(self, path):
+    def get_path_prc_mcs(self, path):
         # TODO: make it more obvious how prs are sorted
         # maybe make top_analogues take reduce substrate parameter optional
         # if None, uses stored reducing criteria (and sorting criteria)
@@ -147,7 +150,14 @@ class ProcessedExpansion:
             prc_mcs.append(pr.top_analogue()['prc_mcs'])
 
         return prc_mcs
+    
+    def get_path_enzymes(self, path):
+        enzymes = []
+        for rid in path.reaction_ids:
+            pr = self.predicted_reactions[rid]
+            enzymes.append(pr.top_analogue()['analogue'].enzymes)
 
+        return enzymes
 
     def add_path(self, starter, target, predicted_reactions:List[PredictedReaction]):
         # Add path to st2paths dict

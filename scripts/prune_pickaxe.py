@@ -10,13 +10,11 @@ from minedatabase.pickaxe import Pickaxe
 from minedatabase.utils import get_compound_hash
 from collections import defaultdict
 import pickle
-import csv
-import pandas as pd
 
 # Set params
 starters = 'ccm_v0'
-targets = 'hopa'
-generations = 3
+targets = 'mvacid'
+generations = 4
 expansion_dir = '../data/raw_expansions/' # To load
 pruned_dir = '../data/pruned_expansions/' # To save
 fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_1_n_samples_1000" # Expansion file name

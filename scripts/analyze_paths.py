@@ -3,10 +3,11 @@ from src.utils import load_json, rm_atom_map_num
 from src.post_processing import *
 from rdkit.Chem import AllChem
 import pickle
+from tqdm import tqdm
 
-starters = '2mg'
+starters = 'ccm_v0'
 targets = 'mvacid'
-generations = 2
+generations = 4
 
 expansion_dir = '../data/processed_expansions/'
 thermo_dir = '../data/thermo/'
@@ -23,7 +24,9 @@ kekulize_issues = []
 norm = 'max atoms' # Normalize MCS atom count by larger molecule
 
 # Populate pred_rxns, known rxn prc-mcs slot
-for prid, pr in pe.predicted_reactions.items():
+
+pbar = tqdm(pe.predicted_reactions.items())
+for prid, pr in pbar:
     rxn_sma1 = pr.smarts
 
     # Skip pred reactions that trigger RXNMapper atom mapping errors
@@ -123,7 +126,7 @@ for prid, pr in pe.predicted_reactions.items():
         a += 1 # Count known rxn analyzed
         pr.smarts = rm_atom_map_num(am_rxn_sma1) # Update pred_rxn smarts w/ de-am smarts for consistent ordering in vis
 
-    print(prid[:5], ':', a / (n_kr + 1), 'of', n_kr + 1)
+    pbar.set_description(f"Predicted rxn {prid[:5]}. {a / (n_kr + 1):.2f} of {n_kr + 1} analogues successfully processed")
 
 # Thermo
 
@@ -133,14 +136,16 @@ for prid, pr in pe.predicted_reactions.items():
 # args = ['-s', f"{starters}", '-t', f"{targets}", '-g', str(generations)]
 # command = f"source activate /home/stef/miniconda3/envs/thermo && python /home/stef/pickaxe_thermodynamics/path_mdf.py {' '.join(args)}"
 # subprocess.run(command, shell=True)
+
 thermo = load_json(thermo_dir + fn + '.json')
 for k,v in thermo.items():
     st = tuple(k.split('>'))
     for i, elt in enumerate(thermo[k]):
-        pe._st2paths[st][i].mdf = elt['mdf']
-        pe._st2paths[st][i].dG_opt = elt['dG_opt']
-        pe._st2paths[st][i].dG_err = elt['dG_err']
-        pe._st2paths[st][i].conc_opt = elt['conc_opt']
+        if elt['mdf']:
+            pe._st2paths[st][i].mdf = elt['mdf']
+            pe._st2paths[st][i].dG_opt = elt['dG_opt']
+            pe._st2paths[st][i].dG_err = elt['dG_err']
+            pe._st2paths[st][i].conc_opt = elt['conc_opt']
 
 
 # Save processed expansion object

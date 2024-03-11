@@ -210,11 +210,14 @@ def get_prc_mcs(rxns, rcs, rc_atoms, norm='min atoms'):
                                 matchChiralTag=False,
                                 ringMatchesRingOnly=True,
                                 completeRingsOnly=True,
-                                matchValences=True
+                                matchValences=True,
+                                timeout=10
                             )
         
         # Compute prc mcs index
-        if norm == 'min atoms':
+        if res.canceled:
+            prc_mcs.append(0)
+        elif norm == 'min atoms':
             prc_mcs.append(res.numAtoms / min(subs[0].GetNumAtoms(), subs[1].GetNumAtoms()))
         elif norm == 'max atoms':
             prc_mcs.append(res.numAtoms / max(subs[0].GetNumAtoms(), subs[1].GetNumAtoms()))

@@ -300,3 +300,13 @@ def neutralise_charges(
             rms = AllChem.ReplaceSubstructs(mol, reactant, product)
             mol = rms[0]
     return mol
+
+def smarts_to_sub_smiles(smarts):
+    reactants, products = smarts.split(">>")
+    reactants = reactants.split('.')
+    products = products.split('.')
+    return reactants, products
+
+def sub_smiles_to_smarts(reactants, products):
+    sma = ".".join(reactants) + '>>' + ".".join(products)
+    return sma

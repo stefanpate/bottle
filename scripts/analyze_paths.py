@@ -6,8 +6,8 @@ import pickle
 from tqdm import tqdm
 
 starters = 'ccm_v0'
-targets = 'mvacid'
-generations = 4
+targets = 'hopa'
+generations = 3
 
 expansion_dir = '../data/processed_expansions/'
 thermo_dir = '../data/thermo/'

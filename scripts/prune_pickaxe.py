@@ -13,8 +13,8 @@ import pickle
 
 # Set params
 starters = 'ccm_v0'
-targets = 'mvacid'
-generations = 4
+targets = 'hopa'
+generations = 3
 expansion_dir = '../data/raw_expansions/' # To load
 pruned_dir = '../data/pruned_expansions/' # To save
 fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_1_n_samples_1000" # Expansion file name
@@ -33,7 +33,7 @@ pruned_cpds = set()
 '''
 Load known reaction information
 '''
-known_rxns = load_json("../data/mapping/known_rxns_jni_w_enzyme_validation.json")
+known_rxns = load_json("../data/mapping/known_rxns_jni_w_enzyme_validation.json") #  data/mapping/known_rxns_swissprot_enzymes_plus_mcs_90_240310.json
 rule2krhash = defaultdict(list)
 for k,v in known_rxns.items():
 

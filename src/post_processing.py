@@ -61,6 +61,8 @@ class PredictedReaction(Reaction):
         max_key = "enzyme_validation"
         if self._max_vals[max_key] is not None:
             return self._max_vals[max_key]
+        elif not self._mcs_analogues: # No analogues for this pr
+            return 0
         else:
             self.sort_analogues([max_key], reduce_substrates=None)
             max_val = self._mcs_analogues[0][1].enzyme_max_val
@@ -251,9 +253,9 @@ if __name__ == '__main__':
     import pickle
 
     # Params
-    starters = '2mg'
-    targets = 'mvacid'
-    generations = 2
+    starters = 'ccm_v0'
+    targets = 'hopa'
+    generations = 3
 
     expansion_dir = '../data/processed_expansions/'
     fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_1_n_samples_1000.pkl" # Expansion file name
@@ -262,15 +264,18 @@ if __name__ == '__main__':
     with open(expansion_dir + fn, 'rb') as f:
         pe = pickle.load(f)
 
-    starter = '2mg'
-    target = 'mvacid'
-    sort_by = ['prc_mcs']
-    filter_by = {'mdf':0, 'enzyme_validation':1.0}
+    to_vis = {}
+    for st_pair in pe.starter_target_pairs:
+        starter, target = st_pair
+        enzyme_validation_threshold = 0.95
+        sort_by = ['enzyme_validation', 'prc_mcs']
+        filter_by = {'mdf':0, 'enzyme_validation':enzyme_validation_threshold}
 
-    paths = pe.get_paths_w_st(starter=starter,
-                    target=target,
-                    sort_by=sort_by,
-                    filter_by=filter_by
-                    )
+        paths = pe.get_paths_w_st(starter=starter,
+                        target=target,
+                        sort_by=sort_by,
+                        filter_by=filter_by,
+                        reduce_predicted_reactions='min'
+                        )
     
     print('ok')

@@ -14,7 +14,7 @@ from rdkit.Chem import CanonSmiles
 
 # Directories and files
 st_dir = "../data/starters_targets/"
-input_cpds = "2_oxopentanoic_acid"
+input_cpds = "alpha_ketoglutarate_semialdehyde"
 target_cpds = "hopa"
 input_cpds_fn = st_dir + input_cpds + ".csv"
 target_cpds_fn = st_dir + target_cpds + ".csv"
@@ -24,11 +24,11 @@ rule_list = '../data/rules/JN3604IMT_rules.tsv'
 processes = 1 # 50
 generations = 1
 
-tani_filter = False # True
+tani_filter = False
 tani_threshold = [0, 0, 0.3, 0.3, 0.3]
 increasing_tani = False
 
-tani_sample = True # False
+tani_sample = False
 sample_size = 1000 # 10
 weight = None # 5
 

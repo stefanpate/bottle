@@ -5,13 +5,14 @@ from rdkit.Chem import AllChem
 import pickle
 from tqdm import tqdm
 
-starters = 'ccm_v0'
+starters = 'alpha_ketoglutarate_semialdehyde'
 targets = 'hopa'
-generations = 3
+generations = 1
+ts = 0
 
 expansion_dir = '../data/processed_expansions/'
 thermo_dir = '../data/thermo/'
-fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_1_n_samples_1000" # Expansion file name
+fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_{ts}_n_samples_1000" # Expansion file name
 
 # Load processed expansion
 with open(expansion_dir + fn + '.pkl', 'rb') as f:
@@ -126,7 +127,7 @@ for prid, pr in pbar:
         a += 1 # Count known rxn analyzed
         pr.smarts = rm_atom_map_num(am_rxn_sma1) # Update pred_rxn smarts w/ de-am smarts for consistent ordering in vis
 
-    pbar.set_description(f"Predicted rxn {prid[:5]}. {a / (n_kr + 1):.2f} of {n_kr + 1} analogues successfully processed")
+    pbar.set_description(f"Predicted rxn {prid[:5]}. {a / (len(pr.analogues) + 1):.2f} of {len(pr.analogues) + 1} analogues successfully processed")
 
 # Thermo
 

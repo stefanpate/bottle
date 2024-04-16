@@ -11,4 +11,4 @@
 ulimit -c 0
 module load python/anaconda3.6
 source activate mine
-python run_pickaxe.py
+python -u validate_known_rxn_uniprot_mcs.py

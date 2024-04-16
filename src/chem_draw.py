@@ -10,7 +10,7 @@ import numpy as np
 SVG
 '''
 
-def draw_pwy_svg(sma_hash_pairs, pwy_fn=None):
+def draw_pwy_svg(sma_hash_pairs, path_id, pwy_fn=None):
     fns = []
     widths = []
     for pair in sma_hash_pairs:
@@ -29,7 +29,7 @@ def draw_pwy_svg(sma_hash_pairs, pwy_fn=None):
 
         elements.append(sc.SVG('../artifacts/double_border.svg').move(max_pred_width, 200 * i))
     
-
+    elements.append(sc.Text(f"{path_id}", 25, 25, size=16, weight='bold')) # Path id
     pwy_svg = sc.Figure(max_pred_width + 40 + max_known_width, 200 * len(fns),
             *elements
             )
@@ -39,10 +39,6 @@ def draw_pwy_svg(sma_hash_pairs, pwy_fn=None):
     else:
         return pwy_svg
         
-
-
-
-
 def draw_rxn_svg(rxn_sma, rhash=None, hilite_atoms=None):
     reactants, products = [elt.split('.') for elt in rxn_sma.split('>>')]
     reactants, products = Counter(reactants), Counter(products)

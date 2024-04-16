@@ -9,4 +9,6 @@ artifacts/pwy_svgs/
 core*
 *.ipynb_checkpoints*
 *__pycache__*
-
+data/mapping/jni_uniprot.json
+data/mapping/known_rxns_jni_w_enzyme_validation.json
+data/mapping/uniprotkb_reviewed_true_AND_proteins_wi_2024_02_29.tsv

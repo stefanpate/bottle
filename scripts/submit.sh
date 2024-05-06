@@ -2,12 +2,12 @@
 #SBATCH -A b1039
 #SBATCH -p b1039
 #SBATCH -N 1
-#SBATCH -n 1
-#SBATCH --mem=4G
-#SBATCH -t 24:00:00
-#SBATCH --job-name="val_kr_uniprot"
-#SBATCH -o ../logs/outlog_validation_jni_uniprot
-#SBATCH -e ../logs/errlog_validation_jni_uniprot
+#SBATCH -n 50
+#SBATCH --mem=0
+#SBATCH -t 04:00:00
+#SBATCH --job-name="2genccm2hopa"
+#SBATCH -o ../logs/outlog
+#SBATCH -e ../logs/errlog
 ulimit -c 0
 module load python/anaconda3.6
 source activate mine

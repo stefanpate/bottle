@@ -7,9 +7,10 @@ from src.pathway_utils import get_stoich_pk
 from collections import namedtuple, defaultdict
 from typing import List
 import numpy as np
+import json
 
 DatabaseEntry = namedtuple("DatabaseEntry", "db, id", defaults=[None, None])
-Enzyme = namedtuple("Enzyme", "uniprot_id, sequence, validation_score, existence, reviewed, organism", defaults=[None, None, None, None, None, None])
+Enzyme = namedtuple("Enzyme", "uniprot_id, sequence, ec, validation_score, existence, reviewed, organism", defaults=[None, None, None, None, None, None, None])
 
 class Reaction:
         def __init__(self, id, smarts, imt_rules=[]):
@@ -248,6 +249,35 @@ class ProcessedExpansion:
         sorted_ids = sorted(path_id_to_sort_key.keys(), reverse=True, key=lambda pid : path_id_to_sort_key[pid])
         sorted_paths = self.get_paths_w_id(sorted_ids)
         return sorted_paths
+    
+def load_known_rxns(path):
+    with open(path, 'r') as f:
+        data = json.load(f)
+
+    for _,v in data.items():
+
+        # Convert enzymes and db entries to namedtuples
+        enzymes = []
+        for e in v['enzymes']:
+            for i in range(len(e)):
+                if type(e[i]) == list: # Convert list ec to tuple for hashing, set ops
+                    e[i]= tuple(e[i])
+
+            enzymes.append(Enzyme(*e))
+
+
+        # enzymes = [Enzyme(*elt) for elt in v['enzymes']]
+
+        # # Convert EC number list to tuple
+        # for e in enzymes:
+        #     e.ec = tuple(e.ec)
+
+        v['enzymes'] = enzymes
+
+        db_entries = [DatabaseEntry(*elt) for elt in v['db_entries']]
+        v['db_entries'] = db_entries
+
+    return data
 
 if __name__ == '__main__':
     import pickle

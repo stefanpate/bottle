@@ -3,40 +3,42 @@ CWD = os.path.abspath("")
 os.chdir(CWD)
 
 from minedatabase.pickaxe import Pickaxe
-from minedatabase.utils import get_compound_hash
+# from minedatabase.utils import get_compound_hash
 from minedatabase.rules import metacyc_intermediate, metacyc_generalized
 from minedatabase.filters import (
     SimilarityFilter,
     SimilaritySamplingFilter,
 )
 
-from rdkit.Chem import CanonSmiles
+# from rdkit.Chem import CanonSmiles
 
 # Directories and files
 st_dir = "../data/starters_targets/"
 input_cpds = "alpha_ketoglutarate"
-target_cpds = "alpha_ketoglutarate_semialdehyde"
+target_cpds = "hopa"
 input_cpds_fn = st_dir + input_cpds + ".csv"
 target_cpds_fn = st_dir + target_cpds + ".csv"
-rule_list = '../data/rules/JN3604IMT_rules.tsv'
+# rule_list = '../data/rules/JN3604IMT_rules.tsv'
 # rule_list = '../data/rules/minimal1224_all_uniprot.tsv'
+rule_list = '../data/rules/JN3604IMT_rules_carbonyl_free.tsv'
+coreactant_list = "../data/rules/metacyc_coreactants_carbonyl_free.tsv"
 
 # Pickaxe settings
-processes = 1 # 50
-generations = 1
+processes = 50 # 50
+generations = 2
 
 tani_filter = False
 tani_threshold = [0, 0, 0.3, 0.3, 0.3]
 increasing_tani = False
 
-tani_sample = False
-sample_size = 1000 # 10
+tani_sample = False # True
+sample_size = 1000 # 1000
 weight = None # 5
 
 save_to = f"/projects/b1039/spn1560/bottle/{input_cpds}_to_{target_cpds}_gen_{generations}_tan_sample_{int(tani_sample)}_n_samples_{sample_size}.pk"
 
 
-_, coreactant_list, rule_name = metacyc_intermediate(
+_, _, rule_name = metacyc_intermediate(
     fraction_coverage=1
     # n_rules=5
 )

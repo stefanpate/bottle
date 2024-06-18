@@ -5,9 +5,9 @@ from rdkit.Chem import AllChem
 import pickle
 from tqdm import tqdm
 
-starters = 'alpha_ketoglutarate_semialdehyde'
+starters = 'alpha_ketoglutarate'
 targets = 'hopa'
-generations = 1
+generations = 2
 ts = 0
 
 expansion_dir = '../data/processed_expansions/'

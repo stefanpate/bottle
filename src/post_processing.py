@@ -19,9 +19,20 @@ class Reaction:
             self.imt_rules = imt_rules
 
 class KnownReaction(Reaction):
-    def __init__(self, id, smarts, imt_rules=[], database_entries:List[DatabaseEntry]=[], enzymes:List[Enzyme]=[]):
+    def __init__(
+            self,
+            id,
+            smarts,
+            imt_rules=[],
+            min_rules=[],
+            rcs=[],
+            database_entries:List[DatabaseEntry]=[],
+            enzymes:List[Enzyme]=[]
+            ):
         super().__init__(id, smarts, imt_rules)
         self.database_entries = database_entries
+        self.min_rules = min_rules
+        self.rcs = rcs
         self.enzymes = enzymes
         self._sort_enzymes()
         self.enzyme_max_val = self.enzymes[0].validation_score if len(enzymes) > 0 else 0

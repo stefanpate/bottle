@@ -63,8 +63,13 @@ def construct_pr_list(pk_rids, rule2krhash, known_rxns, pk):
         for rule in pk_reaction["Operators"]:
             for known_rid in rule2krhash[rule]:
                 entry = known_rxns[known_rid]
-                kr = KnownReaction(id=known_rid, smarts=entry['smarts'],
-                    imt_rules=entry['imt_rules'], database_entries=entry['db_entries'],
+                kr = KnownReaction(
+                    id=known_rid,
+                    smarts=entry['smarts'],
+                    imt_rules=entry['imt_rules'],
+                    min_rules=entry['min_rules'],
+                    rcs=entry['rcs'],
+                    database_entries=entry['db_entries'],
                     enzymes=entry['enzymes'])
                 krs.add(kr)
         krs = list(krs)

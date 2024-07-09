@@ -14,3 +14,5 @@ data/mapping/known_rxns_jni_w_enzyme_validation.json
 data/mapping/uniprotkb_reviewed_true_AND_proteins_wi_2024_02_29.tsv
 data/mapping/uniprotkb_AND_reviewed_true_AND_protein_2024_05_15.tsv
 data/mapping/known_rxns_swissprot_enzymes_240310_v2.json
+.idea
+.tool-versions

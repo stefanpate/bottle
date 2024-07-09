@@ -1,9 +1,9 @@
 import json
+
 from rdkit import Chem
-from rdkit.Chem import AllChem
 import os
 import hashlib
-from typing import Tuple, Union
+from typing import Any, Tuple, Union, Iterable, TypeVar, Type, Callable
 import collections
 import itertools
 import rdkit
@@ -12,10 +12,13 @@ from rdkit.Chem import AllChem
 import re
 
 StoichTuple = collections.namedtuple("StoichTuple", "c_id, stoich")
+T = TypeVar('T')
+
 
 def ensure_dirs(path):
     if not os.path.exists(path):
         os.makedirs(path)
+
 
 def sort_x_by_y(x, y, reverse=False):
     yx = list(zip(y, x))
@@ -23,14 +26,17 @@ def sort_x_by_y(x, y, reverse=False):
     y, x = list(zip(*sorted_yx))
     return x, y
 
+
 def save_json(data, save_to):
     with open(save_to, 'w') as f:
         json.dump(data, f)
-    
+
+
 def load_json(path):
     with open(path, 'r') as f:
         data = json.load(f)
     return data
+
 
 def sanitize(list_of_smiles):
     '''
@@ -47,6 +53,7 @@ def sanitize(list_of_smiles):
             sanitized_smiles.append(None)
     return sanitized_smiles
 
+
 def rxn_entry_to_smarts(rxn_entry):
     '''
     Convert our standard rxn json
@@ -57,11 +64,12 @@ def rxn_entry_to_smarts(rxn_entry):
     sma = ".".join(reactants) + ">>" + ".".join(products)
     return sma
 
+
 def rm_atom_map_num(smarts):
     rxn = AllChem.ReactionFromSmarts(smarts, useSmiles=True)
 
     # Remove atom map num and write mol smarts in order
-    reactant_smas = []   
+    reactant_smas = []
     for elt in rxn.GetReactants():
         for atom in elt.GetAtoms():
             atom.SetAtomMapNum(0)
@@ -78,8 +86,9 @@ def rm_atom_map_num(smarts):
     unmapped_smarts = '.'.join(reactant_smas) + '>>' + '.'.join(product_smas)
     return unmapped_smarts
 
+
 def get_compound_hash(
-    smi: str, cpd_type: str = "Predicted", inchi_blocks: int = 1
+        smi: str, cpd_type: str = "Predicted", inchi_blocks: int = 1
 ) -> Tuple[str, Union[str, None]]:
     """Create a hash string for a given compound.
 
@@ -131,7 +140,8 @@ def get_compound_hash(
         return "T" + chash, inchi_key
     else:
         return "C" + chash, inchi_key
-    
+
+
 def get_reaction_hash(reactants, products):
     """Hashes reactant and product lists.
 
@@ -148,14 +158,16 @@ def get_reaction_hash(reactants, products):
     -------
         Reaction hash.
     """
+
     # Get text reaction to be hashed
     # this is a combination of two functions
     def to_str(half_rxn):
         return [f"({x[1]}) {x[0]}" for x in sorted(half_rxn)]
+
     reactants.sort()
     products.sort()
     text_ids_rxn = (
-        " + ".join(to_str(reactants)) + " => " + " + ".join(to_str(products))
+            " + ".join(to_str(reactants)) + " => " + " + ".join(to_str(products))
     )
     # Hash text reaction
     rhash = "R" + hashlib.sha256(text_ids_rxn.encode()).hexdigest()
@@ -168,7 +180,7 @@ def postsanitize_smiles(smiles_list):
     :returns tautomer list of list of smiles"""
     sanitized_list = []
     tautomer_smarts = "[#7H1X3&a:1]:[#6&a:2]:[#7H0X2&a:3]>>[#7H0X2:1]:[#6:2]:[#7H1X3:3]"
-    pattern = r'\[\d+\*\]' # Pattern for integer labeled *'s as in rhea
+    pattern = r'\[\d+\*\]'  # Pattern for integer labeled *'s as in rhea
     for s in smiles_list:
         s = re.sub(pattern, '*', s)
         temp_mol = Chem.MolFromSmiles(s, sanitize=False)
@@ -211,8 +223,8 @@ def postsanitize_smiles(smiles_list):
                             if i.GetBondType() == Chem.rdchem.BondType.AROMATIC
                         ]
                         if (
-                            processed_pyrrole_indices != pyrrole_indices
-                            or aromatic_bonds != processed_aromatic_bonds
+                                processed_pyrrole_indices != pyrrole_indices
+                                or aromatic_bonds != processed_aromatic_bonds
                         ):
                             continue
                         Chem.rdmolops.RemoveStereochemistry(temp_mol)
@@ -244,10 +256,12 @@ def postsanitize_smiles(smiles_list):
         sanitized_list.append(sorted(set(tautomer_smiles + [temp_smiles])))
     return list(itertools.product(*sanitized_list))
 
-_REACTIONS = None # Used in neutralise_charges below (cf. minedatabase.utils)
+
+_REACTIONS = None  # Used in neutralise_charges below (cf. minedatabase.utils)
+
 
 def neutralise_charges(
-    mol: rdkit.Chem.rdchem.Mol, reactions=None
+        mol: rdkit.Chem.rdchem.Mol, reactions=None
 ) -> rdkit.Chem.rdchem.Mol:
     """Neutralize all charges in an rdkit mol.
 
@@ -301,12 +315,30 @@ def neutralise_charges(
             mol = rms[0]
     return mol
 
+
 def smarts_to_sub_smiles(smarts):
     reactants, products = smarts.split(">>")
     reactants = reactants.split('.')
     products = products.split('.')
     return reactants, products
 
+
 def sub_smiles_to_smarts(reactants, products):
     sma = ".".join(reactants) + '>>' + ".".join(products)
     return sma
+
+
+def ensure_type(obj: Any, target_type: Type[T], *, factory: Callable[[Any], T] | None = None) -> T:
+    factory = factory or target_type
+    return obj if isinstance(obj, target_type) else factory(obj)
+
+
+def filter_smiles_by_smarts(
+        smiles: Iterable[str | rdkit.Chem.Mol],
+        smarts: str | rdkit.Chem.Mol
+) -> Iterable[rdkit.Chem.Mol]:
+    smarts = ensure_type(smarts, rdkit.Chem.Mol, factory=rdkit.Chem.MolFromSmarts)
+    return (
+        elem for elem in smiles
+        if ensure_type(elem, rdkit.Chem.Mol, factory=rdkit.Chem.MolFromSmiles).HasSubstructMatch(smarts)
+    )

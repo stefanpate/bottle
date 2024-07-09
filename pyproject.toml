@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "bottle"
+version = "0.1.0"
+description = ""
+authors = ["Pavel Katsev <pkatsev@gmail.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "~3.12"
+pandas = "^2.2.2"
+rdkit = "^2024.3.1"
+networkx = "^2.2"
+tqdm = "^4.66.4"
+requests = "^2.32.3"
+cvxpy = "^1.5.2"
+sqlalchemy = "^2.0.31"
+equilibrator-api = "^0.6.0"
+minedatabase = {path = "../MINE-Database", develop = true}
+lxml = "^5.2.2"
+setuptools = "^70.1.1"
+typer = "^0.12.3"
+more-itertools = "^10.3.0"
+
+[tool.poetry.group.dev.dependencies]
+findimports = "^2.5.0"
+jupyterlab = "^4.2.3"
+jupyterlab-vim = "^4.1.3"
+pytest = "^8.2.2"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

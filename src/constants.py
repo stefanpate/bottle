@@ -11,8 +11,7 @@ class MolMixin:
 @unique
 class BaseSMARTS(MolMixin, StrEnum):
     CARBON = '[#6]'
-    # CARBON_WITH_FUNC_GROUP_ANY = '[#6;!H0]'
-    CARBON_WITH_FUNC_GROUP_ANY = '[#6;$(C=[!#6]),$(C#[!#6]),$(C-[$(N),$(O),$(S),$(P),$(F),$(Cl),$(Br),$(I)])]'
+    CARBON_WITH_FUNC_GROUP_ANY = '[#6;$([#6]=[!#6]),$([#6]#[!#6]),$([#6]-[$(N),$(O),$(S),$(P),$(F),$(Cl),$(Br),$(I)])]'
     RING_BOND = '@'
     NON_RING_BOND = '!@'
 

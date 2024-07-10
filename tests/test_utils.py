@@ -1,15 +1,14 @@
-from src.utils import filter_smiles_by_smarts
-from src.constants import MoleculeSMARTS
-
 import pytest
+
+from src.utils import filter_smiles_by_smarts
+from src.smarts import MoleculeSMARTS
 
 
 @pytest.mark.parametrize('smarts,smiles_in,smiles_out', [
     (
-        MoleculeSMARTS.C4_FG123,
-        ['CC(N)C(O)C(O)=O', 'C(=O)(O)CC(O)C(O)=O','OCCCCO', 'CCCCCCCCC(N)C(O)C(O)=O', 'CCCC'],
-        ['CC(N)C(O)C(O)=O'],
-        # ['CC(N)C(O)C(O)=O', 'CCCCCCCCC(N)C(O)C(O)=O'],
+            MoleculeSMARTS.C4_FG123,
+            ['CC(N)C(O)C(O)=O', 'C(=O)(O)CC(O)C(O)=O', 'OCCCCO', 'CCCCCCCCC(N)C(O)C(O)=O', 'CCCC'],
+            ['CC(N)C(O)C(O)=O'],
     )
 ])
 def test_filter_smiles_by_smarts(smarts: str, smiles_in: list[str], smiles_out: list[str]):

@@ -1,13 +1,21 @@
 import sys
+from enum import Enum
+
 import typer
-from src.constants import MoleculeSMARTS
+
+from src.smarts import MoleculeSMARTS
 from src.utils import filter_smiles_by_smarts
 
 app = typer.Typer()
 
 
+class Boo(Enum):
+    FOO = 'foozy'
+    ZOO = 'zooby'
+
+
 @app.command()
-def filter_smiles(mol_smarts: MoleculeSMARTS | str):
+def filter_smiles(mol_smarts: Boo):
     print(mol_smarts)
     # pattern = Chem.MolFromSmarts(smarts)
     #

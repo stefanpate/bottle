@@ -10,7 +10,7 @@ class MolMixin:
 
 
 @unique
-class BaseSMARTS(MolMixin, StrEnum):
+class BaseSmarts(MolMixin, StrEnum):
     CARBON_ANY = '[#6]'
     CARBON_NO_FUNC_GROUP = '[#6;$([#6]~[#1,#6])]'
     REACTIVE_NONMETALS_NO_C = '[#7,#8,#9,#15,#16,#17,#34,#35,#53]'
@@ -22,7 +22,7 @@ class BaseSMARTS(MolMixin, StrEnum):
 def smarts_activation(
         func_groups: list[str],
         *,
-        c_bonds: str = BaseSMARTS.NON_RING_BOND,
+        c_bonds: str = BaseSmarts.NON_RING_BOND,
         max_carbon: int = -1
 ) -> str:
     """Construct a SMARTS pattern for different activation scenarios.
@@ -36,19 +36,19 @@ def smarts_activation(
         str: smarts pattern
     """
     n_max = max(len(func_groups), max_carbon)
-    ptn_c_upper_bound = f'[!$({c_bonds.join([BaseSMARTS.CARBON_ANY] * (n_max + 1))});'
+    ptn_c_upper_bound = f'[!$({c_bonds.join([BaseSmarts.CARBON_ANY] * (n_max + 1))});'
     ptn_prelim = c_bonds.join(func_groups)
     return re.sub('^\\[', ptn_c_upper_bound, ptn_prelim)
 
 
 @unique
-class MoleculeSMARTS(MolMixin, StrEnum):
-    C4_FG123 = smarts_activation([BaseSMARTS.CARBON_NO_FUNC_GROUP] + [BaseSMARTS.CARBON_WITH_FUNC_GROUP_NONMETAL] * 3)
+class MoleculeSmarts(MolMixin, StrEnum):
+    C4_FG123 = smarts_activation([BaseSmarts.CARBON_NO_FUNC_GROUP] + [BaseSmarts.CARBON_WITH_FUNC_GROUP_NONMETAL] * 3)
     C5_FG125 = smarts_activation([
-        BaseSMARTS.CARBON_WITH_FUNC_GROUP_NONMETAL,
-        BaseSMARTS.CARBON_WITH_FUNC_GROUP_NONMETAL,
-        BaseSMARTS.CARBON_NO_FUNC_GROUP,
-        BaseSMARTS.CARBON_NO_FUNC_GROUP,
-        BaseSMARTS.CARBON_WITH_FUNC_GROUP_NONMETAL
+        BaseSmarts.CARBON_WITH_FUNC_GROUP_NONMETAL,
+        BaseSmarts.CARBON_WITH_FUNC_GROUP_NONMETAL,
+        BaseSmarts.CARBON_NO_FUNC_GROUP,
+        BaseSmarts.CARBON_NO_FUNC_GROUP,
+        BaseSmarts.CARBON_WITH_FUNC_GROUP_NONMETAL
     ])
 

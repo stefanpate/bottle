@@ -14,5 +14,66 @@ data/mapping/known_rxns_jni_w_enzyme_validation.json
 data/mapping/uniprotkb_reviewed_true_AND_proteins_wi_2024_02_29.tsv
 data/mapping/uniprotkb_AND_reviewed_true_AND_protein_2024_05_15.tsv
 data/mapping/known_rxns_swissprot_enzymes_240310_v2.json
+
+# typical dev stuff
 .idea
 .tool-versions
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+

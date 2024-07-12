@@ -1,6 +1,6 @@
 '''
 1. Find paths between starters and targets
-2. Create 
+2. Create processed expansion object
 
 '''
 from src.pathway_utils import get_reverse_paths_to_starting, create_graph_from_pickaxe, pk_rhash_to_smarts
@@ -12,10 +12,10 @@ from collections import defaultdict
 import pickle
 
 # Set params
-starters = '2_oxopentanoic_acid'
+starters = 'alpha_ketoglutarate'
 targets = 'hopa'
-generations = 1
-ts = 0
+generations = 2
+ts = 0 # 0 | 1 if tanimoto sampled
 expansion_dir = '../data/raw_expansions/' # To load
 pruned_dir = '../data/pruned_expansions/' # To save
 fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_{ts}_n_samples_1000" # Expansion file name
@@ -34,7 +34,7 @@ pruned_cpds = set()
 '''
 Load known reaction information
 '''
-known_rxns = load_json("../data/mapping/known_rxns_swissprot_enzymes_plus_mcs_90_240310.json")
+known_rxns = load_json("../data/mapping/known_rxns_swissprot_enzymes_240310_v2.json")
 rule2krhash = defaultdict(list)
 for k,v in known_rxns.items():
 
@@ -63,8 +63,13 @@ def construct_pr_list(pk_rids, rule2krhash, known_rxns, pk):
         for rule in pk_reaction["Operators"]:
             for known_rid in rule2krhash[rule]:
                 entry = known_rxns[known_rid]
-                kr = KnownReaction(id=known_rid, smarts=entry['smarts'],
-                    imt_rules=entry['imt_rules'], database_entries=entry['db_entries'],
+                kr = KnownReaction(
+                    id=known_rid,
+                    smarts=entry['smarts'],
+                    imt_rules=entry['imt_rules'],
+                    min_rules=entry['min_rules'],
+                    rcs=entry['rcs'],
+                    database_entries=entry['db_entries'],
                     enzymes=entry['enzymes'])
                 krs.add(kr)
         krs = list(krs)

@@ -4,133 +4,105 @@ from src.post_processing import *
 from rdkit.Chem import AllChem
 import pickle
 from tqdm import tqdm
+import pandas as pd
 
-starters = 'alpha_ketoglutarate_semialdehyde'
+starters = 'alpha_ketoglutarate'
 targets = 'hopa'
-generations = 1
+generations = 2
 ts = 0
 
 expansion_dir = '../data/processed_expansions/'
 thermo_dir = '../data/thermo/'
+norm = 'max atoms' # Normalize MCS atom count by larger molecule
 fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_{ts}_n_samples_1000" # Expansion file name
 
 # Load processed expansion
 with open(expansion_dir + fn + '.pkl', 'rb') as f:
     pe = pickle.load(f)
 
-pr_am_errors = [] # Track predicted rxn am errors
-kr_am_errors = [] # Track known rxn am errors
-alignment_issues = [] # Track substrate alignment issues
-kekulize_issues = []
-norm = 'max atoms' # Normalize MCS atom count by larger molecule
+min_rules = pd.read_csv("../data/rules/minimal1224_all_uniprot.tsv", sep='\t')
+min_rules.set_index("Name", inplace=True)
 
 # Populate pred_rxns, known rxn prc-mcs slot
-
 pbar = tqdm(pe.predicted_reactions.items())
+matched_krs = set()
 for prid, pr in pbar:
-    rxn_sma1 = pr.smarts
+    potential_perm_idxs = defaultdict(list) # To store possible perm idx, mcs where mutliple between PR & KR are possible
+    
+    # Get reaction center of LHS of PR
+    pr_smarts = pr.smarts
+    pr_rcs = []
+    for imt_rule in pr.imt_rules:
+        min_rule_name = imt_rule.split('_')[0]
+        min_rule = min_rules.loc[min_rule_name, 'SMARTS']
+        pr_rc, pr_smarts_perm = get_pred_rxn_ctr(pr_smarts, min_rule) # PR RC + permuted LHS of smarts to match op template order
 
-    # Skip pred reactions that trigger RXNMapper atom mapping errors
-    try:
-        am_rxn_sma1 = atom_map(rxn_sma1)
-    except:
-        pr_am_errors.append(prid)
-        continue
+        if pr_rc is None:
+            print(pr.id, imt_rule, pr.imt_rules)
+            continue
 
-    a = 0 # Number known rxns analyzed
+        pr_rcs.append(pr_rc)
+
+        for n_kr, kr in enumerate(pr.analogues):
+            kr_smarts = kr.smarts
+            for i, kr_rc in enumerate(kr.rcs):
+                kr_min_rule_name = kr.min_rules[i]
+                
+                if kr_min_rule_name != min_rule_name:
+                    print(f"Rule mistmatch")
+                    continue # PR and KR min rule names did not match. TODO: eliminate these from PE?
+
+                if tuple([len(elt.split('.')) for elt in pr_smarts.split('>>')]) != tuple([len(elt.split('.')) for elt in kr_smarts.split('>>')]):
+                    print(f"Stoich error")
+                    continue
+
+                # Returns permuted indices of PR to align to KR RCs
+                perm_idx = align_reactants(
+                    known_reaction_smarts=kr_smarts,
+                    known_reaction_rc=kr_rc,
+                    min_rule=min_rule
+                    )
+                
+                if perm_idx is None: # TODO: Remove this?
+                    continue
+
+                matched_krs.add(kr.id)
+
+                # Permute to align KR smarts and rc w/ op template
+                kr_rcts = kr_smarts.split('>>')[0].split('.')
+                kr_rcts_perm = permute_by_idxs(kr_rcts, perm_idx)
+                kr_smarts_perm = ".".join(kr_rcts_perm) + '>>' + kr_smarts.split('>>')[1]
+                kr_rc_perm = permute_by_idxs(kr_rc, perm_idx)
+
+                # Compute rc-mcs values
+                rxns = [pr_smarts_perm, kr_smarts_perm]
+                rc_atoms = [pr_rc, kr_rc_perm]
+                rc_mcs = get_rc_mcs(
+                    rxns,
+                    rc_atoms,
+                    min_rule,
+                    norm=norm)
+                
+                potential_perm_idxs[n_kr].append((kr_smarts_perm, rc_mcs)) # TODO: also take rc perm and  min & imt operators to update kr entry in pe
+
+    # Take perm_idx of the best rc_mcs
+    pr.smarts = pr_smarts_perm # TODO: need to have multiple PR entries now in case of different perms?
+    for k, v in potential_perm_idxs.items():
+        print(f"{len(potential_perm_idxs) / len(pr.analogues)} of {len(pr.analogues)} analogues processed for {pr.id[:5]}")
+        best_entry = sorted(v, key=lambda x : sum(x[1]) / len(x[1]), reverse=True)[0]
+        best_smarts, best_rc_mcs = best_entry
+        pr._mcs_analogues[n_kr][0] = best_rc_mcs
+        pr._mcs_analogues[n_kr][1].smarts = best_smarts
+        # print(pr.id, '\n', pr.smarts, '\n', best_smarts, '\n', best_rc_mcs)
+
+not_matched_krs = set()
+for prid, pr in pbar:    
     for n_kr, kr in enumerate(pr.analogues):
-        rxn_sma2 = kr.smarts
-
-        # Catch stoichiometry mismatches stemming from pickaxe, early post-processing
-        if tuple([len(elt.split('.')) for elt in rxn_sma2.split('>>')]) != tuple([len(elt.split('.')) for elt in rxn_sma1.split('>>')]):
-            print(prid, kr.id, 'stoich_error')
-            continue
-
-        # Skip pred reactions that trigger RXNMapper atom mapping errors
-        try:
-            am_rxn_sma2 = atom_map(rxn_sma2)
-        except:
-            kr_am_errors.append(kr.id)
-            continue
-
-        # Construct reaction objects
-        rxns = []
-        for elt in [am_rxn_sma1, am_rxn_sma2]:
-            temp = AllChem.ReactionFromSmarts(elt, useSmiles=True)
-            temp.Initialize()
-            rxns.append(temp)
-
-        rc_atoms = [elt.GetReactingAtoms() for elt in rxns] # Get reaction center atom idxs
-
-        # Construct rxn ctr mol objs
-        try: # REMOVE after addressing KekulizationException in get_sub_mol
-            rcs = []
-            for i, t_rxn in enumerate(rxns):
-                temp = []
-                for j, t_mol in enumerate(t_rxn.GetReactants()):
-                    temp.append(get_sub_mol(t_mol, rc_atoms[i][j]))
-                rcs.append(temp)
-        except:
-            kekulize_issues.append((prid, kr.id))
-            continue
-
-        # Align substrates of the 2 reactions
-        rc_idxs = [] # Each element: (idx for rxn 1, idx for rxn 2)
-        remaining = [[i for i in range(len(elt))] for elt in rcs]
-        while (len(remaining[0]) > 0) & (len(remaining[1]) > 0):
-            idx_pair = align_substrates(rcs, remaining)
-
-            if idx_pair is None:
-                break
-            else:
-                rc_idxs.append(idx_pair)
-                remaining[0].remove(idx_pair[0])
-                remaining[1].remove(idx_pair[1])
-
-        # Skip if you haven't aligned every reactant pred to known
-        if len(rc_idxs) < len(rxn_sma1.split('>>')[0].split('.')):
-            alignment_issues.append((prid, kr.id))
-            continue
-
-        # For reaction 2 (known reaction) Re-order rcs, rc_atoms,
-        # internal order of reactants in the reaction object in rxns
-        # and the smarts stored in the known_reactions attribute of the
-        # associated predicted reaction
-
-        # Sort reaction 2 rc_idxs by reaction 1 rc_idxs
-        rxn_1_rc_idxs, rxn_2_rc_idxs = list(zip(*rc_idxs))
-        if rxn_1_rc_idxs != rxn_2_rc_idxs:
-            rxn_2_rc_idxs, rxn_1_rc_idxs = sort_x_by_y(rxn_2_rc_idxs, rxn_1_rc_idxs)
-
-            # Re-order atom-mapped smarts string, and then update known_rxns entry
-            # with de-atom-mapped version of this string because atom mapper changes
-            # reactant order and its this order that rcs, rcatoms, rc_idxs all come from
-            am_ro_sma2 = am_rxn_sma2.split('>>')[0].split('.') # Get list of reactant strings
-            am_ro_sma2 = '.'.join([am_ro_sma2[elt] for elt in rxn_2_rc_idxs]) # Re-join in new order
-            am_rxn_sma2 = am_ro_sma2 + '>>' + am_rxn_sma2.split('>>')[1] # Join with products side
-
-            # Re-construct reaction object from re-ordered, am smarts
-            temp = AllChem.ReactionFromSmarts(am_rxn_sma2, useSmiles=True)
-            temp.Initialize()
-            rxns[1] = temp
-
-            rc_atoms[1] = rxns[1].GetReactingAtoms() # Update rc_atoms
-            rcs[1] = [get_sub_mol(elt, rc_atoms[1][i]) for i, elt in enumerate(rxns[1].GetReactants())] # Update rc mol obj
-        
-        kr.smarts = rm_atom_map_num(am_rxn_sma2) # Update known_reaction entry w/ de-am smarts for consistent ordering in vis
-        rxns = align_atom_map_nums(rxns, rcs, rc_atoms)
-
-        # Compute MCS seeded by reaction center
-        prc_mcs = get_prc_mcs(rxns, rcs, rc_atoms, norm=norm) 
-        pr._mcs_analogues[n_kr][0] = prc_mcs # Update pred_rxns
-        
-        a += 1 # Count known rxn analyzed
-        pr.smarts = rm_atom_map_num(am_rxn_sma1) # Update pred_rxn smarts w/ de-am smarts for consistent ordering in vis
-
-    pbar.set_description(f"Predicted rxn {prid[:5]}. {a / (len(pr.analogues) + 1):.2f} of {len(pr.analogues) + 1} analogues successfully processed")
-
+        if kr.id not in matched_krs:
+            not_matched_krs.add(kr.id)
+            
 # Thermo
-
+# TODO: bring thermo within this directory
 # starters = 'succinate'
 # targets = 'mvacid'
 # generations = 4
@@ -138,6 +110,7 @@ for prid, pr in pbar:
 # command = f"source activate /home/stef/miniconda3/envs/thermo && python /home/stef/pickaxe_thermodynamics/path_mdf.py {' '.join(args)}"
 # subprocess.run(command, shell=True)
 
+# Get thermo calcs from pickaxe_thermodynamics
 thermo = load_json(thermo_dir + fn + '.json')
 for k,v in thermo.items():
     st = tuple(k.split('>'))

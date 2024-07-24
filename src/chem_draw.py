@@ -1,3 +1,6 @@
+from functools import partial
+from typing import Callable
+
 import PIL
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
@@ -120,6 +123,29 @@ def draw_mol_svg(smiles, stoich, hilite_atoms=None):
     fig = st.fromstring(d2d.GetDrawingText())
     fig.save(fn)
     return fn, width
+
+
+# TODO PK added this code before discovering http://rdkit.org/docs/source/rdkit.Chem.PandasTools.html
+# remove if this truly becomes dead code - otherwise, a decent pattern
+
+DrawerProvider = Callable[[Chem.Mol], Draw.MolDraw2D]
+
+
+def make_svg_drawer_non_scaling(width: int, height: int) -> DrawerProvider:
+    def drawer_2d_non_scaling(_mol: Chem.Mol) -> Draw.MolDraw2D:
+        return Draw.MolDraw2DSVG(width, height)
+    return drawer_2d_non_scaling
+
+
+def mol_to_svg(mol: Chem.Mol, drawer_provider: DrawerProvider) -> str:
+    mol = Draw.rdMolDraw2D.PrepareMolForDrawing(mol)
+    drawer = drawer_provider(mol)
+    drawer.DrawMolecule(mol)
+    return drawer.GetDrawingText()
+
+
+df_formatter_mol_svg = partial(mol_to_svg, drawer_provider=make_svg_drawer_non_scaling(width=300, height=100))
+
 
 '''
 PNG

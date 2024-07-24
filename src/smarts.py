@@ -12,9 +12,10 @@ class MolMixin:
 @unique
 class BaseSmarts(MolMixin, StrEnum):
     CARBON_ANY = '[#6]'
-    CARBON_NO_FUNC_GROUP = '[#6;$([#6]~[#1,#6])]'
+    CARBON_NO_FUNC_GROUP = '[#6;!$([#6]~[!#1&!#6]);!$([#6]@[#6])]'
     REACTIVE_NONMETALS_NO_C = '[#7,#8,#9,#15,#16,#17,#34,#35,#53]'
-    CARBON_WITH_FUNC_GROUP_NONMETAL = '[#6;$([#6]=[!#6]),$([#6]#[!#6]),$([#6]-[#7,#8,#9,#15,#16,#17,#34,#35,#53])]'
+    CARBON_WITH_FUNC_GROUP_NONMETAL = '[#6;$([#6]~[#7,#8,#9,#15,#16,#17,#34,#35,#53])]'
+    # CARBON_WITH_FUNC_GROUP_NONMETAL = '[#6;!$([#6]~[#6]),$([#6]~[#7,#8,#9,#15,#16,#17,#34,#35,#53]~[!#6])]'
     RING_BOND = '@'
     NON_RING_BOND = '!@'
 
@@ -42,8 +43,13 @@ def smarts_activation(
 
 
 @unique
-class MoleculeSmarts(MolMixin, StrEnum):
-    C4_FG123 = smarts_activation([BaseSmarts.CARBON_NO_FUNC_GROUP] + [BaseSmarts.CARBON_WITH_FUNC_GROUP_NONMETAL] * 3)
+class ActivationSmarts(MolMixin, StrEnum):
+    C4_FG123 = smarts_activation([
+        BaseSmarts.CARBON_WITH_FUNC_GROUP_NONMETAL,
+        BaseSmarts.CARBON_WITH_FUNC_GROUP_NONMETAL,
+        BaseSmarts.CARBON_WITH_FUNC_GROUP_NONMETAL,
+        BaseSmarts.CARBON_NO_FUNC_GROUP,
+    ])
     C5_FG125 = smarts_activation([
         BaseSmarts.CARBON_WITH_FUNC_GROUP_NONMETAL,
         BaseSmarts.CARBON_WITH_FUNC_GROUP_NONMETAL,
@@ -51,4 +57,3 @@ class MoleculeSmarts(MolMixin, StrEnum):
         BaseSmarts.CARBON_NO_FUNC_GROUP,
         BaseSmarts.CARBON_WITH_FUNC_GROUP_NONMETAL
     ])
-

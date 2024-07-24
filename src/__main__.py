@@ -6,7 +6,7 @@ from cyclopts import App, Group, Parameter, validators
 from cyclopts.types import File
 from rdkit import Chem
 
-from src.smarts import MoleculeSmarts
+from src.smarts import ActivationSmarts
 from src.utils import ensure_type
 
 app = App("Bottle CLI")
@@ -24,7 +24,7 @@ def filter_smiles(
         *,
         out_smiles: Annotated[File, Parameter(name=('--output', '-O'))] = None,
         smarts: Annotated[str, Parameter(group=_smarts_group)] = None,
-        mol_smarts: Annotated[MoleculeSmarts, Parameter(group=_smarts_group)] = None,
+        mol_smarts: Annotated[ActivationSmarts, Parameter(group=_smarts_group)] = None,
 ):
     """Filter a stream of SMILES lines by a SMARTS pattern.
 
@@ -39,7 +39,7 @@ def filter_smiles(
 
     with (
         in_smiles.open(mode='r') if in_smiles else nullcontext(sys.stdin) as fin,
-        out_smiles.open(mode='w') if out_smiles else nullcontext(sys.stderr) as fout,
+        out_smiles.open(mode='w') if out_smiles else nullcontext(sys.stdout) as fout,
     ):
         for line_num, line in enumerate(fin, start=1):
             if not (smiles := ensure_type(line.strip(), Chem.Mol, factory=Chem.MolFromSmiles)):

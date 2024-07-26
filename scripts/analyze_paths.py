@@ -1,5 +1,5 @@
 from src.rxn_ctr_mcs import *
-from src.utils import load_json, rm_atom_map_num
+from src.cheminfo_utils import load_json, rm_atom_map_num
 from src.post_processing import *
 from rdkit.Chem import AllChem
 import pickle

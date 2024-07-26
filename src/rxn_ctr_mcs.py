@@ -1,4 +1,4 @@
-from src.utils import sort_x_by_y
+from src.cheminfo_utils import sort_x_by_y
 from rdkit import Chem
 from rdkit.Chem import rdFMCS, AllChem
 from itertools import permutations, chain, product

@@ -4,7 +4,7 @@
 
 '''
 from src.pathway_utils import get_reverse_paths_to_starting, create_graph_from_pickaxe, pk_rhash_to_smarts
-from src.utils import load_json
+from src.cheminfo_utils import load_json
 from src.post_processing import *
 from minedatabase.pickaxe import Pickaxe
 from minedatabase.utils import get_compound_hash

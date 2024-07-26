@@ -2,7 +2,7 @@
 Define classes for pathway and reaction entries
 '''
 
-from src.utils import sort_x_by_y
+from src.cheminfo_utils import sort_x_by_y
 from src.pathway_utils import get_stoich_pk
 from collections import namedtuple, defaultdict
 from typing import List

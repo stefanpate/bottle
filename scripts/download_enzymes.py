@@ -97,7 +97,7 @@ def scrape_loop(uniprot_ids, batch_size, res, base_url=base_url, jni_uniprot=jni
 
 
 if __name__ == "__main__":
-    from src.utils import save_json, load_json
+    from src.cheminfo_utils import save_json, load_json
     import os
 
     if os.path.exists(jni_uniprot):

@@ -1,68 +1,31 @@
-from src.cheminfo_utils import sort_x_by_y
 from rdkit import Chem
 from rdkit.Chem import rdFMCS, AllChem
 from itertools import permutations, chain, product
 import re
-import numpy as np
+from typing import Iterable
 
-def align_reactants(known_reaction_smarts, known_reaction_rc, min_rule):
-    patts = get_lhs_patts_from_operator(min_rule)
-    patts = [Chem.MolFromSmarts(elt) for elt in patts]
-    known_reactants = [Chem.MolFromSmiles(elt) for elt in known_reaction_smarts.split('>>')[0].split('.')]
-    known_reaction_rc = [tuple(elt) for elt in known_reaction_rc] # to compare w/ getsubstrucmatches output below
+def align_reactants_to_operator(
+        reaction_smarts:str,
+        reaction_center:Iterable[Iterable],
+        min_rule:str,
+        ):
+    lhs_smiles = reaction_smarts.split('>>')[0].split('.')
+    reaction_center = [tuple(elt) for elt in reaction_center] # Type to tuple to compare to getsubstructmatches output
+    patts = [Chem.MolFromSmarts(elt) for elt in get_lhs_patts_from_operator(min_rule)]
+    reactants = [Chem.MolFromSmiles(elt) for elt in lhs_smiles]
 
-    rct_idxs = np.arange(len(known_reactants))
+    rct_idxs = [i for i in range(len(reactants))]
     for perm_idx in permutations(rct_idxs):
-        perm = [patts[elt] for elt in perm_idx]
-        matches = [mol.GetSubstructMatches(perm[i]) for i, mol in enumerate(known_reactants)]
-        aligned = all([known_reaction_rc[i] in matches[i] for i in range(len(known_reaction_rc))])
+        reactants_perm = [reactants[idx] for idx in perm_idx]
+        rc_perm = [reaction_center[idx] for idx in perm_idx]
+        matches = [mol.GetSubstructMatches(patts[i]) for i, mol in enumerate(reactants_perm)] # List[Tuple[tuple]]
+        aligned = all([rc_perm[i] in one_mol_matches for i, one_mol_matches in enumerate(matches)])
 
         if aligned:
-            return perm_idx
-
-
-def get_property_hashes(mol, aidxs):
-    '''
-    Returns tuple of hashes of property vectors
-    for atoms in a substructure of the mol object
-    (indexed by aidxs). Property vectors include
-    atomic #, formal charge, neighbor atoms (only
-    those in the substructure), and bond types.
-    '''
-
-    prop_hashes = []
-    for idx in aidxs:
-
-        # Append atom info
-        atom = mol.GetAtomWithIdx(idx)
-        this_prop = [atom.GetAtomicNum(), atom.GetFormalCharge()]
-
-        # Get bond & neighbor info
-        bonds = []
-        for bond in atom.GetBonds():
-
-            # Neighbor is at "end atom idx" and part of the substructure
-            if (bond.GetBeginAtomIdx() == idx) & (bond.GetEndAtomIdx() in aidxs):
-                bonds.append((bond.GetBondType(), bond.GetEndAtom().GetAtomicNum()))
-            
-            # Neighbor is at "begin atom idx" and part of substructure
-            if (bond.GetBeginAtomIdx() != idx) & (bond.GetBeginAtomIdx() in aidxs):
-                bonds.append((bond.GetBondType(), bond.GetBeginAtom().GetAtomicNum()))
-
-        if bonds:
-            # Bonds have to be in consistent order
-            bond_type, neighbor_atom_num = list(zip(*bonds))
-            neighbor_atom_num, bond_type = sort_x_by_y(neighbor_atom_num, bond_type)
-            bonds = list(zip(bond_type, neighbor_atom_num))
-
-            this_prop += bonds # Append bond & neighbor info
-        
-        this_prop = tuple(this_prop)
-        prop_hashes.append(hash(this_prop))
-
-    prop_hashes = tuple(prop_hashes)
-
-    return prop_hashes
+            # Permute to align KR smarts and rc w/ op template
+            reactants_smarts_perm = ".".join([lhs_smiles[idx] for idx in perm_idx])
+            reaction_smarts_perm = reactants_smarts_perm + '>>' + reaction_smarts.split('>>')[1]
+            return reaction_smarts_perm, rc_perm
 
 def get_rc_mcs(
         rxns,
@@ -149,7 +112,7 @@ def get_pred_rxn_ctr(pr_sma, min_rule):
     patts = get_lhs_patts_from_operator(min_rule)
     patts = [Chem.MolFromSmarts(elt) for elt in patts]
     reactants, products = [elt.split('.') for elt in pr_sma.split('>>')]
-    rct_idxs = np.arange(len(reactants))
+    rct_idxs = [i for i in range(len(reactants))]
     for perm_idx in permutations(rct_idxs): # Note: Pickaxe doesn't keep PR reactants in order of operator template; must permute
         reactant_mols = [Chem.MolFromSmiles(reactants[idx]) for idx in perm_idx]
         operator = Chem.rdChemReactions.ReactionFromSmarts(min_rule) # Make reaction object from smarts string
@@ -219,17 +182,6 @@ def get_lhs_patts_from_operator(smarts_str):
                 smarts_list[-1] = smarts_list[-1].replace('(', '', 1)[::-1].replace(')', '', 1)[::-1]
 
     return smarts_list
-
-def permute_by_idxs(to_permute, perm_idxs):
-    '''
-    Puts ith elt of to_permute in perm_idxs[i]th
-    elt of perm. Returns perm
-    '''
-    perm = [None for _ in range(len(perm_idxs))]
-    for i, pidx in enumerate(perm_idxs):
-        perm[pidx] = to_permute[i]
-
-    return perm
 
 # Tests
 if __name__ == '__main__':

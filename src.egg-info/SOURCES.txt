@@ -2,6 +2,7 @@ README.md
 setup.py
 src/__init__.py
 src/chem_draw.py
+src/cheminfo_utils.py
 src/pathway_utils.py
 src/post_processing.py
 src/rxn_ctr_mcs.py

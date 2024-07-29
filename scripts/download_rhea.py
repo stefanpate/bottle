@@ -2,9 +2,6 @@ import requests
 import multiprocessing as mp
 import json
 
-with open("../artifacts/rheas_to_get_names.txt", 'r') as f:
-    rheas_to_get = [line.strip() for line in f]
-
 def get_from_mol_elt(mol_elt, keys=('smiles', 'label')):
     return {k: mol_elt[k] for k in keys}
 
@@ -29,10 +26,13 @@ def get_from_rxn_rid(rid, keys=('smiles', 'label')):
     except:
         return None
 
+with open("../data/sprhea/rheas_to_get_names.txt", 'r') as f:
+    rheas_to_get = [line.strip() for line in f]
+
 with mp.Pool() as pool:
     res = pool.map(get_from_rxn_rid, rheas_to_get)
 
 res = dict(zip(rheas_to_get, res))
 
-with open("rhea_smiles_names.json", 'w') as f:
+with open("../data/sprhea/rhea_smiles_names.json", 'w') as f:
     json.dump(res, f)

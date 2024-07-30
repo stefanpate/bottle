@@ -8,39 +8,69 @@ from rdkit.Chem.MolStandardize import rdMolStandardize
 
 StoichTuple = collections.namedtuple("StoichTuple", "c_id, stoich")
 
-def standardize_mol(mol, remove_stereo=False):
+def standardize_mol(
+        mol,
+        max_tautomers = 1000,
+        do_neutralize = True,
+        do_find_parent = True,
+        remove_stereo=False,
+    ):
 
     if remove_stereo:
         Chem.rdmolops.RemoveStereochemistry(mol)
 
     # removeHs, disconnect metal atoms, normalize the molecule, reionize the molecule
+    # Also checks valency, that mol is kekulizable
     mol = rdMolStandardize.Cleanup(mol)
 
-    # if many fragments, get the "parent" (the actual mol we are interested in) 
-    mol = rdMolStandardize.FragmentParent(mol)
+    # if many fragments, get the "parent" (the actual mol we are interested in)
+    if do_find_parent:
+        mol = rdMolStandardize.FragmentParent(mol)
 
-    mol = neutralize_charges(mol) # Remove charges on atoms matching common patterns
+    if do_neutralize:
+        mol = neutralize_charges(mol) # Remove charges on atoms matching common patterns
 
     # Enumerate tautomers and choose canonical one
     te = rdMolStandardize.TautomerEnumerator()
+    te.SetMaxTautomers(max_tautomers)
     mol = te.Canonicalize(mol)
     
     return mol
 
-def standardize_smiles(smiles, remove_stereo=False):
+def standardize_smiles(
+        smiles,
+        max_tautomers = 1000,
+        do_neutralize = True,
+        do_find_parent = True,
+        remove_stereo=False,
+        ):
     mol = Chem.MolFromSmiles(smiles)
-    mol = standardize_mol(mol, remove_stereo=remove_stereo)
+    mol = standardize_mol(
+        mol,
+        max_tautomers=max_tautomers,
+        do_neutralize=do_neutralize,
+        do_find_parent=do_find_parent,
+        remove_stereo=remove_stereo
+    )
     return Chem.MolToSmiles(mol)
 
-def standardize_smarts_rxn(smarts_rxn, remove_stereo=False):
+def standardize_smarts_rxn(
+        smarts_rxn,
+        max_tautomers = 1000,
+        do_neutralize = True,
+        do_find_parent = True,
+        remove_stereo=False,
+    ):
     '''
     Args
     ----
     smarts_rxn:str - SMARTS-encoded reaction, 'reactant.reactant>>product.product'
     '''
+    std_smi = lambda smiles : standardize_smiles(smiles, max_tautomers, do_neutralize, do_find_parent, remove_stereo)
+
     rcts, pdts = [side.split('.') for side in smarts_rxn.split('>>')]
-    rcts = [standardize_smiles(r, remove_stereo) for r in rcts]
-    pdts = [standardize_smiles(p, remove_stereo) for p in pdts]
+    rcts = [std_smi(r) for r in rcts]
+    pdts = [std_smi(p) for p in pdts]
     return f"{'.'.join(rcts)}>>{'.'.join(pdts)}"
 
 def clean_up_rhea_rxn(rxn_smarts):

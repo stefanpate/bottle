@@ -57,22 +57,13 @@ for prid, pr in pbar:
                     continue
 
                 # Returns permuted indices of PR to align to KR RCs
-                perm_idx = align_reactants(
-                    known_reaction_smarts=kr_smarts,
-                    known_reaction_rc=kr_rc,
+                kr_smarts_perm, kr_rc_perm = align_reactants_to_operator(
+                    reaction_smarts=kr_smarts,
+                    reaction_center=kr_rc,
                     min_rule=min_rule
                     )
-                
-                if perm_idx is None: # TODO: Remove this?
-                    continue
 
                 matched_krs.add(kr.id)
-
-                # Permute to align KR smarts and rc w/ op template
-                kr_rcts = kr_smarts.split('>>')[0].split('.')
-                kr_rcts_perm = permute_by_idxs(kr_rcts, perm_idx)
-                kr_smarts_perm = ".".join(kr_rcts_perm) + '>>' + kr_smarts.split('>>')[1]
-                kr_rc_perm = permute_by_idxs(kr_rc, perm_idx)
 
                 # Compute rc-mcs values
                 rxns = [pr_smarts_perm, kr_smarts_perm]

@@ -1,16 +1,32 @@
 '''
 Define classes for pathway and reaction entries
 '''
-
-from src.cheminfo_utils import sort_x_by_y
-from src.pathway_utils import get_stoich_pk
 from collections import namedtuple, defaultdict
 from typing import List
 import numpy as np
 import json
+from dataclasses import dataclass, asdict
+import typing
 
 DatabaseEntry = namedtuple("DatabaseEntry", "db, id", defaults=[None, None])
-Enzyme = namedtuple("Enzyme", "uniprot_id, sequence, ec, validation_score, existence, reviewed, organism", defaults=[None, None, None, None, None, None, None])
+# Enzyme = namedtuple("Enzyme", "uniprot_id, sequence, ec, validation_score, existence, reviewed, organism, name", defaults=[None, None, None, None, None, None, None, None])
+
+@dataclass
+class Enzyme:
+    uniprot_id:str
+    sequence:typing.Optional[str] = None
+    existence:typing.Optional[str] = None
+    reviewed:typing.Optional[str] = None
+    ec:typing.Optional[str] = None
+    organism:typing.Optional[str] = None
+    name:typing.Optional[str] = None
+
+    def to_dict(self):
+        return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, enz:dict):
+        return cls(**enz)
 
 class Reaction:
         def __init__(self, id, smarts, imt_rules=[]):

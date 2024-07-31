@@ -6,12 +6,12 @@ from math import isnan
 from collections import defaultdict
 from itertools import chain
 
-def sanitize_smiles(smiles, remove_stereo):
+def sanitize_smiles(smiles):
     '''
     Wrap standardize smiles in try except
     '''
     try:
-        return standardize_smiles(smiles, remove_stereo)
+        return standardize_smiles(smiles)
     except:
         return None
     
@@ -74,7 +74,6 @@ def extract_smi2name(rheas, sansmarts, rhea2smi2name):
     return {smi: combosmi2name.get(smi, None) for smi in smiles}
          
 
-remove_stereo = True
 '''
 Load in:
 1. Rhea-SMARTS
@@ -120,7 +119,7 @@ for rid, elt in rhea2smi2name.items():
         if smi in smi2sansmi:
             rhea2sansmi2name[rid][smi2sansmi[smi]] = name
         else:
-            sansmi = sanitize_smiles(smi, remove_stereo=remove_stereo)
+            sansmi = sanitize_smiles(smi)
             rhea2sansmi2name[rid][sansmi] = name
             smi2sansmi[smi] = sansmi
 
@@ -134,21 +133,21 @@ rxnid2rhea = defaultdict(list)
 sansmarts2rxnid = {}
 rxn_no = 0
 for rid, smarts in rhea2smarts.items():
-    cu_smarts = clean_up_rhea_rxn(smarts) # MUST remove numbered asterisks before sanitize_smiles()
+    cu_smarts = clean_up_rhea_rxn(smarts) # MUST remove numbered asterisks before sanitizing smiles
     reactants, products = [elt.split('.') for elt in cu_smarts.split('>>')]
     san_reactants, san_products = [], []
     for r in reactants:
         if r in smi2sansmi:
             san_reactants.append(smi2sansmi[r])
         else:
-            sanr = sanitize_smiles(r, remove_stereo=remove_stereo)
+            sanr = sanitize_smiles(r)
             san_reactants.append(sanr)
             smi2sansmi[r] = sanr
     for p in products:
         if p in smi2sansmi:
             san_products.append(smi2sansmi[p])
         else:
-            sanp = sanitize_smiles(p, remove_stereo=remove_stereo)
+            sanp = sanitize_smiles(p)
             san_products.append(sanp)
             smi2sansmi[p] = sanp
 

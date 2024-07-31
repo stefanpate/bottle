@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from src.utils import load_json
-from src.operator_mapping import match_template, map_rxn2rule
+from src.operator_mapping import match_template, map_rxn2rule, expand_paired_cofactors, expand_unpaired_cofactors
 from src.cheminfo_utils import standardize_smarts_rxn
 import pandas as pd
 import multiprocessing as mp
@@ -30,6 +30,7 @@ do_template = True # Whether to enforce template matching, ie cofactors
 return_rc = True # Whether to return reaction center while mapping operators
 pre_standardized = True
 rm_stereo = True
+k_tautomers = 10
 
 def map_reaction(
         rxn_id,
@@ -56,9 +57,9 @@ def map_reaction(
     
     return output_rows
 
-def try_standardize_smarts_rxn(smarts, rm_stereo):
+def try_standardize_smarts_rxn(smarts):
     try:
-        return standardize_smarts_rxn(smarts, remove_stereo=rm_stereo)
+        return standardize_smarts_rxn(smarts)
     except:
         return None
     
@@ -69,15 +70,15 @@ def prep_reaction(
         rm_stereo
     ):
     smarts = entry['smarts']
-    if not pre_standardized:
+    if pre_standardized:
+        return smarts
+    else:
         sansmarts = try_standardize_smarts_rxn(smarts, rm_stereo)
         
         if sansmarts is None:
             print(f"Unable to sanitize reaction: {rxn_id} w/ SMARTS: {smarts}")
         
         return sansmarts
-    else:
-        return smarts
 
 def process_reaction(
         pair,
@@ -95,6 +96,9 @@ def process_reaction(
         pre_standardized=pre_standardized,
         rm_stereo=rm_stereo
     )
+
+    if sansmarts is None: # Unable to standardize
+        return []
 
     output_rows = map_reaction(
         rxn_id=rxn_id,
@@ -115,9 +119,11 @@ rxns = load_json(args.reactions) # Read in reactions
 n_rxns = len(list(rxns.keys())) # Total no. reactions to map
 
 # Read in cofactor lookup tables
-smi2unpaired_cof = load_json('/home/spn1560/bottle/data/cofactors/smi2unpaired_cof.json')
-smi2paired_cof = load_json('/home/spn1560/bottle/data/cofactors/smi2paired_cof.json')
-smi2paired_cof = {tuple(k.split(",")): tuple(v.split(",")) for k,v in smi2paired_cof.items()}
+paired_ref = pd.read_csv('../data/cofactors/paired_cofactors_reference.tsv', sep='\t')
+unpaired_ref = pd.read_csv('../data/cofactors/unpaired_cofactors_reference.tsv', sep='\t')
+smi2paired_cof = expand_paired_cofactors(paired_ref, k=k_tautomers)
+smi2unpaired_cof = expand_unpaired_cofactors(unpaired_ref, k=k_tautomers)
+
 
 output_cols = ["Reaction ID", "Rule", "Aligned smarts", "Reaction center"]
 output_data = []

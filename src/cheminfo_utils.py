@@ -8,15 +8,26 @@ from rdkit.Chem.MolStandardize import rdMolStandardize
 
 StoichTuple = collections.namedtuple("StoichTuple", "c_id, stoich")
 
+def _handle_kwargs(**kwargs):
+    default_kwargs = {
+        'do_canon_taut':False,
+        'do_neutralize':True,
+        'do_find_parent':True,
+        'do_remove_stereo':True,
+        'max_tautomers':1000,
+    }
+    filtered_kwargs = {k : v for k, v in kwargs.items() if k in default_kwargs}
+    default_kwargs.update(filtered_kwargs)
+    return default_kwargs
+
+
 def standardize_mol(
         mol,
-        max_tautomers = 1000,
-        do_neutralize = True,
-        do_find_parent = True,
-        remove_stereo=False,
+        **kwargs
     ):
+    kwargs = _handle_kwargs(**kwargs)
 
-    if remove_stereo:
+    if kwargs['do_remove_stereo']:
         Chem.rdmolops.RemoveStereochemistry(mol)
 
     # removeHs, disconnect metal atoms, normalize the molecule, reionize the molecule
@@ -24,53 +35,46 @@ def standardize_mol(
     mol = rdMolStandardize.Cleanup(mol)
 
     # if many fragments, get the "parent" (the actual mol we are interested in)
-    if do_find_parent:
+    if kwargs['do_find_parent']:
         mol = rdMolStandardize.FragmentParent(mol)
 
-    if do_neutralize:
+    if kwargs['do_neutralize']:
         mol = neutralize_charges(mol) # Remove charges on atoms matching common patterns
 
     # Enumerate tautomers and choose canonical one
-    te = rdMolStandardize.TautomerEnumerator()
-    te.SetMaxTautomers(max_tautomers)
-    mol = te.Canonicalize(mol)
+    if kwargs['do_canon_taut']:
+        te = rdMolStandardize.TautomerEnumerator()
+        te.SetMaxTautomers(kwargs['max_tautomers'])
+        mol = te.Canonicalize(mol)
     
     return mol
 
 def standardize_smiles(
         smiles,
-        max_tautomers = 1000,
-        do_neutralize = True,
-        do_find_parent = True,
-        remove_stereo=False,
-        ):
+        **kwargs
+    ):
+    kwargs = _handle_kwargs(**kwargs)
     mol = Chem.MolFromSmiles(smiles)
     mol = standardize_mol(
         mol,
-        max_tautomers=max_tautomers,
-        do_neutralize=do_neutralize,
-        do_find_parent=do_find_parent,
-        remove_stereo=remove_stereo
+        **kwargs
     )
     return Chem.MolToSmiles(mol)
 
 def standardize_smarts_rxn(
         smarts_rxn,
-        max_tautomers = 1000,
-        do_neutralize = True,
-        do_find_parent = True,
-        remove_stereo=False,
+        **kwargs
     ):
+    kwargs = _handle_kwargs(**kwargs)
     '''
     Args
     ----
     smarts_rxn:str - SMARTS-encoded reaction, 'reactant.reactant>>product.product'
     '''
-    std_smi = lambda smiles : standardize_smiles(smiles, max_tautomers, do_neutralize, do_find_parent, remove_stereo)
 
     rcts, pdts = [side.split('.') for side in smarts_rxn.split('>>')]
-    rcts = [std_smi(r) for r in rcts]
-    pdts = [std_smi(p) for p in pdts]
+    rcts = [standardize_smiles(r, **kwargs) for r in rcts]
+    pdts = [standardize_smiles(p, **kwargs) for p in pdts]
     return f"{'.'.join(rcts)}>>{'.'.join(pdts)}"
 
 def clean_up_rhea_rxn(rxn_smarts):
@@ -209,120 +213,64 @@ def neutralize_charges(mol: Chem.rdchem.Mol) -> Chem.rdchem.Mol:
             mol = rms[0]
     return mol
 
-def smarts_to_sub_smiles(smarts):
-    reactants, products = smarts.split(">>")
-    reactants = reactants.split('.')
-    products = products.split('.')
-    return reactants, products
+def tautomer_expand(molecule, k):
+    '''
+    Returns top k tautomers of given molecule in the
+    format provided.
 
-def sub_smiles_to_smarts(reactants, products):
-    sma = ".".join(reactants) + '>>' + ".".join(products)
-    return sma
+    Args
+    ----
+    molecule:Mol | str
+    k:int
 
-# def postsanitize_smiles(smiles_list):
-#     """Postsanitize smiles after running SMARTS.
-#     :returns tautomer list of list of smiles"""
-#     sanitized_list = []
-#     tautomer_smarts = "[#7H1X3&a:1]:[#6&a:2]:[#7H0X2&a:3]>>[#7H0X2:1]:[#6:2]:[#7H1X3:3]"
-#     pattern = r'\[\d+\*\]' # Pattern for integer labeled *'s as in rhea
-#     for s in smiles_list:
-#         s = re.sub(pattern, '*', s)
-#         temp_mol = Chem.MolFromSmiles(s, sanitize=False)
-#         temp_mol = Chem.RemoveHs(temp_mol, sanitize=False)
-#         aromatic_bonds = [
-#             i.GetIdx()
-#             for i in temp_mol.GetBonds()
-#             if i.GetBondType() == Chem.rdchem.BondType.AROMATIC
-#         ]
-#         for i in temp_mol.GetBonds():
-#             if i.GetBondType() == Chem.rdchem.BondType.UNSPECIFIED:
-#                 i.SetBondType(Chem.rdchem.BondType.SINGLE)
-#         try:
-#             Chem.SanitizeMol(temp_mol)
-#             Chem.rdmolops.RemoveStereochemistry(temp_mol)
-#             temp_smiles = Chem.MolToSmiles(temp_mol)
-#         except Exception as msg:
-#             if "Can't kekulize mol" in str(msg):
-#                 pyrrole_indices = [
-#                     i[0] for i in temp_mol.GetSubstructMatches(Chem.MolFromSmarts("n"))
-#                 ]
-#                 # indices to sanitize
-#                 for s_i in pyrrole_indices:
-#                     temp_mol = Chem.MolFromSmiles(s, sanitize=False)
-#                     if temp_mol.GetAtomWithIdx(s_i).GetNumExplicitHs() == 0:
-#                         temp_mol.GetAtomWithIdx(s_i).SetNumExplicitHs(1)
-#                     elif temp_mol.GetAtomWithIdx(s_i).GetNumExplicitHs() == 1:
-#                         temp_mol.GetAtomWithIdx(s_i).SetNumExplicitHs(0)
-#                     try:
-#                         Chem.SanitizeMol(temp_mol)
-#                         processed_pyrrole_indices = [
-#                             i[0]
-#                             for i in temp_mol.GetSubstructMatches(
-#                                 Chem.MolFromSmarts("n")
-#                             )
-#                         ]
-#                         processed_aromatic_bonds = [
-#                             i.GetIdx()
-#                             for i in temp_mol.GetBonds()
-#                             if i.GetBondType() == Chem.rdchem.BondType.AROMATIC
-#                         ]
-#                         if (
-#                             processed_pyrrole_indices != pyrrole_indices
-#                             or aromatic_bonds != processed_aromatic_bonds
-#                         ):
-#                             continue
-#                         Chem.rdmolops.RemoveStereochemistry(temp_mol)
-#                         temp_smiles = Chem.MolToSmiles(temp_mol)
-#                         break
-#                     except:
-#                         continue
-#                 if "temp_smiles" not in vars():
-#                     Chem.rdmolops.RemoveStereochemistry(temp_mol)
-#                     temp_smiles = Chem.MolToSmiles(temp_mol)
-#                     sanitized_list.append([temp_smiles])
-#                     continue
-#             else:
-#                 Chem.rdmolops.RemoveStereochemistry(temp_mol)
-#                 temp_smiles = Chem.MolToSmiles(temp_mol)
-#                 sanitized_list.append([temp_smiles])
-#                 continue
-#         rxn = AllChem.ReactionFromSmarts(tautomer_smarts)
-#         try:
-#             tautomer_mols = rxn.RunReactants((Chem.MolFromSmiles(temp_smiles),))
-#         except:
-#             try:
-#                 tautomer_mols = rxn.RunReactants(
-#                     (Chem.MolFromSmiles(temp_smiles, sanitize=False),)
-#                 )
-#             except:
-#                 continue
-#         tautomer_smiles = [Chem.MolToSmiles(m[0]) for m in tautomer_mols]
-#         sanitized_list.append(sorted(set(tautomer_smiles + [temp_smiles])))
-#     return list(itertools.product(*sanitized_list))
+    Returns
+    --------
+    tautomers:List[Mol] | List[str]
+    '''
+    # TODO: Figure out how to do this w/o enumeratring 
+    # twice (once thru canonicalize and once with enumerate)
+    # Need to figure out how ties are broken... something to do 
+    # with the canonical smiles...#
+    if type(molecule) is str:
+        molecule = Chem.MolFromSmiles(molecule)
+        mode = 'str'
+    elif type(molecule) is Chem.Mol:
+        mode = 'mol'
+    
+    enumerator = rdMolStandardize.TautomerEnumerator()
+    canon_mol = enumerator.Canonicalize(molecule)
+    canon_smi = Chem.MolToSmiles(canon_mol)
+    tauts = enumerator.Enumerate(molecule)
+    smis = []
+    mols = []
+    for mol in tauts:
+        smi = Chem.MolToSmiles(mol)
+        if smi != canon_smi:
+            smis.append(smi)
+            mols.append(mol)
 
-# def sanitize(list_of_smiles):
-#     '''
-#     Remove stereochem and canonicalize
-#     a list of smiles
-#     '''
-#     sanitized_smiles = []
-#     for elt in list_of_smiles:
-#         temp_mol = Chem.MolFromSmiles(elt)
-#         if temp_mol:
-#             Chem.rdmolops.RemoveStereochemistry(temp_mol)
-#             sanitized_smiles.append(Chem.MolToSmiles(temp_mol))
-#         else:
-#             sanitized_smiles.append(None)
-#     return sanitized_smiles
+    if not smis and not mols:
+        smis = [canon_smi]
+        mols = [canon_mol]
+    else:
+        srt = sorted(list(zip(smis, mols)), key=lambda x : enumerator.ScoreTautomer(x[1]), reverse=True)
+        smis, mols = [list(elt) for elt in zip(*srt)]
+        smis = [canon_smi] + smis
+        mols = [canon_mol] + mols
 
-# def rxn_entry_to_smarts(rxn_entry):
-#     '''
-#     Convert our standard rxn json
-#     entry into a reaction smarts
-#     '''
-#     reactants = sanitize(list(rxn_entry[0].values()))
-#     products = sanitize(list(rxn_entry[1].values()))
-#     sma = ".".join(reactants) + ">>" + ".".join(products)
+    if mode == 'str':
+        return smis[:k]
+    elif mode == 'mol':
+        return mols[:k]
+
+# def smarts_to_sub_smiles(smarts):
+#     reactants, products = smarts.split(">>")
+#     reactants = reactants.split('.')
+#     products = products.split('.')
+#     return reactants, products
+
+# def sub_smiles_to_smarts(reactants, products):
+#     sma = ".".join(reactants) + '>>' + ".".join(products)
 #     return sma
 
 if __name__ == '__main__':
@@ -340,19 +288,11 @@ if __name__ == '__main__':
     for start, target in test_rhea_clean:
         assert target == clean_up_rhea_rxn(start)
 
-    import pandas as pd
-    rhea_smarts = pd.read_csv('/home/stef/bottle/data/mapping/rhea-reaction-smiles.tsv', '\t', header=None)
-    rhea_smarts.columns = ["rhea_id", "smarts"]
-    bad_smarts = []
-    for i, row in rhea_smarts.iterrows():
-        try:
-            standardize_smarts_rxn(row['smarts'])
-        except:
-            bad_smarts.append(row['smarts'])
-
-    print(f"Standardized {(i+1 - len(bad_smarts)) / (i+1)} SMARTS. Bad smarts:")
-    for elt in bad_smarts:
-        print(elt)
-
+    smi1 = "C(CO)(COP([O-])(=O)[O-])=O"
+    smi2 = "[H]C(=O)[C@H](O)COP([O-])([O-])=O"
+    sma = f"{smi1}>>{smi2}"
+    assert(standardize_smiles(smi1, do_canon_taut=True) == standardize_smiles(smi2, do_canon_taut=True))
+    assert(standardize_smiles(smi1) != standardize_smiles(smi2))
+    standardize_smarts_rxn(sma)
 
     

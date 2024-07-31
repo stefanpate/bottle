@@ -1,14 +1,13 @@
-from src.cheminfo_utils import standardize_mol
+from src.cheminfo_utils import standardize_mol, tautomer_expand
 from itertools import permutations, product, chain
 from rdkit import Chem
 import re
 
-MAX_TAUTOMERS = 100
 DO_NEUTRALIZE = False
 DO_FIND_PARENT = False
 
-def _standardize(mol):
-    return Chem.MolToSmiles(standardize_mol(mol, max_tautomers=MAX_TAUTOMERS, do_neutralize=DO_NEUTRALIZE, do_find_parent=DO_FIND_PARENT))
+def _standardize(mol, do_canon_taut, do_neutralize=DO_NEUTRALIZE, do_find_parent=DO_FIND_PARENT):
+    return Chem.MolToSmiles(standardize_mol(mol, do_canon_taut=do_canon_taut, do_neutralize=do_neutralize, do_find_parent=do_find_parent))
 
 def split_reaction(rxn_smarts):
     return tuple([elt.split(".") for elt in rxn_smarts.split(">>")])
@@ -181,9 +180,26 @@ def get_patts_from_operator_side(smarts_str, side):
     return smarts_list
 
 def compare_operator_outputs_w_products(outputs, products):
+    # Try WITHOUT tautomer canonicalization
     for output in outputs:
         try:
-            output = sorted([_standardize(mol) for mol in output]) # Standardize and sort SMILES
+            output = sorted([_standardize(mol, do_canon_taut=False) for mol in output]) # Standardize and sort SMILES
+        except:
+            continue
+
+        # Compare predicted to actual products. If mapped, return True
+        if output == products: 
+            return True
+        
+    # Try WITH tautomer canonicalization
+    try:
+        products = sorted([_standardize(mol, do_canon_taut=True) for mol in products])
+    except:
+        return False
+    
+    for output in outputs:
+        try:
+            output = sorted([_standardize(mol, do_canon_taut=True) for mol in output]) # Standardize and sort SMILES
         except:
             continue
 
@@ -192,3 +208,22 @@ def compare_operator_outputs_w_products(outputs, products):
             return True
             
     return False
+
+def expand_paired_cofactors(df, k):
+    smi2cof = {}
+    for _, row in df.iterrows():
+        smi_exp_1 = tautomer_expand(row["Smiles 1"], k)
+        smi_exp_2 = tautomer_expand(row["Smiles 2"], k)
+        for combo in product(smi_exp_1, smi_exp_2):
+            smi2cof[combo] = (row["Class 1"], row["Class 2"])
+
+    return smi2cof
+
+def expand_unpaired_cofactors(df, k):
+    smi2cof = {}
+    for _, row in df.iterrows():
+        smi_exp = tautomer_expand(row["Smiles"], k)
+        for smi in smi_exp:
+            smi2cof[smi] = row["Class"]
+
+    return smi2cof

@@ -115,8 +115,8 @@ rxns = load_json(args.reactions) # Read in reactions
 n_rxns = len(list(rxns.keys())) # Total no. reactions to map
 
 # Read in cofactor lookup tables
-smi2unpaired_cof = load_json('/home/stef/bottle/data/cofactors/smi2unpaired_cof.json')
-smi2paired_cof = load_json('/home/stef/bottle/data/cofactors/smi2paired_cof.json')
+smi2unpaired_cof = load_json('/home/spn1560/bottle/data/cofactors/smi2unpaired_cof.json')
+smi2paired_cof = load_json('/home/spn1560/bottle/data/cofactors/smi2paired_cof.json')
 smi2paired_cof = {tuple(k.split(",")): tuple(v.split(",")) for k,v in smi2paired_cof.items()}
 
 output_cols = ["Reaction ID", "Rule", "Aligned smarts", "Reaction center"]

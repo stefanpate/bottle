@@ -3,7 +3,7 @@ from itertools import permutations, product, chain
 from rdkit import Chem
 import re
 
-MAX_TAUTOMERS = 100
+MAX_TAUTOMERS = 1000
 DO_NEUTRALIZE = False
 DO_FIND_PARENT = False
 

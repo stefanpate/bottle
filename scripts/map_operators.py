@@ -3,8 +3,6 @@ from src.utils import load_json
 from src.operator_mapping import match_template, map_rxn2rule, expand_paired_cofactors, expand_unpaired_cofactors
 from src.cheminfo_utils import standardize_smarts_rxn
 import pandas as pd
-import multiprocessing as mp
-from itertools import chain
 
 # Run from cmd
 # E.g., python map_rxns.py JN3604IMT_rules.tsv swissprot_unmapped.json swissprot_unmapped.json
@@ -144,12 +142,10 @@ def process_pair(pair):
     )
     return output_rows
 
-with mp.Pool() as pool:
-    res = pool.map(process_pair, pairs)
-    
-    
-output_data = list(chain(*res)) 
-   
+output_data = []
+for pair in rxns.items():
+    output_rows = process_pair(pair)
+    output_data += output_rows
 
 df = pd.DataFrame(
     data=output_data,

@@ -98,8 +98,7 @@ def map_rxn2rule(rxn, rule, return_rc=False, matched_idxs=None, max_products=100
                 for protect_idx in all_but:
                     perm[j].GetAtomWithIdx(protect_idx).ClearProp('_protected')
 
-    else: # Did not map
-        return res
+    return res # Did not map or failed getting RC
 
 def match_template(rxn, rule_reactants_template, rule_products_template, smi2paired_cof, smi2unpaired_cof):
     '''

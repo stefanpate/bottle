@@ -50,11 +50,11 @@ class KnownReaction(Reaction):
         self.min_rules = min_rules
         self.rcs = rcs
         self.enzymes = enzymes
-        self._sort_enzymes()
-        self.enzyme_max_val = self.enzymes[0].validation_score if len(enzymes) > 0 else 0
+        # self._sort_enzymes()
+        # self.enzyme_max_val = self.enzymes[0].validation_score if len(enzymes) > 0 else 0
 
-    def _sort_enzymes(self):
-        self.enzymes.sort(key=lambda e : e.validation_score, reverse=True)
+    # def _sort_enzymes(self):
+    #     self.enzymes.sort(key=lambda e : e.validation_score, reverse=True)
 
 class PredictedReaction(Reaction):
     _sort_keys = {'prc_mcs_min': lambda mcs_analogue: min(mcs_analogue[0]),

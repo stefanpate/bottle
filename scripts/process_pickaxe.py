@@ -3,7 +3,7 @@
 2. Create processed expansion object
 
 '''
-from src.pickaxe_processing import get_reverse_paths_to_starting, create_graph_from_pickaxe, pk_rhash_to_smarts
+from src.pickaxe_processing import find_paths, prune_pickaxe, create_graph_from_pickaxe, pk_rhash_to_smarts
 from src.utils import load_json
 from src.post_processing import *
 from minedatabase.pickaxe import Pickaxe
@@ -25,11 +25,10 @@ pk = Pickaxe()
 path = expansion_dir + fn + '.pk'
 pk.load_pickled_pickaxe(path)
 
-pe = ProcessedExpansion() # Initialize processed expansion
+# pe = ProcessedExpansion() # Initialize processed expansion
 
 # For pruned pk obj
-pruned_rxns = set()
-pruned_cpds = set()
+
 
 '''
 Load known reaction information
@@ -94,8 +93,7 @@ for n in DG.nodes():
         bad_nodes.append(n)
 
 # Get pathways
-max_depth = generations * 2 # Times 2 because graph is bipartite with mols and rxns
-paths = defaultdict(list)
+paths = {}
 
 # Specify Targets / Starting Cpds
 target_cids, target_names = [], []
@@ -106,35 +104,15 @@ for k,v in pk.targets.items():
 starting_cpds = [get_compound_hash(val["SMILES"])[0] for val in pk.compounds.values() if val["Type"].startswith("Start")]
 
 # Loop through targets and get pathways from targets to starting compounds
-for i, this_target in enumerate(target_cids):
-    this_paths = get_reverse_paths_to_starting(DG, begin_node=this_target, end_nodes=starting_cpds, max_depth=max_depth)
-    # If we find paths then reverse those paths and assign to a dictionary
-    if this_paths:
-        this_paths = list(set([tuple(path[1::2]) for path in [[*reversed(ind_path)] for ind_path in this_paths]]))
-        for elt in this_paths:
-            for r in pk.reactions[elt[0]]["Reactants"]:
-                if r[-1] in starting_cpds:
+paths = []
+for i, target in enumerate(target_cids):
+    paths += find_paths(DG, starting_cpds, target, generations)
 
-                    # Add paths to processed expansion
-                    s_name = pk.compounds[r[-1]]["ID"]
-                    t_name = target_names[i]
-                    prs = construct_pr_list(elt, rule2krhash, known_rxns, pk)
-                    pe.add_path(s_name, t_name, prs)
-                    
-                    # Add reactions & compounds to pruned pk object
-                    for pk_rid in elt:
-                        pruned_rxns.add(pk_rid)
-                        for _, cpd_id in pk.reactions[pk_rid]["Reactants"]:
-                            pruned_cpds.add(cpd_id)
-                        for _, cpd_id in pk.reactions[pk_rid]["Products"]:
-                            pruned_cpds.add(cpd_id)
-
+pk = prune_pickaxe(pk, paths)
 '''
 Save
 '''
 # Save pruned pks
-pk.reactions = {k:pk.reactions[k] for k in pruned_rxns}
-pk.compounds = {k:pk.compounds[k] for k in pruned_cpds}
 print(f"Pruned pk to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
 print("Saving pruned pk object")
 pk.pickle_pickaxe(pruned_dir + fn + '.pk')

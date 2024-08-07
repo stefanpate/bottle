@@ -1,124 +1,45 @@
-'''
-1. Find paths between starters and targets
-2. Create processed expansion object
-
-'''
-from src.pickaxe_processing import find_paths, prune_pickaxe, create_graph_from_pickaxe, pk_rhash_to_smarts
+from src.data import Path, PredictedReaction
+from src.pickaxe_processing import find_paths, prune_pickaxe
 from src.utils import load_json
-from src.post_processing import *
+from src.data import *
 from minedatabase.pickaxe import Pickaxe
-from minedatabase.utils import get_compound_hash
-from collections import defaultdict
-import pickle
 
 # Set params
-starters = 'alpha_ketoglutarate'
-targets = 'hopa'
+pk_fn = "alpha_ketoglutarate_to_hopa_gen_2_tan_sample_0_n_samples_1000.pk"
 generations = 2
-ts = 0 # 0 | 1 if tanimoto sampled
-expansion_dir = '../data/raw_expansions/' # To load
-pruned_dir = '../data/pruned_expansions/' # To save
-fn = f"{starters}_to_{targets}_gen_{generations}_tan_sample_{ts}_n_samples_1000" # Expansion file name
+path_filepath = '../artifacts/found_paths.json'
+# predicted_filepath = "../artifacts/predicted_reactions.json"
+# known_filepath = "../artifacts/known_reactions.json"
+raw_dir = "/home/stef/bottle/data/raw_expansions"
+pk_path = f"{raw_dir}/{pk_fn}"
+pruned_path = f"/home/stef/bottle/data/pruned_expansions/{pk_fn}"
 
 # Load raw expansion object
 pk = Pickaxe()
-path = expansion_dir + fn + '.pk'
-pk.load_pickled_pickaxe(path)
-
-# pe = ProcessedExpansion() # Initialize processed expansion
-
-# For pruned pk obj
-
-
-'''
-Load known reaction information
-'''
-known_rxns = load_json("../data/mapping/known_rxns_swissprot_enzymes_240310.json")
-rule2krhash = defaultdict(list)
-for k,v in known_rxns.items():
-
-    # Convert enzymes and db entries to namedtuples
-    enzymes = [Enzyme(*elt) for elt in v['enzymes']]
-    v['enzymes'] = enzymes
-
-    db_entries = [DatabaseEntry(*elt) for elt in v['db_entries']]
-    v['db_entries'] = db_entries
-
-    # Construct imt rule to knwon rhash lookup
-    for imt_rule in v['imt_rules']:
-        rule2krhash[imt_rule].append(k)
-
-
-'''
-Get pathways to target molecule
-'''
-def construct_pr_list(pk_rids, rule2krhash, known_rxns, pk):
-    prs = []
-    for rid in pk_rids:
-        pk_reaction = pk.reactions[rid]
-
-        # Collect known reaction analogues inffo
-        krs = set()
-        for rule in pk_reaction["Operators"]:
-            for known_rid in rule2krhash[rule]:
-                entry = known_rxns[known_rid]
-                kr = KnownReaction(
-                    id=known_rid,
-                    smarts=entry['smarts'],
-                    imt_rules=entry['imt_rules'],
-                    # min_rules=entry['min_rules'],
-                    # rcs=entry['rcs'],
-                    database_entries=entry['db_entries'],
-                    enzymes=entry['enzymes'])
-                krs.add(kr)
-        krs = list(krs)
-
-        # Construct predicted reaction object with analogues
-        sma = pk_rhash_to_smarts(rid, pk)
-        pr = PredictedReaction(id=rid, smarts=sma, imt_rules=list(pk_reaction["Operators"]), analogues=krs)
-        prs.append(pr)
-
-    return prs
-
-print("Finding paths")
-# Create the initial graph
-DG, rxn, edge = create_graph_from_pickaxe(pk, "Biology")
-starting_nodes = []
-bad_nodes = []
-for n in DG.nodes():
-    try:
-        if DG.nodes()[n]["Type"] == "Starting Compound":
-            starting_nodes.append(n)
-    except:
-        bad_nodes.append(n)
+pk.load_pickled_pickaxe(pk_path)
 
 # Get pathways
-paths = {}
+print("Finding paths")
+paths, starters, targets = find_paths(pk, generations)
 
-# Specify Targets / Starting Cpds
-target_cids, target_names = [], []
-for k,v in pk.targets.items():
-    target_cids.append(get_compound_hash(v['SMILES'])[0])
-    target_names.append(v['ID'])
-
-starting_cpds = [get_compound_hash(val["SMILES"])[0] for val in pk.compounds.values() if val["Type"].startswith("Start")]
-
-# Loop through targets and get pathways from targets to starting compounds
-paths = []
-for i, target in enumerate(target_cids):
-    paths += find_paths(DG, starting_cpds, target, generations)
-
+# Prune
 pk = prune_pickaxe(pk, paths)
-'''
-Save
-'''
-# Save pruned pks
-print(f"Pruned pk to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
-print("Saving pruned pk object")
-pk.pickle_pickaxe(pruned_dir + fn + '.pk')
+print(f"Saving pruned pk object w/ {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
+pk.pickle_pickaxe(pruned_path)
 
-# Save processed expansion object
-print("Saving processed expansion object")
-save_dir = '../data/processed_expansions/'
-with open(save_dir + fn + '.pkl', 'wb') as f:
-    pickle.dump(pe, f)
+# Create post processing objects
+tmp = {}
+next_path_id = 0 # TODO: CHANGE
+# next_path_id = max(stored_paths.keys()) + 1
+for sid, tid in paths.keys():
+    for path in paths[(sid, tid)]:
+        prs = [PredictedReaction.from_pickaxe(pk, rid) for rid in path]
+        tmp[next_path_id] = Path(
+            id=next_path_id,
+            starter=starters[sid],
+            target=targets[tid],
+            reactions=prs,
+            _sid=sid,
+            _tid=tid,
+        )
+        next_path_id += 1

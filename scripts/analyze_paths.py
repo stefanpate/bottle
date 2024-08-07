@@ -1,7 +1,5 @@
 from src.rxn_ctr_mcs import *
-from src.cheminfo_utils import load_json, rm_atom_map_num
-from src.post_processing import *
-from rdkit.Chem import AllChem
+from src.data import *
 import pickle
 from tqdm import tqdm
 import pandas as pd

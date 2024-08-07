@@ -2,9 +2,11 @@ import re
 import networkx as nx
 from rdkit.Chem import CanonSmiles
 from minedatabase.pickaxe import Pickaxe
-from typing import Iterable
+from minedatabase.utils import get_compound_hash
+from typing import Dict
+from collections import defaultdict
 
-def prune_pickaxe(pk:Pickaxe, paths:Iterable):
+def prune_pickaxe(pk:Pickaxe, paths:Dict):
     '''
     Prune Pickaxe object of all but reactions and compounds in
     paths
@@ -12,17 +14,14 @@ def prune_pickaxe(pk:Pickaxe, paths:Iterable):
     pruned_rxns = set()
     pruned_cpds = set()
 
-    for p in paths:
-        pruned_cpds.add(p[0]) # Starting molecule
-
-        for i in range(1, len(p)):
-            pruned_rxns.add(p[i])
-            
-            pk_rxn = pk.reactions[p[i]]
-            compounds = pk_rxn["Reactants"] + pk_rxn["Products"]
-
-            for _, cpd in compounds:
-                pruned_cpds.add(cpd)
+    for st_paths in paths.values():
+        for p in st_paths:
+            for r in p:
+                pruned_rxns.add(r)
+                pk_rxn = pk.reactions[r]
+                compounds = pk_rxn["Reactants"] + pk_rxn["Products"]
+                for _, cpd in compounds:
+                    pruned_cpds.add(cpd)
     
     pk.reactions = {k:pk.reactions[k] for k in pruned_rxns}
     pk.compounds = {k:pk.compounds[k] for k in pruned_cpds}
@@ -34,15 +33,38 @@ def get_canon_smiles(smi):
         return CanonSmiles(smi)
     except BaseException as e:
         return smi
+    
+def find_paths(pk, n_gen):
+    starters = {}
+    for v in pk.compounds.values():
+        if v["Type"].startswith("Start"):
+            starters[v['_id']] = v["ID"]
+    
+    targets = {}
+    for v in pk.targets.values():
+        target_cid = get_compound_hash(v['SMILES'])[0] # Get neutral (non-target) cpd hash
+        target_name = v['ID']
+        targets[target_cid] = target_name
 
-def find_paths(G, starters, target, n_gen):
+    DG, _, _ = create_graph_from_pickaxe(pk, "Biology")
+    found_paths = defaultdict(list)
+    for target in targets:
+        target_paths = find_paths_single_target(DG, list(starters.keys()), target, n_gen)
+        for path in target_paths:
+            sid = path[0]
+            rids = path[1:]
+            found_paths[(sid, target)].append(rids)
+
+    return found_paths, starters, targets      
+
+def find_paths_single_target(DG, starters, target, n_gen):
     """
     Get the pathways from starter to target compounds.
 
     Parameters
     ----------
-    G : nx.DiGraph
-        The DiGraph containing network information.
+    DG:nx.DiGraph
+
     starters : List[str]
         A list of pickaxe cids for the desired end nodes
     target : str
@@ -51,7 +73,7 @@ def find_paths(G, starters, target, n_gen):
         Number of generations.
     """
     max_depth = n_gen * 2 # Bipartite mol -> rxn -> mol graph
-
+    
     def depth_first_reversed(G, current_node, target_nodes, visited, depth):
         # Are we too deep?
         if max_depth <= depth:
@@ -78,7 +100,7 @@ def find_paths(G, starters, target, n_gen):
                 depth_first_reversed(G, in_edge[0], target_nodes, visited.copy(), depth+1)
 
     found_paths = []
-    depth_first_reversed(G, target, starters, [], 0)
+    depth_first_reversed(DG, target, starters, [], 0)
 
     # Reverse paths, extract starting compound id and reaction ids
     if found_paths:
@@ -87,7 +109,7 @@ def find_paths(G, starters, target, n_gen):
                 [tuple([path[0]] + path[1::2]) for path in [[*reversed(ind_path)] for ind_path in found_paths]]
             )
         )
-
+    
     return found_paths
 
 def create_graph_from_pickaxe(pk, rxn_type):

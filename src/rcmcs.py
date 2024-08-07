@@ -1,5 +1,4 @@
 import re
-from itertools import chain
 from rdkit import Chem
 from rdkit.Chem import rdFMCS
 from typing import Iterable
@@ -74,37 +73,34 @@ def calc_molecule_rcmcs(
     elif norm == 'max':
         return res.numAtoms / max(m.GetNumAtoms() for m in molecules)
 
-def calc_rxn_rcmcs(
-        rxn_rc1:Iterable,
-        rxn_rc2:Iterable,
+def calc_lhs_rcmcs(
+        rcts_rc1:Iterable,
+        rcts_rc2:Iterable,
+        patts:Iterable[str],
         norm:str='max'
     ):
     '''
     Calculates atom-weighted reaction rcmcs score of aligned reactions
+    using only reactants, NOT the products of the reaction.
 
     Args
     -------
-    rxn_rc:Iterable of len = 3
-        rxn_rc[0]:str - reaction smarts 'rsmi1.rsmi2>psmi1.psmi2'
-        rxn_rc[1]:Iterable[Iterable[Iterable[int]]] - innermost iterables have reaction
-            center atom indices for a reactant / product. Each side of reaction has separate
-            iterable of aidx iterables
-        rxn_rc[2]:Iterable[Iterable[str]] - SMARTS patterns of reaction center fragments organized
-            the same way as rxn_rc[1] except here, one SMARTS string per reactant / product
+    rxn_rc:Iterable of len = 2
+        rxn_rc[0]:Iterable[str] - Reactant SMILES, aligned to operator
+        rxn_rc[1]:Iterable[Iterable[int]] - innermost iterables have reaction
+            center atom indices for a reactant
+    patts:Iterable[str]
+        SMARTS patterns of reaction center fragments organized
+        the same way as rxn_rc[1] except here, one SMARTS string per reactant
     '''
-    patts1 = tuple(chain(*rxn_rc1[2]))
-    patts2 = tuple(chain(*rxn_rc2[2]))
-    if patts1 != patts2: # Reaction centers are distinct
-        return 0.0
-
-    smiles = [fractionate(rxn_rc1[0]), fractionate(rxn_rc2[0])]
-    rc_idxs = [chain(*rxn_rc1[1]), chain(*rxn_rc2[1])]
+    smiles = [rcts_rc1[0], rcts_rc2[0]]
+    rc_idxs = [rcts_rc1[1], rcts_rc2[1]]
     molecules= [[Chem.MolFromSmiles(smi) for smi in elt] for elt in smiles]
     mol_rcs1, mol_rcs2 = [list(zip(molecules[i], rc_idxs[i])) for i in range(2)]
     
     n_atoms = 0
     rcmcs = 0
-    for mol_rc1, mol_rc2, patt in zip(mol_rcs1, mol_rcs2, patts1):
+    for mol_rc1, mol_rc2, patt in zip(mol_rcs1, mol_rcs2, patts):
         rcmcs_i = calc_molecule_rcmcs(mol_rc1, mol_rc2, patt, norm=norm)
 
         if norm == 'max':
@@ -117,21 +113,21 @@ def calc_rxn_rcmcs(
 
     return rcmcs / n_atoms
 
-def extract_operator_patts(rxn_smarts:str, side:int):
+def extract_operator_patts(operator_smarts:str, side:int):
     '''
-    Returns list of smarts patts, one for each 
-    molecule on a given side of reaction
+    Returns list of de-atom-mapped smarts patts, 
+    one for each molecule on a given side of operator
 
     Args
     ----
-    rxn_smarts:str
-        reaction smarts 'rsmi1.rsmi2>psmi1.psmi2'
+    operator_smarts:str
+        operator smarts 'rsmi1.rsmi2>psmi1.psmi2'
     side:int
         0 = left side, 1 = right
     '''
 
     # side smarts pattern
-    side_smarts = rxn_smarts.split('>>')[side]
+    side_smarts = operator_smarts.split('>>')[side]
     side_smarts = re.sub(r':[0-9]+]', ']', side_smarts)
 
     # identify each fragment
@@ -150,14 +146,6 @@ def extract_operator_patts(rxn_smarts:str, side:int):
                 smarts_list[-1] = smarts_list[-1].replace('(', '', 1)[::-1].replace(')', '', 1)[::-1]
 
     return smarts_list
-
-def fractionate(rxn_smarts):
-    '''
-    Returns molecule smiles in list of two
-    lists, one sublist per each side of rxn
-    '''
-    sides = rxn_smarts.split('>>')
-    return tuple(chain(*[side.split('.') for side in sides]))
 
 def mcs_precheck(mol_rc1, mol_rc2, patt):
     '''

@@ -2,6 +2,7 @@ from src.cheminfo_utils import standardize_mol, tautomer_expand
 from itertools import permutations, product, chain
 from rdkit import Chem
 import re
+import pandas as pd
 
 DO_NEUTRALIZE = False
 DO_FIND_PARENT = False
@@ -245,3 +246,16 @@ def expand_unpaired_cofactors(df, k):
             smi2cof[smi] = row["Class"]
 
     return smi2cof
+
+def template_map(rxn, rule_row:pd.Series, smi2paired_cof, smi2unpaired_cof, return_rc):
+    rule = rule_row['SMARTS']
+    rule_reactants_template = rule_row["Reactants"]
+    rule_products_template = rule_row["Products"]
+    matched_idxs = match_template(rxn, rule_reactants_template, rule_products_template, smi2paired_cof, smi2unpaired_cof)
+
+    if len(matched_idxs) == 0:
+        return False, None, None
+    
+    res = map_rxn2rule(rxn, rule, return_rc, matched_idxs)
+
+    return res['did_map'], res['aligned_smarts'], res['reaction_center']

@@ -7,30 +7,6 @@ import multiprocessing as mp
 from itertools import chain
 from tqdm import tqdm
 
-'''
-Args
------
-rules - Path to operators tsv file w/ columns: Name | Reactants | SMARTS | Products
-reactions - Path to reactions json w/ {unique_id: SMARTS} where SMARTS:str like 'reactant.reactant>>product.product'
-output - Path to save mapping results
-
-Returns
--------
-Mapping results in a tsv w/ columns: Reaction ID | Rule | Aligned smarts | Reaction center
-and every row is one Reaction-Rule map pair
-'''
-parser = ArgumentParser()
-parser.add_argument("rules", help='Path to operators tsv file w/ columns: Name | Reactants | SMARTS | Products')
-parser.add_argument("reactions", help="Path to reactions json w/ {unique_id: SMARTS} where SMARTS:str like 'reactant.reactant>>product.product'")
-parser.add_argument("output", help="Path to save mapping results")
-args = parser.parse_args()
-
-do_template = True # Whether to enforce template matching, ie cofactors
-return_rc = True # Whether to return reaction center while mapping operators
-pre_standardized = True
-rm_stereo = True
-k_tautomers = 10
-
 def try_standardize_smarts_rxn(smarts):
     try:
         return standardize_smarts_rxn(smarts)
@@ -80,7 +56,8 @@ def prep_reaction(
         return sansmarts
 
 def process_reaction(
-        pair,
+        rxn_id,
+        rxn_entry,
         rules,
         smi2paired_cof,
         smi2unpaired_cof,
@@ -88,10 +65,9 @@ def process_reaction(
         pre_standardized,
         rm_stereo,
     ):
-    rxn_id, entry = pair
     sansmarts = prep_reaction(
         rxn_id=rxn_id,
-        entry=entry,
+        entry=rxn_entry,
         pre_standardized=pre_standardized,
         rm_stereo=rm_stereo
     )
@@ -109,19 +85,33 @@ def process_reaction(
     )
     return output_rows
 
-def process_pair(pair):
-    output_rows = process_reaction(
-        pair,
-        rules,
-        smi2paired_cof,
-        smi2unpaired_cof,
-        return_rc,
-        pre_standardized,
-        rm_stereo
-    )
-    return output_rows
+def mp_wrap(bunch):
+    return process_reaction(**bunch)
 
 if __name__ == '__main__':
+    '''
+    Args
+    -----
+    rules - Path to operators tsv file w/ columns: Name | Reactants | SMARTS | Products
+    reactions - Path to reactions json w/ {unique_id: SMARTS} where SMARTS:str like 'reactant.reactant>>product.product'
+    output - Path to save mapping results
+
+    Returns
+    -------
+    Mapping results in a tsv w/ columns: Reaction ID | Rule | Aligned smarts | Reaction center
+    and every row is one Reaction-Rule map pair
+    '''
+    parser = ArgumentParser()
+    parser.add_argument("rules", help='Path to operators tsv file w/ columns: Name | Reactants | SMARTS | Products')
+    parser.add_argument("reactions", help="Path to reactions json w/ {unique_id: SMARTS} where SMARTS:str like 'reactant.reactant>>product.product'")
+    parser.add_argument("output", help="Path to save mapping results")
+    args = parser.parse_args()
+
+    do_template = True # Whether to enforce template matching, ie cofactors
+    return_rc = True # Whether to return reaction center while mapping operators
+    pre_standardized = True
+    rm_stereo = True
+    k_tautomers = 10
 
     # Read in rules
     rules = pd.read_csv(args.rules, sep='\t')
@@ -137,16 +127,27 @@ if __name__ == '__main__':
     smi2paired_cof = expand_paired_cofactors(paired_ref, k=k_tautomers)
     smi2unpaired_cof = expand_unpaired_cofactors(unpaired_ref, k=k_tautomers)
 
-
     output_cols = ["Reaction ID", "Rule", "Aligned smarts", "Reaction center"]
     output_data = []
     processed_reactions = []
     mapped_rules = []
     reaction_centers = []
-    pairs = list(rxns.items())
+    bunches = [
+        {
+            'rxn_id':k,
+            'rxn_entry':v,
+            'rules':rules,
+            'smi2paired_cof':smi2paired_cof,
+            'smi2unpaired_cof':smi2unpaired_cof,
+            'return_rc':return_rc,
+            'pre_standardized':pre_standardized,
+            'rm_stereo':rm_stereo
+        }
+        for k,v in rxns.items()
+    ]
 
     with mp.Pool() as pool:
-        res = list(tqdm(pool.imap(process_pair, pairs), total=len(pairs)))
+        res = list(tqdm(pool.imap(mp_wrap, bunches), total=len(bunches)))
 
     output_data = list(chain(*res))
 

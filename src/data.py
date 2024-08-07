@@ -1,6 +1,6 @@
 from src.pickaxe_processing import pk_rhash_to_smarts
 from dataclasses import dataclass, asdict, field
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Iterable
 
 @dataclass
 class DatabaseEntry:
@@ -32,10 +32,10 @@ class Enzyme:
 class KnownReaction:
     id:str
     smarts:str
-    image:str
-    # operators:List[str]
+    operators:List[str]
     enzymes:List[Enzyme]
     db_entries:List[DatabaseEntry]
+    image:str = ''
 
     def to_dict(self):
         return asdict(self)
@@ -54,9 +54,10 @@ class PredictedReaction:
     id:str
     smarts:str
     operators:List[str]
-    image:str = ''
+    reaction_center:Iterable[Iterable] = field(default_factory=tuple)
     analogues:Dict[str, KnownReaction] = field(default_factory=dict)
     rcmcs:Dict[str, float] = field(default_factory=dict)
+    image:str = ''
 
     def to_dict(self):
         return asdict(self)
@@ -109,5 +110,6 @@ if __name__ == '__main__':
     pr = PredictedReaction('1', 'O=CCC(=O)O>>O=CCC.O=C=O', '/home/stef/bottle/artifacts/imgs/img3.svg', ['rule1', 'rule2'], {'1':kr, '2': kr2})
     pr_dict = pr.to_dict()
     pr_from = PredictedReaction.from_dict(pr_dict)
+
 
     print('hold')

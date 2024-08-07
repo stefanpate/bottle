@@ -13,8 +13,8 @@
             "cwd": "${fileDirname}",
             "args": [
                 "../data/rules/minimal1224_all_uniprot.tsv",
-                "../data/sprhea/test_subpart_16.json",
-                "../artifacts/operator_mapping_test_subpart_16.tsv"
+                "../data/sprhea/sprhea_v3_20_random.json",
+                "../artifacts/test_mapping.tsv"
             ],
         },
         {

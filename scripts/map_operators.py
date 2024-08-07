@@ -3,9 +3,9 @@ from src.utils import load_json
 from src.operator_mapping import match_template, map_rxn2rule, expand_paired_cofactors, expand_unpaired_cofactors
 from src.cheminfo_utils import standardize_smarts_rxn
 import pandas as pd
-
-# Run from cmd
-# E.g., python map_rxns.py JN3604IMT_rules.tsv swissprot_unmapped.json swissprot_unmapped.json
+import multiprocessing as mp
+from itertools import chain
+from tqdm import tqdm
 
 '''
 Args
@@ -24,11 +24,18 @@ parser.add_argument("rules", help='Path to operators tsv file w/ columns: Name |
 parser.add_argument("reactions", help="Path to reactions json w/ {unique_id: SMARTS} where SMARTS:str like 'reactant.reactant>>product.product'")
 parser.add_argument("output", help="Path to save mapping results")
 args = parser.parse_args()
+
 do_template = True # Whether to enforce template matching, ie cofactors
 return_rc = True # Whether to return reaction center while mapping operators
 pre_standardized = True
 rm_stereo = True
 k_tautomers = 10
+
+def try_standardize_smarts_rxn(smarts):
+    try:
+        return standardize_smarts_rxn(smarts)
+    except:
+        return None
 
 def map_reaction(
         rxn_id,
@@ -55,12 +62,6 @@ def map_reaction(
     
     return output_rows
 
-def try_standardize_smarts_rxn(smarts):
-    try:
-        return standardize_smarts_rxn(smarts)
-    except:
-        return None
-    
 def prep_reaction(
         rxn_id,
         entry,
@@ -108,28 +109,6 @@ def process_reaction(
     )
     return output_rows
 
-# Read in rules
-rules = pd.read_csv(args.rules, sep='\t')
-rules.set_index("Name", inplace=True)
-rules.drop('Comments', axis=1, inplace=True)
-
-rxns = load_json(args.reactions) # Read in reactions
-n_rxns = len(list(rxns.keys())) # Total no. reactions to map
-
-# Read in cofactor lookup tables
-paired_ref = pd.read_csv('../data/cofactors/paired_cofactors_reference.tsv', sep='\t')
-unpaired_ref = pd.read_csv('../data/cofactors/unpaired_cofactors_reference.tsv', sep='\t')
-smi2paired_cof = expand_paired_cofactors(paired_ref, k=k_tautomers)
-smi2unpaired_cof = expand_unpaired_cofactors(unpaired_ref, k=k_tautomers)
-
-
-output_cols = ["Reaction ID", "Rule", "Aligned smarts", "Reaction center"]
-output_data = []
-processed_reactions = []
-mapped_rules = []
-reaction_centers = []
-pairs = list(rxns.items())
-
 def process_pair(pair):
     output_rows = process_reaction(
         pair,
@@ -142,18 +121,42 @@ def process_pair(pair):
     )
     return output_rows
 
-output_data = []
-for pair in rxns.items():
-    output_rows = process_pair(pair)
-    output_data += output_rows
+if __name__ == '__main__':
 
-df = pd.DataFrame(
-    data=output_data,
-    columns=output_cols
-)
+    # Read in rules
+    rules = pd.read_csv(args.rules, sep='\t')
+    rules.set_index("Name", inplace=True)
+    rules.drop('Comments', axis=1, inplace=True)
 
-df.to_csv(
-    path_or_buf=args.output,
-    sep='\t',
-    index=False
-)
+    rxns = load_json(args.reactions) # Read in reactions
+    n_rxns = len(list(rxns.keys())) # Total no. reactions to map
+
+    # Read in cofactor lookup tables
+    paired_ref = pd.read_csv('../data/cofactors/paired_cofactors_reference.tsv', sep='\t')
+    unpaired_ref = pd.read_csv('../data/cofactors/unpaired_cofactors_reference.tsv', sep='\t')
+    smi2paired_cof = expand_paired_cofactors(paired_ref, k=k_tautomers)
+    smi2unpaired_cof = expand_unpaired_cofactors(unpaired_ref, k=k_tautomers)
+
+
+    output_cols = ["Reaction ID", "Rule", "Aligned smarts", "Reaction center"]
+    output_data = []
+    processed_reactions = []
+    mapped_rules = []
+    reaction_centers = []
+    pairs = list(rxns.items())
+
+    with mp.Pool() as pool:
+        res = list(tqdm(pool.imap(process_pair, pairs), total=len(pairs)))
+
+    output_data = list(chain(*res))
+
+    df = pd.DataFrame(
+        data=output_data,
+        columns=output_cols
+    )
+
+    df.to_csv(
+        path_or_buf=args.output,
+        sep='\t',
+        index=False
+    )

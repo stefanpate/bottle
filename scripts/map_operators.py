@@ -108,7 +108,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     do_template = True # Whether to enforce template matching, ie cofactors
-    return_rc = True # Whether to return reaction center while mapping operators
+    return_rc = False # Whether to return reaction center while mapping operators
     pre_standardized = True
     rm_stereo = True
     k_tautomers = 10

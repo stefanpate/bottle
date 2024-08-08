@@ -1,14 +1,10 @@
-import PIL
 from rdkit import Chem
-from rdkit.Chem import AllChem, Draw
+from rdkit.Chem import Draw
 import svgutils.transform as st
 import svgutils.compose as sc
 from collections import Counter
 import numpy as np
-
-'''
-SVG
-'''
+import os
 
 def draw_pwy_svg(sma_hash_pairs, path_id, pwy_fn=None):
     fns = []
@@ -39,116 +35,77 @@ def draw_pwy_svg(sma_hash_pairs, path_id, pwy_fn=None):
     else:
         return pwy_svg
         
-def draw_rxn_svg(rxn_sma, rhash=None, hilite_atoms=None):
-    reactants, products = [elt.split('.') for elt in rxn_sma.split('>>')]
-    reactants, products = Counter(reactants), Counter(products)
+def draw_rxn_svg(rxn_sma, rid, hilite_atoms=None):
+    fn = f"../artifacts/imgs/rxns/{rid}.svg"
+    if os.path.exists(fn):
+        pass
+    else:
+        reactants, products = [Counter(elt.split('.')) for elt in rxn_sma.split('>>')]
 
-    fns = []
-    movex = [0]
-    reactant_ctr = 0
-    plus_ctr = 0
-    element_ctr = 0
-    for smi, stoich in reactants.items():
-        if hilite_atoms:
-            fn, width = draw_mol_svg(smi, stoich, hilite_atoms[reactant_ctr])
-        else:
-            fn, width = draw_mol_svg(smi, stoich)
-        fns.append(fn)
-        movex.append(movex[element_ctr] + width)
-        element_ctr +=1
+        elements = []
+        movex = [0]
+        element_ctr = 0
+        elements, element_ctr, movex = draw_side(reactants, elements, element_ctr, movex, hilite_atoms=hilite_atoms)    
+        elements.append(sc.SVG('../artifacts/arrow.svg'))
+        movex.append(movex[element_ctr] + 40)
+        element_ctr += 1
+        elements, element_ctr, movex = draw_side(products, elements, element_ctr, movex, hilite_atoms=hilite_atoms)
 
-        if plus_ctr < len(reactants.values()) - 1:
-            fns.append('../artifacts/plus.svg')
-            movex.append(movex[element_ctr] + 40)
-            element_ctr +=1
+        for i, elt in enumerate(elements):
+            elt.moveto(movex[i], 0)
 
-        plus_ctr += 1
-        reactant_ctr += 1
-        
-    fns.append('../artifacts/arrow.svg')
-    movex.append(movex[element_ctr] + 40)
-    element_ctr +=1
-
-
-    plus_ctr = 0
-    for smi, stoich in products.items():
-        fn, width = draw_mol_svg(smi, stoich)
-        fns.append(fn)
-        movex.append(movex[element_ctr] + width)
-        element_ctr +=1
-
-        if plus_ctr < len(products.values()) - 1:
-            fns.append('../artifacts/plus.svg')
-            movex.append(movex[element_ctr] + 40)
-            element_ctr +=1
-
-        plus_ctr += 1
-
-    elements = [sc.SVG(elt) for elt in fns]
-    for i, elt in enumerate(elements):
-        elt.moveto(movex[i], 0)
-
-    rxn = sc.Figure(movex[-1], 200,
-            *elements
-            )
-    width = movex[-1]
-
-    if rhash:
-        fn = f"../artifacts/rxn_svgs/{rhash}.svg"
+        rxn = sc.Figure(movex[-1], 200, *elements)
         rxn.save(fn)
 
-    return fn, width # TODO FIX. If not supplying rhash, will give strange result for fn
+    return fn
+
+
+def draw_side(smi_stoich, elements, element_ctr, movex, hilite_atoms=None):
+    mol_ctr = 0
+    plus_ctr = 0
+    for smi, stoich in smi_stoich.items():
+        if hilite_atoms:
+            fn = draw_mol_svg(smi, stoich, hilite_atoms[mol_ctr])
+        else:
+            fn = draw_mol_svg(smi, stoich)
+        
+        svg = sc.SVG(fn)
+        width = svg.width
+        elements.append(svg)
+        movex.append(movex[element_ctr] + width)
+        element_ctr +=1
+
+        if plus_ctr < len(smi_stoich.values()) - 1:
+            elements.append(sc.SVG('../artifacts/plus.svg'))
+            movex.append(movex[element_ctr] + 40)
+            element_ctr +=1
+
+        plus_ctr += 1
+        mol_ctr += 1
+
+    return elements, element_ctr, movex
 
 def draw_mol_svg(smiles, stoich, hilite_atoms=None):
-    mol = Chem.MolFromSmiles(smiles)
-    nb = mol.GetNumAtoms()
-    width = int(np.log10(nb) * 200) + 25
-    d2d = Draw.MolDraw2DSVG(width, 200)
-
-    if (stoich > 1) & (hilite_atoms is None):
-        d2d.DrawMolecule(mol, legend=f"({stoich})", highlightAtoms=hilite_atoms)
-    elif stoich > 1:
-        d2d.DrawMolecule(mol, legend=f"({stoich})")
-    elif (stoich == 1) & (hilite_atoms is None):
-        d2d.DrawMolecule(mol)
+    fn = f"../artifacts/imgs/mols/{hash((smiles, stoich))}.svg"
+    if os.path.exists(fn):
+        pass
     else:
-        d2d.DrawMolecule(mol, highlightAtoms=hilite_atoms)
-        
+        mol = Chem.MolFromSmiles(smiles)
+        nb = mol.GetNumAtoms()
+        width = int(np.log10(nb) * 200) + 25
+        d2d = Draw.MolDraw2DSVG(width, 200)
 
-    d2d.FinishDrawing()
-    fn = f"../artifacts/mol_svgs/{hash((smiles, stoich))}.svg"
-    fig = st.fromstring(d2d.GetDrawingText())
-    fig.save(fn)
-    return fn, width
-
-'''
-PNG
-'''
-
-# Pathway drawing functions
-def draw_rxn(rxn_sma):
-    return Draw.ReactionToImage(
-        AllChem.ReactionFromSmarts(rxn_sma, useSmiles=True),
-        subImgSize=(200, 200), useSVG=False, drawOptions=None, returnPNG=False
-    )
-
-def get_concat_h(im1, im2):
-    dst = PIL.Image.new('RGB', (im1.width + im2.width, max(im1.height, im2.height)))
-    dst.paste(im1, (0, 0))
-    dst.paste(im2, (im1.width, 0))
-    return dst
-
-def get_concat_v(im1, im2):
-    dst = PIL.Image.new('RGB', (max(im1.width, im2.width), im1.height + im2.height))
-    dst.paste(im1, (0, 0))
-    dst.paste(im2, (0, im1.height))
-    return dst
-
-def draw_pathway(pred_known_pairs):
-    for i, elt in enumerate(pred_known_pairs):
-        if i == 0:
-            img = get_concat_h(*elt)
+        if (stoich > 1) & (hilite_atoms is None):
+            d2d.DrawMolecule(mol, legend=f"({stoich})", highlightAtoms=hilite_atoms)
+        elif stoich > 1:
+            d2d.DrawMolecule(mol, legend=f"({stoich})")
+        elif (stoich == 1) & (hilite_atoms is None):
+            d2d.DrawMolecule(mol)
         else:
-            img = get_concat_v(img, get_concat_h(*elt))
-
-    return img
+            d2d.DrawMolecule(mol, highlightAtoms=hilite_atoms)
+        
+        d2d.FinishDrawing()
+        fig = st.fromstring(d2d.GetDrawingText())
+        fig.save(fn)
+    
+    return fn

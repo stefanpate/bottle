@@ -3,6 +3,7 @@ from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
 from src.operator_mapping import expand_paired_cofactors, expand_unpaired_cofactors, standardize_template_map
 from src.pickaxe_processing import find_paths, prune_pickaxe
 from src.utils import load_json, save_json
+from src.chem_draw import draw_rxn_svg
 from minedatabase.pickaxe import Pickaxe
 import pandas as pd
 from collections import defaultdict
@@ -74,7 +75,7 @@ for sid, tid in paths.keys():
 new_known_reactions = {}
 bad_ops = []
 for id, pr in new_predicted_reactions.items():
-    krs = []
+    krs = {}
     srt_imt = sorted(pr.operators, key= lambda x : imt2ct.get(x, 0), reverse=True) # If multiple, start w/ most common
     for imt in srt_imt:
         min = imt.split('_')[0] # Minify imt operator
@@ -128,7 +129,7 @@ for id, pr in new_predicted_reactions.items():
             )
 
             new_known_reactions[krid] = kr_obj # Store in dict of new krs
-            krs.append(kr_obj) # Append to list of krs for pr
+            krs[krid] = kr_obj # Append to list of krs for pr
 
         pr.analogues = krs # Add krs into pr
 
@@ -138,8 +139,8 @@ for sid, tid in paths.keys():
     for path in paths[(sid, tid)]:        
         prs = [new_predicted_reactions[rid] for rid in path]
 
-        new_paths[next_path_id] = Path(
-            id=next_path_id,
+        new_paths[str(next_path_id)] = Path(
+            id=str(next_path_id),
             starter=starters[sid],
             target=targets[tid],
             reactions=prs,
@@ -147,6 +148,13 @@ for sid, tid in paths.keys():
             _tid=tid,
         )
         next_path_id += 1
+
+# Draw rxn svgs
+for prid, pr in new_predicted_reactions.items():
+    pr.image = draw_rxn_svg(pr.smarts, pr.id)
+
+for krid, kr in new_known_reactions.items():
+    kr.image = draw_rxn_svg(kr.smarts, kr.id)
 
 # Save
 # TODO: concatenate old and new prs, krs, paths

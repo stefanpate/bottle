@@ -1,6 +1,7 @@
+from src.utils import load_json
 from src.pickaxe_processing import pk_rhash_to_smarts
 from dataclasses import dataclass, asdict, field
-from typing import Optional, List, Dict, Iterable
+from typing import Optional, List, Dict, Iterable, AnyStr
 from enum import Enum
 
 @dataclass
@@ -79,12 +80,14 @@ class PredictedReaction:
     image:str = ''
 
     def to_dict(self):
-        return asdict(self)
+        self_dict = asdict(self)
+        self_dict['analogues'] = list(self_dict['analogues'].keys())
+        return self_dict
 
     @classmethod
-    def from_dict(cls, pr:dict):
+    def from_dict(cls, pr:dict, krs:Dict[str, KnownReaction]):
         objectifiers = {
-            'analogues': lambda D : {k : KnownReaction.from_dict(v) for k, v in D.items()} if D else D
+            'analogues': lambda L : {krid : krs[krid] for krid in L} if L else {}
         }
         kwargs = dict((k, objectifiers[k](v)) if k in objectifiers else (k, v) for k, v in pr.items())
         return cls(**kwargs)
@@ -111,7 +114,12 @@ class PredictedReaction:
     
     @property
     def has_valid_analogues(self):
-        return True if len(self.analogues) > 0 else False
+        if len(self.analogues) == 0:
+            return False
+        elif not all([a.has_valid_enzymes for a in self.analogues.values()]):
+            return False
+        else:
+            return True
     
     def top_rcmcs(self, k:int):
         '''Top k RCMCS scores'''
@@ -133,12 +141,14 @@ class Path:
     _tid:str # Target hash
 
     def to_dict(self):
-        return asdict(self)
+        self_dict = asdict(self)
+        self_dict['reactions'] = [r.id for r in self.reactions]
+        return self_dict
 
     @classmethod
-    def from_dict(cls, path:dict):
+    def from_dict(cls, path:dict, prs:Dict[str, PredictedReaction]):
         objectifiers = {
-            'reactions': lambda L : [PredictedReaction.from_dict(pr) for pr in L]
+            'reactions': lambda L : [prs[prid] for prid in L] if L else []
         }
         kwargs = dict((k, objectifiers[k](v)) if k in objectifiers else (k, v) for k, v in path.items())
         return cls(**kwargs)
@@ -178,15 +188,77 @@ class EnzymeExistence(Enum):
 
 class PathWrangler:
     enzyme_existence = EnzymeExistence
-    def __init__(self) -> None:
-        pass
+    def __init__(self, path_filepath:str, pr_filepath:str, kr_filepath:str) -> None:
+        self.known_reactions = load_json(kr_filepath)
+        self.predicted_reactions = load_json(pr_filepath)
+        self.paths = load_json(path_filepath)
 
-    def retrieve(self):
-        pass
+    def get_paths(
+            self,
+            starters:Iterable[str] = None,
+            targets:Iterable[str] = None,
+            filter_by_enzymes:Dict = None,
+            filter_by_reactions:Dict = None,
+            filter_by_paths:Dict = None,
+            sort_by= None,
+        ):
+        if starters and targets:
+            req_path_ids = [v['id'] for v in self.paths.values() if v['starter'] in starters and v['target'] in targets]
+        elif starters and not targets:
+            req_path_ids = [v['id'] for v in self.paths.values() if v['starter'] in starters]
+        elif not starters and targets:
+            req_path_ids = [v['id'] for v in self.paths.values() if v['target'] in targets]
+        else:
+            req_path_ids = [v['id'] for v in self.paths.values()]
 
-    def load(self, path_filepath, pr_filepath, kr_filepath):
-        pass
+        if filter_by_enzymes:
+            if 'existence' in filter_by_enzymes:
+                filter_by_enzymes['existence'] = [self.enzyme_existence[v.upper()].value for v in filter_by_enzymes['existence']]
+        
+        req_prids = set()
+        req_krids = set()
+        for pid in req_path_ids:
+            for prid in self.paths[pid]['reactions']:
+                req_prids.add(prid)
+                for krid in self.predicted_reactions[prid]['analogues']:
+                    req_krids.add(krid)
 
+        krs = {}
+        for krid in req_krids:
+            kr = KnownReaction.from_dict(self.known_reactions[krid])
+            if filter_by_enzymes:
+                kr.filter_enzymes(filter_by=filter_by_enzymes)
+            krs[krid] = kr
+
+        prs = {}
+        for prid in req_prids:
+            pr = PredictedReaction.from_dict(self.predicted_reactions[prid], krs)
+            if filter_by_reactions:
+                pr.filter_analogues(filter_by=filter_by_reactions)
+            prs[prid] = pr
+
+        paths = []
+        for pid in req_path_ids:
+            p = Path.from_dict(self.paths[pid], prs)
+            # TODO: filter by path criteria
+            if p.valid:
+                paths.append(p)
+
+        if sort_by is None:
+            return paths
+        elif type(sort_by) is str:
+            return sorted(paths, key= lambda p : getattr(p, sort_by), reverse=True)
+        elif type(sort_by) is dict:
+            self._validate_custom_agg(sort_by)
+            return sorted(paths, key= lambda p : p.aggregate_rcmcs(**sort_by))
+        
+    def _validate_custom_agg(self, sort_by:dict):
+        req_kwargs = {'kr_agg': str, 'pr_agg': str, 'k': int}
+        for k, t in req_kwargs.items():
+            if k not in sort_by:
+                raise ValueError(f"Missing required argument {k}")
+            if type(sort_by[k]) is not t:
+                raise ValueError(f"Invalid type {sort_by[k]} for argument {k}. Must be {t}")
 
 if __name__ == '__main__':
     e1 = Enzyme('up1', 'AARTGW', 'Evidence at protein level', 'reviewed', '1.1.1.1', 'mouse', 'mouse protein')
@@ -210,7 +282,7 @@ if __name__ == '__main__':
     kr_dict = asdict(kr)
     kr_from = kr.from_dict(kr_dict)
     pr_dict = pr.to_dict()
-    pr_from = PredictedReaction.from_dict(pr_dict)
+    pr_from = PredictedReaction.from_dict(pr_dict, {'1':kr, '2':kr2})
 
     # Filter enzymes in known reactions
     kr.filter_enzymes({'existence': [EnzymeExistence.PROTEIN.value]})
@@ -251,6 +323,20 @@ if __name__ == '__main__':
     print(path.min_rcmcs)
     print(path.mean_rcmcs)
     print(path.aggregate_rcmcs(pr_agg='min', kr_agg='mean', k=5))
-    
 
+    # Path wrangling
+    path_filepath = '../artifacts/processed_expansions/found_paths.json'
+    predicted_reactions_filepath = "../artifacts/processed_expansions/predicted_reactions.json"
+    known_reactions_filepath = "../artifacts/processed_expansions/known_reactions.json"
+    pw = PathWrangler(
+        path_filepath=path_filepath,
+        pr_filepath=predicted_reactions_filepath,
+        kr_filepath=known_reactions_filepath
+    )
+
+    pw.get_paths()
+    pw.get_paths(sort_by='min_rcmcs')
+    pw.get_paths(sort_by='mean_rcmcs')
+    pw.get_paths(filter_by_enzymes={'existence':['protein']})
+    
     print('hold')

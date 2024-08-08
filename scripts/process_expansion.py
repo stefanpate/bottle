@@ -1,8 +1,8 @@
 from src.data import Path, PredictedReaction, KnownReaction, Enzyme, DatabaseEntry
 from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
-from src.operator_mapping import expand_paired_cofactors, expand_unpaired_cofactors, template_map
+from src.operator_mapping import expand_paired_cofactors, expand_unpaired_cofactors, standardize_template_map
 from src.pickaxe_processing import find_paths, prune_pickaxe
-from src.utils import load_json
+from src.utils import load_json, save_json
 from minedatabase.pickaxe import Pickaxe
 import pandas as pd
 from collections import defaultdict
@@ -14,10 +14,14 @@ raw_dir = "/home/stef/bottle/data/raw_expansions"
 pk_path = f"{raw_dir}/{pk_fn}"
 pruned_path = f"/home/stef/bottle/data/pruned_expansions/{pk_fn}"
 k_tautomers = 10
+pre_standardized = False # Predicted reactions assumed pre-standardized
 
 # Load found paths
-path_filepath = '../artifacts/found_paths.json'
+path_filepath = '../artifacts/processed_expansions/found_paths.json'
+predicted_reactions_filepath = "../artifacts/processed_expansions/predicted_reactions.json"
+known_reactions_filepath = "../artifacts/processed_expansions/known_reactions.json"
 # TODO: Load
+next_path_id = 0 # TODO: DELETE
 # TODO: next_path_id = max(stored_paths.keys()) + 1
 
 # Read in rules
@@ -27,13 +31,14 @@ read_pd = lambda fn : pd.read_csv(f"{rules_dir}/{fn}", sep='\t').set_index("Name
 min_rules, imt_rules = [read_pd(fn) for fn in rules_fns]
 
 # Read in known reactions
-kr_db = load_json("/home/stef/bottle/data/sprhea/sprhea_240310_v3_min_mapped.json")
+kr_db = load_json("/home/stef/bottle/data/sprhea/sprhea_240310_v3_mapped_no_subunits.json")
 imt2krs = defaultdict(list)
 min2krs = defaultdict(list)
 for k, v in kr_db.items():
     min2krs[v['min_rule']].append(k)
-    for imt in v['imt_rules']:
-        imt2krs[imt].append(k)
+    if v['imt_rules']:
+        for imt in v['imt_rules']:
+            imt2krs[imt].append(k)
 
 min2ct = {k : len(v) for k, v in min2krs.items()}
 imt2ct = {k : len(v) for k, v in imt2krs.items()}
@@ -48,7 +53,7 @@ smi2unpaired_cof = expand_unpaired_cofactors(unpaired_ref, k=k_tautomers)
 pk = Pickaxe()
 pk.load_pickled_pickaxe(pk_path)
 
-# Get pathways
+# Find paths
 print("Finding paths")
 paths, starters, targets = find_paths(pk, generations)
 
@@ -58,31 +63,33 @@ print(f"Saving pruned pk object w/ {len(pk.compounds)} compounds and {len(pk.rea
 pk.pickle_pickaxe(pruned_path)
 
 # Create PredictedReaction objects
-predicted_reactions = {}
+new_predicted_reactions = {}
 for sid, tid in paths.keys():
     for path in paths[(sid, tid)]:        
         for rid in path:
             pr = PredictedReaction.from_pickaxe(pk, rid)
-            predicted_reactions[rid] = pr
+            new_predicted_reactions[rid] = pr
 
 # Add KnownReactions to PredictedReactions
+new_known_reactions = {}
 bad_ops = []
-for id, pr in predicted_reactions.items():
+for id, pr in new_predicted_reactions.items():
     krs = []
-    srt_imt = sorted(pr['operators'], key= lambda x : imt2ct.get(x, 0), reverse=True)
+    srt_imt = sorted(pr.operators, key= lambda x : imt2ct.get(x, 0), reverse=True) # If multiple, start w/ most common
     for imt in srt_imt:
-        min = imt.split('_')[0] # Minify IMT operator
-        if min2ct.get(min, 0) > 0:
+        min = imt.split('_')[0] # Minify imt operator
+        if min2ct.get(min, 0) > 0: # Check minified op maps known reactions
             
-            did_map, aligned_smarts, reaction_center = template_map(
+            did_map, aligned_smarts, reaction_center = standardize_template_map(
                 rxn=pr.smarts,
                 rule_row=min_rules.loc[min],
                 smi2paired_cof=smi2paired_cof,
                 smi2unpaired_cof=smi2unpaired_cof,
-                return_rc=True
+                return_rc=True,
+                pre_standardized=pre_standardized,
             )
 
-            if did_map:
+            if did_map: # Minified op recapitulated imt op
                 break
             else:
                 bad_ops.append((imt, id))
@@ -100,28 +107,36 @@ for id, pr in predicted_reactions.items():
             kr_rc = kr['reaction_center']
             kr_rcts_rc = [kr_rcts, kr_rc]
             
+            # RCMCS
             rcmcs = calc_lhs_rcmcs(pr_rcts_rc, kr_rcts_rc, patts=lhs_patts, norm='max')
-
             pr.rcmcs[krid] = rcmcs
 
-            krs.append(
-                KnownReaction(
-                    id=krid,
-                    smarts=kr['smarts'],
-                    operators= [kr['min_rule']] + kr['imt_rules'],
-                    enzymes=[Enzyme.from_dict(e) for e in kr['enzymes']],
-                    db_entries=[DatabaseEntry.from_dict('rhea', rhea) for rhea in kr['rhea_ids']]
-                )
+            # Combine all operators
+            combined_ops = []
+            if kr['min_rule']:
+                combined_ops.append(kr['min_rule'])
+            if kr['imt_rules']:
+                combined_ops += kr['imt_rules']
+
+            # Create known reaction object
+            kr_obj = KnownReaction(
+                id=krid,
+                smarts=kr['smarts'],
+                operators=combined_ops,
+                enzymes=[Enzyme.from_dict(e) for e in kr['enzymes']],
+                db_entries=[DatabaseEntry.from_dict({'name': 'rhea', 'id': rhea}) for rhea in kr['rhea_ids']]
             )
 
-        pr.analogues = krs
+            new_known_reactions[krid] = kr_obj # Store in dict of new krs
+            krs.append(kr_obj) # Append to list of krs for pr
+
+        pr.analogues = krs # Add krs into pr
 
 # Create Path objects
 new_paths = {}
-next_path_id = 0 # TODO: DELETE
 for sid, tid in paths.keys():
     for path in paths[(sid, tid)]:        
-        prs = [predicted_reactions[rid] for rid in path]
+        prs = [new_predicted_reactions[rid] for rid in path]
 
         new_paths[next_path_id] = Path(
             id=next_path_id,
@@ -132,3 +147,12 @@ for sid, tid in paths.keys():
             _tid=tid,
         )
         next_path_id += 1
+
+# Save
+# TODO: concatenate old and new prs, krs, paths
+to_json = lambda od, filepath : save_json({k: v.to_dict() for k, v in od.items()}, filepath)
+to_json(new_paths, path_filepath)
+to_json(new_predicted_reactions, predicted_reactions_filepath)
+to_json(new_known_reactions, known_reactions_filepath)
+
+print('hold')

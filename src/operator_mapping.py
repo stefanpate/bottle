@@ -1,13 +1,22 @@
-from src.cheminfo_utils import standardize_mol, tautomer_expand
+from src.cheminfo_utils import standardize_mol, tautomer_expand, standardize_smarts_rxn
 from itertools import permutations, product, chain
 from rdkit import Chem
 import re
 import pandas as pd
 
-DO_NEUTRALIZE = False
-DO_FIND_PARENT = False
 
-def _standardize(mol, do_canon_taut, do_neutralize=DO_NEUTRALIZE, do_find_parent=DO_FIND_PARENT):
+def post_standardize(mol, do_canon_taut):
+    '''
+    Post-reaction standardization
+        - Skip neutralization because assume operators only affect heavy atoms, not hydrogens and therefore
+        protonation states
+        - Skip find parent because assume I am not producing salts / fragments (TODO: pressure test this
+        assumption)
+    -
+    '''
+    do_neutralize = False
+    do_find_parent = False
+    
     return Chem.MolToSmiles(standardize_mol(mol, do_canon_taut=do_canon_taut, do_neutralize=do_neutralize, do_find_parent=do_find_parent))
 
 def split_reaction(rxn_smarts):
@@ -183,7 +192,7 @@ def compare_operator_outputs_w_products(outputs, products):
     # Try WITHOUT tautomer canonicalization
     for output in outputs:
         try:
-            output = sorted([_standardize(mol, do_canon_taut=False) for mol in output]) # Standardize and sort SMILES
+            output = sorted([post_standardize(mol, do_canon_taut=False) for mol in output]) # Standardize and sort SMILES
         except:
             continue
 
@@ -193,13 +202,13 @@ def compare_operator_outputs_w_products(outputs, products):
         
     # Try WITH tautomer canonicalization
     try:
-        products = sorted([_standardize(mol, do_canon_taut=True) for mol in products])
+        products = sorted([post_standardize(mol, do_canon_taut=True) for mol in products])
     except:
         return False
     
     for output in outputs:
         try:
-            output = sorted([_standardize(mol, do_canon_taut=True) for mol in output]) # Standardize and sort SMILES
+            output = sorted([post_standardize(mol, do_canon_taut=True) for mol in output]) # Standardize and sort SMILES
         except:
             continue
 
@@ -247,7 +256,49 @@ def expand_unpaired_cofactors(df, k):
 
     return smi2cof
 
-def template_map(rxn, rule_row:pd.Series, smi2paired_cof, smi2unpaired_cof, return_rc):
+def standardize_template_map(
+        rxn:str,
+        rule_row:pd.Series,
+        smi2paired_cof:dict,
+        smi2unpaired_cof:dict,
+        return_rc:bool,
+        pre_standardized:bool,
+    ):
+    '''
+    Convenience function to standardize, match cofactor templates, 
+    and map a reaction to a rule.
+
+    Args
+    ----
+    rxn:str
+        Reaction smarts 'r1.r2>>p1.p2'
+    rule_row:pd.Series
+        Rule info with columns: SMARTS | Reactants | Products containing:
+        reaction smarts | reactants cofactor template | products cofactor template
+    smi2paired_cof:dict
+        Paired cofactor lookup
+    smi2unpaired_cor:dict
+        Unpaired cofactor lookup
+    return_rc:bool
+        Return reaction center if True
+    pre_standardize:bool
+        Standardize reaction smarts before mapping if False
+
+    Returns
+    -------
+    res['did_map']:bool
+        Rule mapped reaction
+    res['aligned_smarts']:str
+        Reaction smarts w/ LHS aligned to operator
+    res['reaction_center']:Tuple[Tuple]
+        Tuple of tuple of reaction center atom indices
+    '''
+    if not pre_standardized:
+        try:
+            rxn = standardize_smarts_rxn(rxn)
+        except:
+            print(f"Unable to standardize reaction: {rxn}")
+    
     rule = rule_row['SMARTS']
     rule_reactants_template = rule_row["Reactants"]
     rule_products_template = rule_row["Products"]

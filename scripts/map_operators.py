@@ -51,7 +51,7 @@ def prep_reaction(
         sansmarts = try_standardize_smarts_rxn(smarts, rm_stereo)
         
         if sansmarts is None:
-            print(f"Unable to sanitize reaction: {rxn_id} w/ SMARTS: {smarts}")
+            print(f"Unable to standardize reaction: {rxn_id} w/ SMARTS: {smarts}")
         
         return sansmarts
 
@@ -107,11 +107,11 @@ if __name__ == '__main__':
     parser.add_argument("output", help="Path to save mapping results")
     args = parser.parse_args()
 
-    do_template = True # Whether to enforce template matching, ie cofactors
-    return_rc = False # Whether to return reaction center while mapping operators
-    pre_standardized = True
-    rm_stereo = True
-    k_tautomers = 10
+    do_template = True # Enforce template matching, i.e. cofactors
+    return_rc = False # Return reaction center while mapping operators
+    pre_standardized = True # Reactions pre-standardized
+    rm_stereo = True # Remove stereochemistry
+    k_tautomers = 10 # Top k tautomers to select from TautomerEnumerator
 
     # Read in rules
     rules = pd.read_csv(args.rules, sep='\t')

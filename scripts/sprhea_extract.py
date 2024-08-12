@@ -1,6 +1,6 @@
 import pandas as pd
 from src.utils import load_json, save_json
-from src.data import Enzyme
+from src.post_processing import Enzyme
 from src.cheminfo_utils import standardize_smiles, clean_up_rhea_rxn
 from math import isnan
 from collections import defaultdict

@@ -21,10 +21,7 @@ def _handle_kwargs(**kwargs):
     return default_kwargs
 
 
-def standardize_mol(
-        mol,
-        **kwargs
-    ):
+def standardize_mol(mol, **kwargs):
     kwargs = _handle_kwargs(**kwargs)
 
     if kwargs['do_remove_stereo']:
@@ -49,10 +46,7 @@ def standardize_mol(
     
     return mol
 
-def standardize_smiles(
-        smiles,
-        **kwargs
-    ):
+def standardize_smiles(smiles, **kwargs):
     kwargs = _handle_kwargs(**kwargs)
     mol = Chem.MolFromSmiles(smiles)
     mol = standardize_mol(
@@ -61,10 +55,7 @@ def standardize_smiles(
     )
     return Chem.MolToSmiles(mol)
 
-def standardize_smarts_rxn(
-        smarts_rxn,
-        **kwargs
-    ):
+def standardize_smarts_rxn(smarts_rxn, **kwargs):
     kwargs = _handle_kwargs(**kwargs)
     '''
     Args
@@ -176,8 +167,6 @@ def get_reaction_hash(reactants, products):
 
     return rhash
 
-
-
 def neutralize_charges(mol: Chem.rdchem.Mol) -> Chem.rdchem.Mol:
     """Neutralize all charges in an rdkit mol.
 
@@ -262,16 +251,6 @@ def tautomer_expand(molecule, k):
         return smis[:k]
     elif mode == 'mol':
         return mols[:k]
-
-# def smarts_to_sub_smiles(smarts):
-#     reactants, products = smarts.split(">>")
-#     reactants = reactants.split('.')
-#     products = products.split('.')
-#     return reactants, products
-
-# def sub_smiles_to_smarts(reactants, products):
-#     sma = ".".join(reactants) + '>>' + ".".join(products)
-#     return sma
 
 if __name__ == '__main__':
     test_rhea_clean = [

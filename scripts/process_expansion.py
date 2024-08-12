@@ -17,11 +17,6 @@ args = parser.parse_args()
 pk_fn = args.fn
 generations = args.generations
 
-# # Check if already processed
-# with open("../artifacts/processed_expansions/already_processed.txt", 'r') as f:
-#     lines = [elt.strip() for elt in f.readlines()]
-
-# if pk_fn not in lines:
 # Set params
 raw_dir = "../data/raw_expansions"
 pk_path = f"{raw_dir}/{pk_fn}"
@@ -36,8 +31,6 @@ known_reactions_filepath = "../artifacts/processed_expansions/known_reactions.js
 stored_paths = load_json(path_filepath)
 stored_predicted_reactions = load_json(predicted_reactions_filepath)
 stored_known_reactions = load_json(known_reactions_filepath)
-old_pids = [int(pid) for pid in stored_paths]
-next_path_id = max(old_pids) + 1 if old_pids else 0
 
 # Read in rules
 rules_dir = "../data/rules"
@@ -196,6 +189,3 @@ for n, o in zip(new, old):
 save_json(stored_paths, path_filepath)
 save_json(stored_predicted_reactions, predicted_reactions_filepath)
 save_json(stored_known_reactions, known_reactions_filepath)
-
-    # with open("../artifacts/processed_expansions/already_processed.txt", 'a') as f:
-    #     f.write(pk_fn + '\n')

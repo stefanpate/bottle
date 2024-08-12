@@ -4,7 +4,31 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
+        {
+            "name": "process_expansion",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${fileDirname}",
+            "args": [
+                "ccm_v0_to_hopa_gen_3_tan_sample_1_n_samples_1000.pk",
+                "3",
+            ]
+        },
+        {
+            "name": "Python Debugger: Current File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${fileDirname}",
+            "args": [
+                "../data/rules/minimal1224_all_uniprot.tsv",
+                "../data/sprhea/sprhea_v3_20_random.json",
+                "../artifacts/test_mapping.tsv"
+            ],
+        },
         {
             "name": "Python: Current File",
             "type": "python",
@@ -12,7 +36,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "cwd":"${fileDirname}"
+            "cwd": "${fileDirname}"
         }
     ]
 }

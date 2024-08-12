@@ -1,3 +1,12 @@
+data/bkms_jni_val/jni_uniprot.json
+data/bkms_jni_val/known_rxns_jni_w_enzyme_validation.json
+data/sprhea/uniprotkb_reviewed_true_AND_proteins_wi_2024_02_29.tsv
+data/bkms_jni_val/known_rxns_swissprot_enzymes_240310_v2.json
+data/sprhea/sprhea_240310_v3.json
+data/sprhea/uniprotkb_reviewed_true_AND_proteins_wi_2024_07_29.tsv
+data/sprhea/sprhea_240310_v3_mapped.json
+data/sprhea/sprhea_240310_v3_mapped_no_subunits.json
+**/imgs
 data/raw_expansions/
 data/pruned_expansions/
 artifacts/documents/
@@ -9,11 +18,7 @@ artifacts/pwy_svgs/
 core*
 *.ipynb_checkpoints*
 *__pycache__*
-data/mapping/jni_uniprot.json
-data/mapping/known_rxns_jni_w_enzyme_validation.json
-data/mapping/uniprotkb_reviewed_true_AND_proteins_wi_2024_02_29.tsv
-data/mapping/uniprotkb_AND_reviewed_true_AND_protein_2024_05_15.tsv
-data/mapping/known_rxns_swissprot_enzymes_240310_v2.json
+
 
 # typical dev stuff
 .idea
@@ -75,5 +80,3 @@ cover/
 # Translations
 *.mo
 *.pot
-
-

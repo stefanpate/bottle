@@ -2,10 +2,11 @@ README.md
 setup.py
 src/__init__.py
 src/chem_draw.py
-src/pathway_utils.py
+src/cheminfo_utils.py
+src/operator_mapping.py
+src/pickaxe_processing.py
 src/post_processing.py
-src/rxn_ctr_mcs.py
-src/thermo.py
+src/rcmcs.py
 src/utils.py
 src.egg-info/PKG-INFO
 src.egg-info/SOURCES.txt

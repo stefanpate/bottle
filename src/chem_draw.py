@@ -9,35 +9,6 @@ from collections import Counter
 import numpy as np
 import os
 
-def draw_pwy_svg(sma_hash_pairs, path_id, pwy_fn=None):
-    fns = []
-    widths = []
-    for pair in sma_hash_pairs:
-        pred_fn, pred_width = draw_rxn_svg(*pair[0])
-        known_fn, known_width = draw_rxn_svg(*pair[1])
-        fns.append((pred_fn, known_fn))
-        widths.append((pred_width, known_width))
-
-    max_pred_width = max(list(zip(*widths))[0])
-    max_known_width = max(list(zip(*widths))[1])
-    elements = []
-    for i, row in enumerate(fns):
-        for j, half in enumerate(row):
-            pred_delta = max_pred_width - widths[i][j]
-            elements.append(sc.SVG(half).move(pred_delta + j * (max_pred_width + 40 - pred_delta), 200 * i))
-
-        elements.append(sc.SVG('../artifacts/double_border.svg').move(max_pred_width, 200 * i))
-    
-    elements.append(sc.Text(f"{path_id}", 25, 25, size=16, weight='bold')) # Path id
-    pwy_svg = sc.Figure(max_pred_width + 40 + max_known_width, 200 * len(fns),
-            *elements
-            )
-    
-    if pwy_fn:
-        pwy_svg.save(pwy_fn)
-    else:
-        return pwy_svg
-        
 def draw_rxn_svg(rxn_sma, rid, hilite_atoms=None):
     fn = f"../artifacts/imgs/rxns/{rid}.svg"
     if os.path.exists(fn):
@@ -104,11 +75,6 @@ def draw_mol_svg(smiles, stoich, hilite_atoms=None):
             d2d.DrawMolecule(mol, legend=f"({stoich})")
         elif (stoich == 1) & (hilite_atoms is None):
             d2d.DrawMolecule(mol)
-
-def draw_pathway(pred_known_pairs):
-    for i, elt in enumerate(pred_known_pairs):
-        if i == 0:
-            img = get_concat_h(*elt)
         else:
             d2d.DrawMolecule(mol, highlightAtoms=hilite_atoms)
         
@@ -117,6 +83,35 @@ def draw_pathway(pred_known_pairs):
         fig.save(fn)
     
     return fn
+
+def draw_pwy_svg(sma_hash_pairs, path_id, pwy_fn=None):
+    fns = []
+    widths = []
+    for pair in sma_hash_pairs:
+        pred_fn, pred_width = draw_rxn_svg(*pair[0])
+        known_fn, known_width = draw_rxn_svg(*pair[1])
+        fns.append((pred_fn, known_fn))
+        widths.append((pred_width, known_width))
+
+    max_pred_width = max(list(zip(*widths))[0])
+    max_known_width = max(list(zip(*widths))[1])
+    elements = []
+    for i, row in enumerate(fns):
+        for j, half in enumerate(row):
+            pred_delta = max_pred_width - widths[i][j]
+            elements.append(sc.SVG(half).move(pred_delta + j * (max_pred_width + 40 - pred_delta), 200 * i))
+
+        elements.append(sc.SVG('../artifacts/double_border.svg').move(max_pred_width, 200 * i))
+    
+    elements.append(sc.Text(f"{path_id}", 25, 25, size=16, weight='bold')) # Path id
+    pwy_svg = sc.Figure(max_pred_width + 40 + max_known_width, 200 * len(fns),
+            *elements
+            )
+    
+    if pwy_fn:
+        pwy_svg.save(pwy_fn)
+    else:
+        return pwy_svg
 
 # TODO PK added this code before discovering http://rdkit.org/docs/source/rdkit.Chem.PandasTools.html
 # remove if this truly becomes dead code - otherwise, a decent pattern

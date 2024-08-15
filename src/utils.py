@@ -24,20 +24,20 @@ def load_json(path):
         data = json.load(f)
     return data
 
-def ensure_type(obj: Any, target_type: Type[T], *, factory: Callable[[Any], T] | None = None) -> T:
-    factory = factory or target_type
-    return obj if isinstance(obj, target_type) else factory(obj)
+# def ensure_type(obj: Any, target_type: Type[T], *, factory: Callable[[Any], T] | None = None) -> T:
+#     factory = factory or target_type
+#     return obj if isinstance(obj, target_type) else factory(obj)
 
 
-def filter_smiles_by_smarts(
-        smiles: Iterable[str | rdkit.Chem.Mol],
-        smarts: str | rdkit.Chem.Mol
-) -> Iterable[rdkit.Chem.Mol]:
-    smarts = ensure_type(smarts, rdkit.Chem.Mol, factory=rdkit.Chem.MolFromSmarts)
-    return (
-        elem for elem in smiles
-        if ensure_type(elem, rdkit.Chem.Mol, factory=rdkit.Chem.MolFromSmiles).HasSubstructMatch(smarts)
-    )
+# def filter_smiles_by_smarts(
+#         smiles: Iterable[str | rdkit.Chem.Mol],
+#         smarts: str | rdkit.Chem.Mol
+# ) -> Iterable[rdkit.Chem.Mol]:
+#     smarts = ensure_type(smarts, rdkit.Chem.Mol, factory=rdkit.Chem.MolFromSmarts)
+#     return (
+#         elem for elem in smiles
+#         if ensure_type(elem, rdkit.Chem.Mol, factory=rdkit.Chem.MolFromSmiles).HasSubstructMatch(smarts)
+#     )
 
 
 def BRICSDecompositionsToFrame(mols: Iterable[Chem.Mol], *, keep_decomp_tuple=True, **kwargs) -> pd.DataFrame:

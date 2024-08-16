@@ -23,11 +23,11 @@ poetry install
 7. tests
 
 ## Usage
-- run_pickaxe.py does a network expansion from starters to targets. 
-- prune_pickaxe.py takes a pickaxe output, finds paths from starters to targets, saves a pruned pickaxe object and a ProcessedExpansion object
-- [Placeholder for thermodynamics. Currently calculations done outside this directory]
-- analyze_paths.py does reaction-center-maximum-common-substructure calculations and enters thermo info into ProcessedExpansion object
-- vis_pathways.ipynb filters & sorts paths in ProcessedExpansion object and renders pdfs of reaction formula and spreadsheets w/ further info
+- run_pickaxe.py does a network expansion from starters to targets.
+- process_expansion.py from Pickaxe output, (1) finds paths between starter and target molecules (2) assigns known reaction analogues to the predicted reactions in found paths using a reaction-based similarity score (3) calculates thermodynamic values for predicted pathways using eQuilibrator (4) stores processed paths, predicted reactions, and known reaction information to json
+- map_operators.py maps operators to reaction with option to return the reaction center
+- sprhea_extract.py does most of the processing of known protein-reaction data from SwissProt + Rhea flat files
+- download_rhea_smi_name_pairs.py pulls molecule SMILES-name pairs from Rhea
 
 ## Dev Notes
 

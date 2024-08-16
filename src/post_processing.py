@@ -175,8 +175,11 @@ class Path:
     starter:str
     target:str
     reactions:List[PredictedReaction]
-    _sid:str # Starter hash
-    _tid:str # Target hash
+    mdf:float
+    dG_opt:Dict[str, float]
+    dG_err:Dict[str, float]
+    sid:str # Starter hash
+    tid:str # Target hash
 
     def to_dict(self):
         '''Returns dict representation w/ all fields
@@ -407,8 +410,8 @@ if __name__ == '__main__':
         starter='akg',
         target='hopa',
         reactions=[pr, pr],
-        _sid='Csdlfk',
-        _tid="Caweor34np"
+        sid='Csdlfk',
+        tid="Caweor34np"
     )
 
     print(path.valid)

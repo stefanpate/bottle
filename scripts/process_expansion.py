@@ -18,7 +18,6 @@ import sqlalchemy
 from src.thermo.pickaxe_thermodynamics import PickaxeThermodynamics
 
 if __name__ == '__main__':
-    print('foo')
     set_start_method("spawn")
     parser = ArgumentParser()
     parser.add_argument("fn", help='Expansion filename w/ extension .pk', type=str)

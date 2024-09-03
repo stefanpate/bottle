@@ -13,8 +13,8 @@
             "cwd": "${fileDirname}",
             "justMyCode": false,
             "args": [
-                "alpha_ketoglutarate_to_hopa_gen_2_tan_sample_0_n_samples_1000.pk",
-                "2",
+                "ccm_v0_to_mvacid_gen_3_tan_sample_1_n_samples_1000.pk",
+                "3",
             ]
         },
         {

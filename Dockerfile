@@ -22,10 +22,10 @@ ENV POETRY_NO_INTERACTION=1 \
 WORKDIR /app
 
 COPY src ./src
-COPY pyproject.toml poetry.lock README.md ./
+COPY README.md pyproject.toml poetry.lock ./
 RUN touch README.md
 
-RUN --mount=type=cache,target=$POETRY_CACHE_DIR poetry bundle venv /app/.venv --only binder
+RUN --mount=type=cache,target=$POETRY_CACHE_DIR poetry bundle venv /app/.venv --without dev --clear
 
 
 # --- runtime layer
@@ -59,7 +59,9 @@ RUN adduser --disabled-password \
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
 # copy contents and change their ownership
-COPY notebooks/ ${HOME}
+COPY artifacts/ ${HOME}/artifacts
+COPY notebooks/ ${HOME}/notebooks
+
 USER root
 RUN chown -R ${NB_UID} ${HOME}
 USER ${NB_USER}

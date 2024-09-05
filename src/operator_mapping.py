@@ -237,25 +237,6 @@ def expand_unpaired_cofactors(df, k):
 
     return smi2cof
 
-def expand_paired_cofactors(df, k):
-    smi2cof = {}
-    for _, row in df.iterrows():
-        smi_exp_1 = tautomer_expand(row["Smiles 1"], k)
-        smi_exp_2 = tautomer_expand(row["Smiles 2"], k)
-        for combo in product(smi_exp_1, smi_exp_2):
-            smi2cof[combo] = (row["Class 1"], row["Class 2"])
-
-    return smi2cof
-
-def expand_unpaired_cofactors(df, k):
-    smi2cof = {}
-    for _, row in df.iterrows():
-        smi_exp = tautomer_expand(row["Smiles"], k)
-        for smi in smi_exp:
-            smi2cof[smi] = row["Class"]
-
-    return smi2cof
-
 def standardize_template_map(
         rxn:str,
         rule_row:pd.Series,

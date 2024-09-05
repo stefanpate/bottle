@@ -129,6 +129,7 @@ def mol_to_svg(mol: Chem.Mol, drawer_provider: DrawerProvider) -> str:
     mol = Draw.rdMolDraw2D.PrepareMolForDrawing(mol)
     drawer = drawer_provider(mol)
     drawer.DrawMolecule(mol)
+    drawer.FinishDrawing()
     return drawer.GetDrawingText()
 
 

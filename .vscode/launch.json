@@ -11,8 +11,9 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "cwd": "${fileDirname}",
+            "justMyCode": false,
             "args": [
-                "ccm_v0_to_hopa_gen_3_tan_sample_1_n_samples_1000.pk",
+                "ccm_v0_to_mvacid_gen_3_tan_sample_1_n_samples_1000.pk",
                 "3",
             ]
         },

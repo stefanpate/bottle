@@ -45,7 +45,7 @@ bottle = "src.__main__:main"
 
 [tool.poe.tasks]
 test = "pytest --cov=src"
-build-image.shell = "docker build -t nu/bottle:$(poetry version --short) ."
+build-image.shell = "docker build -t eidetiq/bottle:$(poetry version --short) ."
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

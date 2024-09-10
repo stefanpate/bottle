@@ -1,5 +1,7 @@
 # Computationally-assisted synthesis planning for recyclable-by-design polymers
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/p7k/bottle/GH6_binder_deploy_poetry)
+
 ## Description
 Runs network expansions using Pickaxe, finds paths, post-processes, and renders spreadsheet + pdf deliverables.
 

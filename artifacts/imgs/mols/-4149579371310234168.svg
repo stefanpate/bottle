@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='ASCII' standalone='yes'?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:rdkit="http://www.rdkit.org/xml" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" xml:space="preserve" width="25px" height="200px" viewBox="0 0 25 200">
+<!-- END OF HEADER -->
+<rect style="opacity:1.0;fill:#FFFFFF;stroke:none" width="25.0" height="200.0" x="0.0" y="0.0"> </rect>
+<path class="atom-0" d="M 1.1 97.7 Q 1.1 95.3, 2.2 94.1 Q 3.3 92.8, 5.5 92.8 Q 7.4 92.8, 8.5 94.2 L 7.6 94.9 Q 6.8 93.9, 5.5 93.9 Q 4.0 93.9, 3.3 94.9 Q 2.5 95.8, 2.5 97.7 Q 2.5 99.5, 3.3 100.5 Q 4.1 101.5, 5.6 101.5 Q 6.6 101.5, 7.9 100.8 L 8.2 101.9 Q 7.7 102.2, 7.0 102.4 Q 6.2 102.5, 5.4 102.5 Q 3.3 102.5, 2.2 101.3 Q 1.1 100.0, 1.1 97.7 " fill="#000000"/>
+<path class="atom-0" d="M 9.7 92.9 L 11.0 92.9 L 11.0 97.0 L 15.9 97.0 L 15.9 92.9 L 17.2 92.9 L 17.2 102.4 L 15.9 102.4 L 15.9 98.0 L 11.0 98.0 L 11.0 102.4 L 9.7 102.4 L 9.7 92.9 " fill="#000000"/>
+<path class="atom-0" d="M 23.1 105.0 L 23.9 105.0 L 23.9 105.7 L 23.1 105.7 L 23.1 107.2 L 22.3 107.2 L 22.3 105.7 L 19.0 105.7 L 19.0 105.2 L 21.8 100.9 L 23.1 100.9 L 23.1 105.0 M 20.1 105.0 L 22.3 105.0 L 22.3 101.5 L 20.1 105.0 " fill="#000000"/>
+</svg>

@@ -1546,6 +1546,20 @@ pyside6 = ["pyside6"]
 test = ["flaky", "ipyparallel", "pre-commit", "pytest (>=7.0)", "pytest-asyncio (>=0.23.5)", "pytest-cov", "pytest-timeout"]
 
 [[package]]
+name = "ipysheet"
+version = "0.7.0"
+description = "Spreadsheet in the Jupyter notebook."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "ipysheet-0.7.0-py2.py3-none-any.whl", hash = "sha256:0a5179815444977fbc2317bab6133a3af179c4155996dd3f723b4d10f2d5a970"},
+    {file = "ipysheet-0.7.0.tar.gz", hash = "sha256:34587a02d3bc304724126f9a6dbdf8237a04a6a7aec98a8ffbda16f93fe4ec27"},
+]
+
+[package.dependencies]
+ipywidgets = ">=7.5.0,<9.0"
+
+[[package]]
 name = "ipython"
 version = "8.27.0"
 description = "IPython: Productive Interactive Computing"
@@ -5442,4 +5456,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.12"
-content-hash = "b8d8b244664cb2497d1207e076349f7d47e450b8822b438ed10029ca511d75bd"
+content-hash = "0ce706f8dba5033d006b862c38e96a0db152fdf674a811c1844b1bb64c00a3ee"

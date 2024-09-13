@@ -1,0 +1,16 @@
+{
+   "VoilaConfiguration": {
+      "preheat_kernel": true
+   },
+   "VoilaKernelManager": {
+      "kernel_pools_config": {
+         "notebooks/interactive_deliverable.ipynb": {
+            "pool_size": 10
+         },
+         "default": {
+            "pool_size": 0
+         }
+      },
+      "fill_delay": 0
+   }
+}

@@ -62,6 +62,7 @@ COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 # copy contents and change their ownership
 COPY artifacts/ ${HOME}/artifacts
 COPY notebooks/ ${HOME}/notebooks
+COPY voila.json ${HOME}/voila.json
 
 USER root
 RUN chown -R ${NB_UID} ${HOME}

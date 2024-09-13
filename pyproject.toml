@@ -51,7 +51,7 @@ bottle = "src.__main__:main"
 [tool.poe.tasks]
 test = "pytest --cov=src"
 build-image.shell = "docker build -f Dockerfile.main -t synbiorox/bottle:$(poetry version --short) . --platform=linux/amd64"
-build-image-arm.shell = "docker build -f Dockerfile.main -t synbiorox/bottle:$(poetry version --short) . --platform=linux/arm64"
+build-image-arm.shell = "docker build -f Dockerfile.main -t synbiorox/bottle.arm64:$(poetry version --short) . --platform=linux/arm64"
 push-image.shell = "docker push synbiorox/bottle:$(poetry version --short)"
 
 [tool.pytest.ini_options]

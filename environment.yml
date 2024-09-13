@@ -125,32 +125,59 @@ dependencies:
   - zstd=1.5.5=hc292b87_0
   - pip:
       - absl-py==2.1.0
+      - aiohappyeyeballs==2.4.0
+      - aiohttp==3.10.5
+      - aiosignal==1.3.1
       - anyio==4.3.0
       - appdirs==1.4.4
+      - argon2-cffi==23.1.0
+      - argon2-cffi-bindings==21.2.0
+      - arrow==1.3.0
+      - async-lru==2.0.4
+      - async-timeout==4.0.3
+      - babel==2.16.0
+      - bleach==6.1.0
       - clarabel==0.6.0
       - click-log==0.4.0
       - comm==0.2.2
       - component-contribution==0.5.2
       - contourpy==1.2.1
+      - cssselect==1.2.0
+      - cssutils==2.11.1
       - cvxpy==1.4.2
       - cycler==0.12.1
+      - defusedxml==0.7.1
       - dm-tree==0.1.8
       - dnspython==2.6.1
       - ecos==2.0.13
       - equilibrator-api==0.5.1
       - equilibrator-assets==0.5.0
       - equilibrator-cache==0.5.4
+      - fastjsonschema==2.20.0
       - fonttools==4.53.1
+      - fqdn==1.5.1
+      - frozenlist==1.4.1
       - future==1.0.0
       - greenlet==3.0.3
       - h11==0.14.0
       - h5py==3.10.0
+      - html2image==2.0.5
       - httpcore==1.0.4
       - httpx==0.27.0
       - idna==3.6
       - importlib-resources==6.1.2
+      - ipysheet==0.7.0
       - ipywidgets==8.1.5
+      - isoduration==20.11.0
       - joblib==1.3.2
+      - json5==0.9.25
+      - jupyter-events==0.10.0
+      - jupyter-lsp==2.2.5
+      - jupyter-server==2.14.2
+      - jupyter-server-terminals==0.5.3
+      - jupyterlab==4.2.5
+      - jupyterlab-pygments==0.3.0
+      - jupyterlab-server==2.27.3
       - jupyterlab-widgets==3.0.13
       - keras==3.0.5
       - kiwisolver==1.4.5
@@ -160,45 +187,68 @@ dependencies:
       - matplotlib==3.9.1.post1
       - mdurl==0.1.2
       - minedatabase==2.2.0
+      - mistune==3.0.2
       - ml-dtypes==0.3.2
       - mordred==1.2.0
+      - multidict==6.1.0
       - namex==0.0.7
+      - nbclient==0.10.0
+      - nbconvert==7.16.4
+      - nbformat==5.10.4
       - networkx==2.8.8
+      - notebook-shim==0.2.4
       - numpy==1.26.4
       - openbabel-wheel==3.1.1.19
       - osqp==0.6.5
+      - overrides==7.7.0
       - packaging==23.2
       - pandas==2.1.4
+      - pandocfilters==1.5.1
       - path==16.10.0
       - periodictable==1.6.1
       - pillow==10.2.0
       - pint==0.23
       - platformdirs==4.2.0
       - pooch==1.8.1
+      - prometheus-client==0.20.0
       - psycopg2-binary==2.9.9
       - pyarrow==15.0.0
       - pybind11==2.11.1
       - pygments==2.17.2
       - pymongo==4.6.2
       - pyparsing==3.1.1
+      - python-json-logger==2.0.7
       - python-libsbml==5.20.2
       - python-slugify==5.0.2
       - qdldl==0.1.7.post0
       - rapidfuzz==3.6.1
       - rdkit==2023.9.6
+      - rfc3339-validator==0.1.4
+      - rfc3986-validator==0.1.1
       - rich==13.7.0
       - scikit-learn==1.4.1.post1
       - scipy==1.11.4
       - scs==3.2.4.post1
+      - send2trash==1.8.3
       - sniffio==1.3.1
       - sqlalchemy==1.3.24
       - svgutils==0.3.4
       - tenacity==6.3.1
+      - terminado==0.18.1
       - text-unidecode==1.3
       - threadpoolctl==3.3.0
+      - tinycss2==1.3.0
       - tqdm==4.66.2
+      - types-python-dateutil==2.9.0.20240906
       - tzdata==2024.1
       - uncertainties==3.1.7
+      - uri-template==1.3.0
       - urllib3==2.2.1
+      - voila==0.5.7
+      - webcolors==24.8.0
+      - webencodings==0.5.1
+      - websocket-client==1.8.0
+      - websockets==13.0.1
       - widgetsnbextension==4.0.13
+      - yarl==1.11.1
 prefix: /home/stef/miniconda3/envs/casp

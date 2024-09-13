@@ -43,7 +43,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ARG NB_USER=nu
+ARG NB_USER=joyvan
 ARG NB_UID=1000
 
 ENV VIRTUAL_ENV=/app/.venv \

@@ -15,7 +15,7 @@
    },
    "MappingKernelManager": {
     "cull_idle_timeout": 1200,
-    "cull_interval": 120,
-    "cull_connected": true
+    "cull_interval": 300,
+    "cull_connected": false
   }
 }

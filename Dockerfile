@@ -10,13 +10,16 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install poetry==1.8.3
-RUN poetry self add poetry-plugin-bundle
+ARG POETRY_VERSION=1.8.3
+
+RUN pip install poetry==$POETRY_VERSION \
+    && poetry self add poetry-plugin-bundle
 
 ENV VIRTUAL_ENV=/app/.venv \
     POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
-    POETRY_VIRTUALENVS_CREATE=1
+    POETRY_VIRTUALENVS_CREATE=1 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache
 
 WORKDIR /app
 
@@ -26,9 +29,9 @@ RUN touch README.md
 
 RUN poetry bundle venv $VIRTUAL_ENV \
     --without dev \
-    --compile \
     --verbose \
-    --no-cache
+    --no-cache \
+    && rm -rf $POETRY_CACHE_DIR
 
 # --- runtime layer
 FROM python:3.12-slim-bookworm AS runtime
@@ -59,15 +62,18 @@ RUN adduser --disabled-password \
 
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
+WORKDIR ${HOME}
+
 # copy contents and change their ownership
-COPY artifacts/ ${HOME}/artifacts
-COPY notebooks/ ${HOME}/notebooks
-COPY voila.json ${HOME}/voila.json
+COPY artifacts/ ./artifacts
+COPY notebooks/ ./notebooks
+COPY voila.json ./voila.json
 
 USER root
 RUN chown -R ${NB_UID} ${HOME}
+
 USER ${NB_USER}
 
-WORKDIR ${HOME}
+RUN jupyter trust notebooks/interactive_deliverable.ipynb
 
 CMD ["jupyter", "lab", "--ip=0.0.0.0", "--no-browser"]

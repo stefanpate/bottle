@@ -1,15 +1,12 @@
-import json
-import pandas as pd
-from rdkit import Chem
-import os
-import hashlib
-from typing import Any, Tuple, Union, Iterable, TypeVar, Type, Callable
 import collections
-import itertools
-import rdkit
+import json
+import orjson
+import pandas as pd
+from pathlib import Path
+from typing import Any, Tuple, Union, Iterable, TypeVar, Type, Callable
+
 from rdkit import Chem
-from rdkit.Chem import AllChem, BRICS
-import re
+from rdkit.Chem import BRICS
 
 StoichTuple = collections.namedtuple("StoichTuple", "c_id, stoich")
 T = TypeVar('T')
@@ -20,8 +17,8 @@ def save_json(data, save_to):
 
 
 def load_json(path):
-    with open(path, 'r') as f:
-        data = json.load(f)
+    json_str = Path(path).read_text('utf-8')
+    data = orjson.loads(json_str)
     return data
 
 # def ensure_type(obj: Any, target_type: Type[T], *, factory: Callable[[Any], T] | None = None) -> T:

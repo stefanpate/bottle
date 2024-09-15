@@ -33,6 +33,9 @@ voila = "^0.5.7"
 ipywidgets = "^8.1.5"
 ipykernel = "^6.29.5"
 ipysheet = "^0.7.0"
+orjson = "^3.10.7"
+xeus-python = "^0.15.12"
+notebook = "^7.2.2"
 
 [tool.poetry.group.dev.dependencies]
 findimports = "^2.5.0"
@@ -50,8 +53,8 @@ bottle = "src.__main__:main"
 
 [tool.poe.tasks]
 test = "pytest --cov=src"
-build-image.shell = "docker build -f Dockerfile.main -t synbiorox/bottle:$(poetry version --short) . --platform=linux/amd64"
-build-image-arm.shell = "docker build -f Dockerfile.main -t synbiorox/bottle.arm64:$(poetry version --short) . --platform=linux/arm64"
+build-image.shell = "docker build -t synbiorox/bottle:$(poetry version --short) . --platform=linux/amd64"
+build-image-arm.shell = "docker build -t synbiorox/bottle.arm64:$(poetry version --short) . --platform=linux/arm64"
 push-image.shell = "docker push synbiorox/bottle:$(poetry version --short)"
 
 [tool.pytest.ini_options]

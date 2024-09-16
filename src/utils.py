@@ -1,3 +1,4 @@
+import asyncio
 import collections
 import json
 import orjson
@@ -57,3 +58,41 @@ def BRICSDecompositionsToFrame(mols: Iterable[Chem.Mol], *, keep_decomp_tuple=Tr
         df.insert(0, 'brics_decomp', sr_decomp)
     return df
 
+
+#
+#  ipywidgets debouncing
+#  (https://ipywidgets.readthedocs.io/en/8.1.5/examples/Widget%20Events.html#debouncing)
+#
+
+class TimerAsync:
+    def __init__(self, timeout, callback):
+        self._timeout = timeout
+        self._callback = callback
+
+    async def _job(self):
+        await asyncio.sleep(self._timeout)
+        self._callback()
+
+    def start(self):
+        self._task = asyncio.ensure_future(self._job())
+
+    def cancel(self):
+        self._task.cancel()
+
+
+def debounce(wait, *, timer_factory=TimerAsync):
+    """ Decorator that will postpone a function's
+        execution until after `wait` seconds
+        have elapsed since the last time it was invoked. """
+    def decorator(fn):
+        timer = None
+        def debounced(*args, **kwargs):
+            nonlocal timer
+            def call_it():
+                fn(*args, **kwargs)
+            if timer is not None:
+                timer.cancel()
+            timer = timer_factory(wait, call_it)
+            timer.start()
+        return debounced
+    return decorator

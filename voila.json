@@ -1,0 +1,21 @@
+{
+   "VoilaConfiguration": {
+      "preheat_kernel": false
+   },
+   "VoilaKernelManager": {
+      "kernel_pools_config": {
+         "notebooks/interactive_deliverable.ipynb": {
+            "pool_size": 3
+         },
+         "default": {
+            "pool_size": 0
+         }
+      },
+      "fill_delay": 0
+   },
+   "MappingKernelManager": {
+    "cull_idle_timeout": 1200,
+    "cull_interval": 300,
+    "cull_connected": false
+  }
+}

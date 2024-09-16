@@ -1,0 +1,13 @@
+services:
+  voila:
+    image: synbiorox/bottle:0.1.0
+    platform: linux/amd64
+    build: .
+    ports:
+      - "8866:8866"
+    command: voila --port=8866 --Voila.ip=0.0.0.0 --no-browser --token=synbiorox notebooks/interactive_deliverable.ipynb
+  lab:
+    image: synbiorox/bottle:0.1.0
+    build: .
+    ports:
+      - "8888:8888"

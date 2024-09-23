@@ -1,0 +1,131 @@
+----------------------------------------
+Intializing pickaxe object
+
+Done intializing pickaxe object
+----------------------------------------
+
+8 compounds loaded...
+(8 after removing stereochemistry)
+4 target compounds loaded
+
+----------------------------------------
+Filtering Generation 0
+
+Sampling 1000 Compounds Based on a Weighted Similarity Distribution
+Filtering Generation 0 via Similarity Sampling.
+-- Number to sample is less than number of compounds. Returning all compounds.
+num sampled =  8
+8 of 8 compounds selected after Similarity Sampling of generation 0--took 0.0012857913970947266s.
+
+Done filtering Generation 0
+----------------------------------------
+
+----------------------------------------
+Expanding Generation 1
+
+Generation 1: 0 percent complete
+Generation 1: 12 percent complete
+Generation 1: 25 percent complete
+Generation 1: 38 percent complete
+Generation 1: 50 percent complete
+Generation 1: 62 percent complete
+Generation 1: 75 percent complete
+Generation 1: 88 percent complete
+Generation 1 finished in 16.06545925140381 s and contains:
+		841 new compounds
+		1077 new reactions
+
+Done expanding Generation: 1.
+----------------------------------------
+
+----------------------------------------
+Filtering Generation 1
+
+Sampling 1000 Compounds Based on a Weighted Similarity Distribution
+Filtering Generation 1 via Similarity Sampling.
+-- Number to sample is less than number of compounds. Returning all compounds.
+num sampled =  841
+841 of 841 compounds selected after Similarity Sampling of generation 1--took 0.0020904541015625s.
+
+Done filtering Generation 1
+----------------------------------------
+
+----------------------------------------
+Expanding Generation 2
+
+Generation 2: 0 percent complete
+Generation 2: 10 percent complete
+Generation 2: 20 percent complete
+Generation 2: 30 percent complete
+Generation 2: 40 percent complete
+Generation 2: 50 percent complete
+Generation 2: 60 percent complete
+Generation 2: 70 percent complete
+Generation 2: 80 percent complete
+Generation 2: 90 percent complete
+Generation 2: 100 percent complete
+Generation 2 finished in 744.3374173641205 s and contains:
+		567792 new compounds
+		655134 new reactions
+
+Done expanding Generation: 2.
+----------------------------------------
+
+----------------------------------------
+Filtering Generation 2
+
+Sampling 1000 Compounds Based on a Weighted Similarity Distribution
+Filtering Generation 2 via Similarity Sampling.
+-- Calculating Fingerprints and Similarity Values.
+-- Completed Similarity Calculation in 287.32883620262146
+-- Sampling compounds to expand.
+-- Finished sampling in 0.14042448997497559 s. Recalculated CDF 0 times.
+num sampled =  1000
+1000 of 567792 compounds selected after Similarity Sampling of generation 2--took 308.1066176891327s.
+
+Done filtering Generation 2
+----------------------------------------
+
+----------------------------------------
+Expanding Generation 3
+
+Generation 3: 0 percent complete
+Generation 3: 10 percent complete
+Generation 3: 20 percent complete
+Generation 3: 30 percent complete
+Generation 3: 40 percent complete
+Generation 3: 50 percent complete
+Generation 3: 60 percent complete
+Generation 3: 70 percent complete
+Generation 3: 80 percent complete
+Generation 3: 90 percent complete
+Generation 3 finished in 745.9974377155304 s and contains:
+		706744 new compounds
+		795863 new reactions
+
+Done expanding Generation: 3.
+----------------------------------------
+
+----------------------------------------
+Filtering Generation 3
+
+Sampling 1000 Compounds Based on a Weighted Similarity Distribution
+Filtering Generation 3 via Similarity Sampling.
+-- Calculating Fingerprints and Similarity Values.
+-- Completed Similarity Calculation in 441.9529950618744
+-- Sampling compounds to expand.
+-- Finished sampling in 0.6027882099151611 s. Recalculated CDF 0 times.
+num sampled =  1000
+1000 of 706744 compounds selected after Similarity Sampling of generation 3--took 470.0963294506073s.
+
+Done filtering Generation 3
+----------------------------------------
+
+----------------------------------------
+Pruning to 4 target compounds
+Pruned network to 63896 compounds and 75911 reactions based on 4 whitelisted compounds.
+
+Found 1 targets.
+Pruning took 1.1135826110839844s
+----------------------------------------
+

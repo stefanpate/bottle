@@ -1,18 +1,18 @@
-id	smiles
-alanine	CC(N)C(=O)O
-arganine	NC(N)=NCCCC(N)C(=O)O
-asparagine	NC(=O)CC(N)C(=O)O
-Aspartic Acid	NC(CC(=O)O)C(=O)O
-Cysteine	NC(CS)C(=O)O
-glutamine	NC(=O)CCC(N)C(=O)O
-glysine	NCC(=O)O
-histidine	NC(Cc1cnc[nH]1)C(=O)O
-Isoleucine	CCC(C)C(N)C(=O)O
-leucine	CC(C)CC(N)C(=O)O
-Methionine	CSCCC(N)C(=O)O
-Phenylalanine	NC(Cc1ccccc1)C(=O)O
-Serine	NC(CO)C(=O)O
-Threonine	CC(O)C(N)C(=O)O
-Tryptophan	NC(Cc1c[nH]c2ccccc12)C(=O)O
-Tyrosine	NC(Cc1ccc(O)cc1)C(=O)O
-Valine	CC(C)C(N)C(=O)O
+id,smiles
+alanine,CC(N)C(=O)O
+arganine,NC(N)=NCCCC(N)C(=O)O
+asparagine,NC(=O)CC(N)C(=O)O
+aspartic_acid,NC(CC(=O)O)C(=O)O
+cysteine,NC(CS)C(=O)O
+glutamine,NC(=O)CCC(N)C(=O)O
+glysine,NCC(=O)O
+histidine,NC(Cc1cnc[nH]1)C(=O)O
+isoleucine,CCC(C)C(N)C(=O)O
+leucine,CC(C)CC(N)C(=O)O
+methionine,CSCCC(N)C(=O)O
+phenylalanine,NC(Cc1ccccc1)C(=O)O
+serine,NC(CO)C(=O)O
+threonine,CC(O)C(N)C(=O)O
+tryptophan,NC(Cc1c[nH]c2ccccc12)C(=O)O
+tyrosine,NC(Cc1ccc(O)cc1)C(=O)O
+valine,CC(C)C(N)C(=O)O

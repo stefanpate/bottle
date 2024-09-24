@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='ASCII' standalone='yes'?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:rdkit="http://www.rdkit.org/xml" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" xml:space="preserve" width="120px" height="200px" viewBox="0 0 120 200">
+<!-- END OF HEADER -->
+<rect style="opacity:1.0;fill:#FFFFFF;stroke:none" width="120.0" height="200.0" x="0.0" y="0.0"> </rect>
+<path class="bond-0 atom-0 atom-1" d="M 6.0,105.1 L 46.7,81.6" style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"/>
+<path class="bond-1 atom-1 atom-2" d="M 46.7,81.6 L 63.8,91.4" style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"/>
+<path class="bond-1 atom-1 atom-2" d="M 63.8,91.4 L 80.9,101.3" style="fill:none;fill-rule:evenodd;stroke:#0000FF;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"/>
+<path d="M 44.7,82.8 L 46.7,81.6 L 47.6,82.1" style="fill:none;stroke:#000000;stroke-width:2.0px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"/>
+<path class="atom-2" d="M 84.5 98.4 L 88.9 105.5 Q 89.3 106.2, 90.0 107.5 Q 90.7 108.7, 90.8 108.8 L 90.8 98.4 L 92.5 98.4 L 92.5 111.8 L 90.7 111.8 L 86.0 104.0 Q 85.5 103.1, 84.9 102.1 Q 84.3 101.1, 84.2 100.8 L 84.2 111.8 L 82.4 111.8 L 82.4 98.4 L 84.5 98.4 " fill="#0000FF"/>
+<path class="atom-2" d="M 95.1 98.4 L 96.9 98.4 L 96.9 104.1 L 103.7 104.1 L 103.7 98.4 L 105.5 98.4 L 105.5 111.8 L 103.7 111.8 L 103.7 105.6 L 96.9 105.6 L 96.9 111.8 L 95.1 111.8 L 95.1 98.4 " fill="#0000FF"/>
+<path class="atom-2" d="M 108.1 111.3 Q 108.4 110.5, 109.2 110.0 Q 110.0 109.5, 111.0 109.5 Q 112.4 109.5, 113.1 110.2 Q 113.9 111.0, 113.9 112.2 Q 113.9 113.6, 112.9 114.8 Q 111.9 116.0, 109.9 117.4 L 114.0 117.4 L 114.0 118.4 L 108.1 118.4 L 108.1 117.6 Q 109.7 116.4, 110.7 115.6 Q 111.7 114.7, 112.1 113.9 Q 112.6 113.1, 112.6 112.3 Q 112.6 111.5, 112.2 111.0 Q 111.8 110.5, 111.0 110.5 Q 110.3 110.5, 109.9 110.8 Q 109.4 111.1, 109.0 111.7 L 108.1 111.3 " fill="#0000FF"/>
+</svg>

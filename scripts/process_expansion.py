@@ -3,6 +3,8 @@ from minedatabase.pickaxe import Pickaxe
 from collections import defaultdict
 from argparse import ArgumentParser
 from multiprocessing import set_start_method
+
+from src.config import filepaths
 from src.post_processing import Path, PredictedReaction, KnownReaction, Enzyme, DatabaseEntry, get_path_id
 from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
 from src.operator_mapping import expand_paired_cofactors, expand_unpaired_cofactors, standardize_template_map
@@ -28,9 +30,8 @@ if __name__ == '__main__':
     generations = args.generations
 
     # Set params
-    raw_dir = "../data/raw_expansions"
-    pk_path = f"{raw_dir}/{pk_fn}"
-    pruned_path = f"../data/pruned_expansions/{pk_fn}"
+    raw_dir = filepaths['expansions']
+    pk_path = raw_dir / pk_fn
     k_tautomers = 10 # How many top scoring tautomers to generate for operator mapping
     pre_standardized = False # Predicted reactions assumed pre-standardized
 

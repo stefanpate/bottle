@@ -65,6 +65,10 @@ def draw_mol_svg(smiles, stoich, hilite_atoms=None):
         pass
     else:
         mol = Chem.MolFromSmiles(smiles)
+        
+        if mol is None: # Catch MolFromSmiles troubles
+            mol = Chem.MolFromSmiles(smiles, sanitize=False)
+
         nb = mol.GetNumAtoms()
         width = int(np.log10(nb) * 200) + 25
         d2d = Draw.MolDraw2DSVG(width, 200)

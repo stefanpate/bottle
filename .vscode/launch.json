@@ -13,7 +13,7 @@
             "cwd": "${fileDirname}",
             "justMyCode": false,
             "args": [
-                "ccm_v0_to_mvacid_gen_3_tan_sample_1_n_samples_1000.pk",
+                "amino_acids_to_bottle_targets_24_gen_3_tan_sample_1_n_samples_1000_rules_JN3604IMT_rules.pk",
                 "3",
             ]
         },

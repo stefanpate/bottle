@@ -1,0 +1,15 @@
+﻿starters,targets,generations,n_samples,thresholded,processed
+ccm_v0,hopa,2,1000,FALSE,TRUE
+ccm_v0,hopa,3,1000,FALSE,TRUE
+ccm_v0,hopa,4,1000,FALSE,TRUE
+ccm_v0,mvacid,2,1000,FALSE,TRUE
+ccm_v0,mvacid,3,1000,FALSE,TRUE
+ccm_v0,mvacid,4,1000,FALSE,TRUE
+amino_acids,bottle_targets_24,3,1000,FALSE,TRUE
+ccm_v0,bottle_targets_24,3,1000,FALSE,TRUE
+ccm_v0,2mg,2,1000,FALSE,TRUE
+ccm_v0,2mg,3,1000,FALSE,TRUE
+2mg,mvacid,2,1000,FALSE,TRUE
+2mg,mvacid,3,1000,FALSE,TRUE
+ccm_v0,methylene_molecules,4,1000,FALSE,FALSE
+methylene_molecules,mvacid,4,1000,FALSE,FALSE

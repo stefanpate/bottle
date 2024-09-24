@@ -271,7 +271,7 @@ class PathWrangler:
             targets:Iterable[str] = None,
             filter_by_enzymes:Dict[str, Iterable] = None,
             sort_by= None,
-        ):
+        ) -> list[Path]:
         '''
         Get valid paths with options to filter & sort
 
@@ -347,6 +347,37 @@ class PathWrangler:
             self._validate_custom_agg(sort_by)
             return sorted(paths, key= lambda p : p.aggregate_rcmcs(**sort_by))
         
+    def get_path_with_id(self, pid: str) -> Path:
+        '''
+        Get path with id pid
+        '''
+        # Required reaction ids for this path id
+        req_prids = set()
+        req_krids = set()
+        for prid in self.paths[pid]['reactions']:
+            req_prids.add(prid)
+            for krid in self.predicted_reactions[prid]['analogues']:
+                req_krids.add(krid)
+
+        # Get known reactions
+        krs = {}
+        for krid in req_krids:
+            kr = KnownReaction.from_dict(self.known_reactions[krid])
+            krs[krid] = kr
+
+        # Get predicted reactions
+        prs = {}
+        for prid in req_prids:
+            pr = PredictedReaction.from_dict(self.predicted_reactions[prid], krs)
+            prs[prid] = pr
+
+        p = Path.from_dict(self.paths[pid], prs) # Construct path
+
+        if not p.valid:
+            print("Warning, this path may not have a complete set of known analogues & enzymes!")
+
+        return p
+    
     def _validate_custom_agg(self, sort_by:dict):
         req_kwargs = {'kr_agg': str, 'pr_agg': str, 'k': int}
         for k, t in req_kwargs.items():

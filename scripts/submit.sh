@@ -6,7 +6,7 @@
 #SBATCH --mem=0
 #SBATCH -t 3:00:00
 #SBATCH --job-name="exp"
-#SBATCH -o ../logs/out/ccm224targets_all_imt
+#SBATCH -o ../logs/out/aa224targets
 #SBATCH -e ../logs/error/e_tmp_1
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL

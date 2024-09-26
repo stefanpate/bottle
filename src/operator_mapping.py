@@ -1,6 +1,7 @@
 from src.cheminfo_utils import standardize_mol, tautomer_expand, standardize_smarts_rxn
 from itertools import permutations, product, chain
 from rdkit import Chem
+from rdkit.Chem import Mol
 import re
 import pandas as pd
 
@@ -188,7 +189,7 @@ def get_patts_from_operator_side(smarts_str, side):
 
     return smarts_list
 
-def compare_operator_outputs_w_products(outputs, products):
+def compare_operator_outputs_w_products(outputs: tuple[Mol], products):
     # Try WITHOUT tautomer canonicalization
     for output in outputs:
         try:
@@ -202,7 +203,7 @@ def compare_operator_outputs_w_products(outputs, products):
         
     # Try WITH tautomer canonicalization
     try:
-        products = sorted([post_standardize(mol, do_canon_taut=True) for mol in products])
+        products = sorted([post_standardize(Chem.MolFromSmiles(smi), do_canon_taut=True) for smi in products])
     except:
         return False
     

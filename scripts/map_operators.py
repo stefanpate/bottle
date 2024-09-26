@@ -88,6 +88,11 @@ def process_reaction(
 def mp_wrap(bunch):
     return process_reaction(**bunch)
 
+parser = ArgumentParser()
+parser.add_argument("rules", help='Path to operators tsv file w/ columns: Name | Reactants | SMARTS | Products')
+parser.add_argument("reactions", help="Path to reactions json w/ {unique_id: SMARTS} where SMARTS:str like 'reactant.reactant>>product.product'")
+parser.add_argument("output", help="Path to save mapping results")
+
 if __name__ == '__main__':
     '''
     Args
@@ -101,10 +106,6 @@ if __name__ == '__main__':
     Mapping results in a tsv w/ columns: Reaction ID | Rule | Aligned smarts | Reaction center
     and every row is one Reaction-Rule map pair
     '''
-    parser = ArgumentParser()
-    parser.add_argument("rules", help='Path to operators tsv file w/ columns: Name | Reactants | SMARTS | Products')
-    parser.add_argument("reactions", help="Path to reactions json w/ {unique_id: SMARTS} where SMARTS:str like 'reactant.reactant>>product.product'")
-    parser.add_argument("output", help="Path to save mapping results")
     args = parser.parse_args()
 
     do_template = True # Enforce template matching, i.e. cofactors

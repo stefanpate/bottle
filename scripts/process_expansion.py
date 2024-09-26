@@ -30,27 +30,26 @@ if __name__ == '__main__':
     generations = args.generations
 
     # Set params
-    raw_dir = filepaths['expansions']
-    pk_path = raw_dir / pk_fn
+    pk_path = filepaths['raw_expansions'] / pk_fn
     k_tautomers = 10 # How many top scoring tautomers to generate for operator mapping
     pre_standardized = False # Predicted reactions assumed pre-standardized
 
     # Load stored paths
-    path_filepath = '../artifacts/processed_expansions/found_paths.json'
-    predicted_reactions_filepath = "../artifacts/processed_expansions/predicted_reactions.json"
-    known_reactions_filepath = "../artifacts/processed_expansions/known_reactions.json"
+    path_filepath = filepaths['processed_expansions'] / 'found_paths.json'
+    predicted_reactions_filepath = filepaths['processed_expansions'] / "predicted_reactions.json"
+    known_reactions_filepath = filepaths['processed_expansions'] / "known_reactions.json"
     stored_paths = load_json(path_filepath)
     stored_predicted_reactions = load_json(predicted_reactions_filepath)
     stored_known_reactions = load_json(known_reactions_filepath)
 
     # Read in rules
-    rules_dir = "../data/rules"
+    rules_dir = filepaths['rules']
     rules_fns = ["minimal1224_all_uniprot.tsv", "JN3604IMT_rules.tsv"]
     read_pd = lambda fn : pd.read_csv(f"{rules_dir}/{fn}", sep='\t').set_index("Name").drop(columns='Comments')
     min_rules, imt_rules = [read_pd(fn) for fn in rules_fns]
 
     # Read in known reactions
-    known_reaction_bank = load_json("../data/sprhea/sprhea_240310_v3_mapped_no_subunits.json")
+    known_reaction_bank = load_json(filepaths['data'] / "sprhea/sprhea_240310_v3_mapped_no_subunits.json")
     imt2krs = defaultdict(list)
     min2krs = defaultdict(list)
     for k, v in known_reaction_bank.items():
@@ -63,8 +62,8 @@ if __name__ == '__main__':
     imt2ct = {k : len(v) for k, v in imt2krs.items()}
 
     # Read in cofactor lookup tables
-    paired_ref = pd.read_csv('../data/cofactors/paired_cofactors_reference.tsv', sep='\t')
-    unpaired_ref = pd.read_csv('../data/cofactors/unpaired_cofactors_reference.tsv', sep='\t')
+    paired_ref = pd.read_csv(filepaths['cofactors'] / 'paired_cofactors_reference.tsv', sep='\t')
+    unpaired_ref = pd.read_csv(filepaths['cofactors'] / 'unpaired_cofactors_reference.tsv', sep='\t')
     smi2paired_cof = expand_paired_cofactors(paired_ref, k=k_tautomers)
     smi2unpaired_cof = expand_unpaired_cofactors(unpaired_ref, k=k_tautomers)
 
@@ -160,7 +159,7 @@ if __name__ == '__main__':
             pr.analogues = analogues # Add analogues to predicted reaction
 
     # Connect to compound cache
-    with open("../artifacts/eq_uris.uri", "r") as f:
+    with open(filepaths['artifacts'] / "eq_uris.uri", "r") as f:
         URI_EQ = f.read().strip("\n")
     
     lcp = LocalCompoundCache()

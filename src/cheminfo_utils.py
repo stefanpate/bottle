@@ -204,10 +204,6 @@ def tautomer_expand(molecule, k):
     --------
     tautomers:List[Mol] | List[str]
     '''
-    # TODO: Figure out how to do this w/o enumeratring 
-    # twice (once thru canonicalize and once with enumerate)
-    # Need to figure out how ties are broken... something to do 
-    # with the canonical smiles...#
     if type(molecule) is str:
         molecule = Chem.MolFromSmiles(molecule)
         mode = 'str'
@@ -215,30 +211,29 @@ def tautomer_expand(molecule, k):
         mode = 'mol'
     
     enumerator = rdMolStandardize.TautomerEnumerator()
-    canon_mol = enumerator.Canonicalize(molecule)
-    canon_smi = Chem.MolToSmiles(canon_mol)
     tauts = enumerator.Enumerate(molecule)
-    smis = []
-    mols = []
-    for mol in tauts:
-        smi = Chem.MolToSmiles(mol)
-        if smi != canon_smi:
-            smis.append(smi)
-            mols.append(mol)
+    taut_score = [(taut, enumerator.ScoreTautomer(taut)) for taut in tauts]
+    taut_score = sorted(taut_score, key=lambda x : x[1], reverse=True) # Sort by score
+    
+    # Separate out ties
+    best_score = taut_score[0][1]
+    arg_last_tie = 0
+    for i, (_, score) in enumerate(taut_score):
+        if score == best_score:
+            arg_last_tie = i
+        else:
+            break
 
-    if not smis and not mols:
-        smis = [canon_smi]
-        mols = [canon_mol]
-    else:
-        srt = sorted(list(zip(smis, mols)), key=lambda x : enumerator.ScoreTautomer(x[1]), reverse=True)
-        smis, mols = [list(elt) for elt in zip(*srt)]
-        smis = [canon_smi] + smis
-        mols = [canon_mol] + mols
+    tauts, _ = zip(*taut_score)
+    ties, rest = tauts[:arg_last_tie + 1], list(tauts[arg_last_tie + 1 :])
+    
+    ties = sorted(ties, key=lambda x : Chem.MolToSmiles(x), reverse=False) # Tie goes to lexicographically lesser SMILES
+    tauts = (ties + rest)[:k] # Take top k
 
-    if mode == 'str':
-        return smis[:k]
-    elif mode == 'mol':
-        return mols[:k]
+    if mode == 'mol':
+        return tauts
+    elif mode == 'str':
+        return [Chem.MolToSmiles(taut) for taut in tauts]
 
 if __name__ == '__main__':
     test_rhea_clean = [

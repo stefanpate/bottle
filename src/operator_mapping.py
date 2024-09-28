@@ -189,7 +189,7 @@ def get_patts_from_operator_side(smarts_str, side):
 
     return smarts_list
 
-def compare_operator_outputs_w_products(outputs: tuple[Mol], products):
+def compare_operator_outputs_w_products(outputs: tuple[Mol], products: list[str]):
     # Try WITHOUT tautomer canonicalization
     for output in outputs:
         try:

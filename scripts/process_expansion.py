@@ -11,9 +11,8 @@ from src.operator_mapping import expand_paired_cofactors, expand_unpaired_cofact
 from src.pickaxe_processing import find_paths, prune_pickaxe
 from src.utils import load_json, save_json
 from src.chem_draw import draw_rxn_svg
-from src.thermo.batch_add_eq_compounds import add_compounds_to_eQ
 
-# Push these into a module?
+from src.thermo.batch_add_eq_compounds import add_compounds_to_eQ
 from equilibrator_assets.local_compound_cache import LocalCompoundCache
 from equilibrator_cache.compound_cache import CompoundCache
 import sqlalchemy
@@ -38,9 +37,10 @@ if __name__ == '__main__':
     path_filepath = filepaths['processed_expansions'] / 'found_paths.json'
     predicted_reactions_filepath = filepaths['processed_expansions'] / "predicted_reactions.json"
     known_reactions_filepath = filepaths['processed_expansions'] / "known_reactions.json"
-    stored_paths = load_json(path_filepath)
-    stored_predicted_reactions = load_json(predicted_reactions_filepath)
-    stored_known_reactions = load_json(known_reactions_filepath)
+    load_processed = lambda path : load_json(path) if path.exists() else {}
+    stored_paths = load_processed(path_filepath)
+    stored_predicted_reactions = load_processed(predicted_reactions_filepath)
+    stored_known_reactions = load_processed(known_reactions_filepath)
 
     # Read in rules
     rules_dir = filepaths['rules']
@@ -98,7 +98,7 @@ if __name__ == '__main__':
         analogues = {}
         srt_imt = sorted(pr.operators, key= lambda x : imt2ct.get(x, 0), reverse=True) # If multiple imt operators, start w/ most common
         for imt in srt_imt:
-            min = imt.split('_')[0] # Minify imt operator
+            min = imt.split('_')[0] # Minify imt operator to get reaction center by protection-guess-and-check
             if min2ct.get(min, 0) > 0: # Check if minified imt operator maps known reactions
                 
                 did_map, aligned_smarts, reaction_center = standardize_template_map(
@@ -122,7 +122,7 @@ if __name__ == '__main__':
             pr_rcts = pr.smarts.split(">>")[0].split('.')
             pr_rcts_rc = [pr_rcts, pr.reaction_center]
 
-            for krid in min2krs[min]:
+            for krid in imt2krs[imt]: # Assign analogue to pr only on imt operator level
                 if krid in stored_known_reactions: # Load from stored known reactions
                     kr = KnownReaction.from_dict(stored_known_reactions[krid])
                 else: # Create new known reaction from bank

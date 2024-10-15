@@ -15,7 +15,7 @@ It's better to install `poetry` globally, using something like `brew` or `mise`.
 poetry install
 ```
 
-Download equilibrator database
+### Download equilibrator database
 
 ```python
 from equilibrator_assets.local_compound_cache import LocalCompoundCache
@@ -23,7 +23,11 @@ lc = LocalCompoundCache()
 lc.generate_local_cache_from_default_zenodo('compounds.sqlite')
 ```
 
-Convert equilibrator database from sqlite to postgres by following sqlite_to_postgres.ipynb
+### Convert equilibrator database from sqlite to postgres by following sqlite_to_postgres.ipynb
+
+### Acquire Chemaxon license 
+
+License must cover pKa calculator and ```cxcalc``` must exist in PATH. See more from [equilibrator docs](https://equilibrator.readthedocs.io/en/latest/local_cache.html)
 
 ## Directories
 1. artifacts (stores results)

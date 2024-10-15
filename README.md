@@ -15,6 +15,16 @@ It's better to install `poetry` globally, using something like `brew` or `mise`.
 poetry install
 ```
 
+Download equilibrator database
+
+```python
+from equilibrator_assets.local_compound_cache import LocalCompoundCache
+lc = LocalCompoundCache()
+lc.generate_local_cache_from_default_zenodo('compounds.sqlite')
+```
+
+Convert equilibrator database from sqlite to postgres by following sqlite_to_postgres.ipynb
+
 ## Directories
 1. artifacts (stores results)
 2. data (input data: known reactions, mappings, starters, targets, rules)

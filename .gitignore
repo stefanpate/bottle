@@ -20,7 +20,7 @@ core*
 *__pycache__*
 
 # Configs
-config.yml
+config.yaml
 
 
 # typical dev stuff

@@ -1,0 +1,19 @@
+Starting Child Process 0 Timer, setting timer to 0
+Importing eQuilibrator
+Connecting 0 to postgresql DB and creating Local Compound Cache.
+
+<src.thermo.local_compound_cache.LocalCompoundCache object at 0x7f71f49e8d90>
+---------------
+Child Process 0 succesfully initialized
+Time for Child Process 0 Timer from start: 21.402527809143066
+---------------
+Child Process 0 | Loop 1: Found Empty Queue after 
+None
+---------------
+Child Process 0 | Loop 1: Empty queue found, terminating.
+Time for Child Process 0 Timer from start: 23.405321836471558
+---------------
+---------------
+Child Process 0 | Loop 1: Succesfully terminated.
+Time for Child Process 0 Timer from start: 23.458590269088745
+---------------

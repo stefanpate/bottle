@@ -1,0 +1,134 @@
+----------------------------------------
+Intializing pickaxe object
+
+Done intializing pickaxe object
+----------------------------------------
+
+17 compounds loaded...
+(17 after removing stereochemistry)
+4 target compounds loaded
+
+----------------------------------------
+Filtering Generation 0
+
+Sampling 1000 Compounds Based on a Weighted Similarity Distribution
+Filtering Generation 0 via Similarity Sampling.
+-- Number to sample is less than number of compounds. Returning all compounds.
+num sampled =  17
+17 of 17 compounds selected after Similarity Sampling of generation 0--took 0.00090789794921875s.
+
+Done filtering Generation 0
+----------------------------------------
+
+----------------------------------------
+Expanding Generation 1
+
+Generation 1: 0 percent complete
+Generation 1: 12 percent complete
+Generation 1: 24 percent complete
+Generation 1: 35 percent complete
+Generation 1: 47 percent complete
+Generation 1: 59 percent complete
+Generation 1: 71 percent complete
+Generation 1: 82 percent complete
+Generation 1: 94 percent complete
+Generation 1 finished in 30.428725957870483 s and contains:
+		2018 new compounds
+		2545 new reactions
+
+Done expanding Generation: 1.
+----------------------------------------
+
+----------------------------------------
+Filtering Generation 1
+
+Sampling 1000 Compounds Based on a Weighted Similarity Distribution
+Filtering Generation 1 via Similarity Sampling.
+-- Calculating Fingerprints and Similarity Values.
+-- Completed Similarity Calculation in 1.0670714378356934
+-- After filtering by minimum similarity (0.15) number to sample is less than number of compounds. Returning all compounds.
+num sampled =  765
+765 of 2018 compounds selected after Similarity Sampling of generation 1--took 1.085937261581421s.
+
+Done filtering Generation 1
+----------------------------------------
+
+----------------------------------------
+Expanding Generation 2
+
+Generation 2: 0 percent complete
+Generation 2: 10 percent complete
+Generation 2: 20 percent complete
+Generation 2: 30 percent complete
+Generation 2: 40 percent complete
+Generation 2: 50 percent complete
+Generation 2: 60 percent complete
+Generation 2: 70 percent complete
+Generation 2: 79 percent complete
+Generation 2: 89 percent complete
+Generation 2: 99 percent complete
+Generation 2 finished in 488.86911368370056 s and contains:
+		117337 new compounds
+		162389 new reactions
+
+Done expanding Generation: 2.
+----------------------------------------
+
+----------------------------------------
+Filtering Generation 2
+
+Sampling 1000 Compounds Based on a Weighted Similarity Distribution
+Filtering Generation 2 via Similarity Sampling.
+-- Calculating Fingerprints and Similarity Values.
+-- Completed Similarity Calculation in 24.74023723602295
+-- Sampling compounds to expand.
+-- Finished sampling in 0.13806772232055664 s. Recalculated CDF 0 times.
+num sampled =  1000
+1000 of 117337 compounds selected after Similarity Sampling of generation 2--took 26.668486833572388s.
+
+Done filtering Generation 2
+----------------------------------------
+
+----------------------------------------
+Expanding Generation 3
+
+Generation 3: 0 percent complete
+Generation 3: 10 percent complete
+Generation 3: 20 percent complete
+Generation 3: 30 percent complete
+Generation 3: 40 percent complete
+Generation 3: 50 percent complete
+Generation 3: 60 percent complete
+Generation 3: 70 percent complete
+Generation 3: 80 percent complete
+Generation 3: 90 percent complete
+Generation 3 finished in 651.2133178710938 s and contains:
+		368735 new compounds
+		449847 new reactions
+
+Done expanding Generation: 3.
+----------------------------------------
+
+----------------------------------------
+Filtering Generation 3
+
+Sampling 1000 Compounds Based on a Weighted Similarity Distribution
+Filtering Generation 3 via Similarity Sampling.
+-- Calculating Fingerprints and Similarity Values.
+-- Completed Similarity Calculation in 133.17764282226562
+-- Sampling compounds to expand.
+-- Finished sampling in 0.3458256721496582 s. Recalculated CDF 0 times.
+num sampled =  1000
+1000 of 368735 compounds selected after Similarity Sampling of generation 3--took 143.835510969162s.
+
+Done filtering Generation 3
+----------------------------------------
+
+----------------------------------------
+Pruning to 4 target compounds
+Pruned network to 28883 compounds and 35725 reactions based on 4 whitelisted compounds.
+
+Found 3 targets.
+Pruning took 0.741091251373291s
+----------------------------------------
+

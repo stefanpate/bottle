@@ -23,6 +23,8 @@ rules_name = rule_list.split('/')[-1][:-4]
 # Pickaxe settings
 processes = 50 # 50
 generations = 3
+processes = 50 # 50
+generations = 3
 
 tani_filter = False
 tani_threshold = [0, 0, 0.3, 0.3, 0.3]

@@ -94,6 +94,11 @@ parser.add_argument("rules", help=f"Filename for operators tsv file w/ columns: 
 parser.add_argument("reactions", help=f"Path to reactions file from {filepaths['data']} w/ json[rxn_id]['smarts'] -> smarts rxn.")
 parser.add_argument("output", help=f"Save mapping results to this filename. Will be saved at {filepaths['operator_mapping']}")
 
+parser = ArgumentParser()
+parser.add_argument("rules", help=f"Filename for operators tsv file w/ columns: Name | Reactants | SMARTS | Products. Located at {filepaths['rules']}")
+parser.add_argument("reactions", help=f"Path to reactions file from {filepaths['data']} w/ json[rxn_id]['smarts'] -> smarts rxn.")
+parser.add_argument("output", help=f"Save mapping results to this filename. Will be saved at {filepaths['operator_mapping']}")
+
 if __name__ == '__main__':
     args = parser.parse_args()
 
@@ -105,13 +110,17 @@ if __name__ == '__main__':
 
     # Read in rules
     rules = pd.read_csv(filepaths['rules'] / args.rules, sep='\t')
+    rules = pd.read_csv(filepaths['rules'] / args.rules, sep='\t')
     rules.set_index("Name", inplace=True)
     rules.drop('Comments', axis=1, inplace=True)
 
     rxns = load_json(filepaths['data'] / args.reactions) # Read in reactions
+    rxns = load_json(filepaths['data'] / args.reactions) # Read in reactions
     n_rxns = len(list(rxns.keys())) # Total no. reactions to map
 
     # Read in cofactor lookup tables
+    paired_ref = pd.read_csv(filepaths["cofactors"] / 'paired_cofactors_reference.tsv', sep='\t')
+    unpaired_ref = pd.read_csv(filepaths["cofactors"] / 'unpaired_cofactors_reference.tsv', sep='\t')
     paired_ref = pd.read_csv(filepaths["cofactors"] / 'paired_cofactors_reference.tsv', sep='\t')
     unpaired_ref = pd.read_csv(filepaths["cofactors"] / 'unpaired_cofactors_reference.tsv', sep='\t')
     smi2paired_cof = expand_paired_cofactors(paired_ref, k=k_tautomers)
@@ -147,6 +156,7 @@ if __name__ == '__main__':
     )
 
     df.to_csv(
+        path_or_buf=filepaths["operator_mapping"] / args.output,
         path_or_buf=filepaths["operator_mapping"] / args.output,
         sep='\t',
         index=False

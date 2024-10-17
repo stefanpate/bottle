@@ -5,6 +5,14 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python Debugger: Current File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": "${command:pickArgs}"
+        },
+        {
             "name": "process_expansion",
             "type": "debugpy",
             "request": "launch",
@@ -16,19 +24,6 @@
                 "amino_acids_to_bottle_targets_24_gen_3_tan_sample_1_n_samples_1000_rules_JN3604IMT_rules.pk",
                 "3",
             ]
-        },
-        {
-            "name": "Python Debugger: Current File with Arguments",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "cwd": "${fileDirname}",
-            "args": [
-                "../data/rules/minimal1224_all_uniprot.tsv",
-                "../data/sprhea/sprhea_v3_20_random.json",
-                "../artifacts/test_mapping.tsv"
-            ],
         },
         {
             "name": "Python: Current File",

@@ -201,21 +201,21 @@ def compare_operator_outputs_w_products(outputs: tuple[Mol], products: list[str]
         if output == products: 
             return True
         
-    # Try WITH tautomer canonicalization
-    try:
-        products = sorted([post_standardize(Chem.MolFromSmiles(smi), do_canon_taut=True) for smi in products])
-    except:
-        return False
+    # # Try WITH tautomer canonicalization
+    # try:
+    #     products = sorted([post_standardize(Chem.MolFromSmiles(smi), do_canon_taut=True) for smi in products])
+    # except:
+    #     return False
     
-    for output in outputs:
-        try:
-            output = sorted([post_standardize(mol, do_canon_taut=True) for mol in output]) # Standardize and sort SMILES
-        except:
-            continue
+    # for output in outputs:
+    #     try:
+    #         output = sorted([post_standardize(mol, do_canon_taut=True) for mol in output]) # Standardize and sort SMILES
+    #     except:
+    #         continue
 
-        # Compare predicted to actual products. If mapped, return True
-        if output == products: 
-            return True
+    #     # Compare predicted to actual products. If mapped, return True
+    #     if output == products: 
+    #         return True
             
     return False
 

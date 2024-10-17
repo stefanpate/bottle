@@ -9,16 +9,16 @@ from itertools import islice
 from multiprocessing import Process, Queue, set_start_method
 from pathlib import Path
 from typing import Generator, List, Tuple
-
 import pandas as pd
 import sqlalchemy
 from minedatabase.pickaxe import Pickaxe
+from src.config import filepaths
 
 # Set up some equilibrator items
 # Import and define working database URI
 # cwd = Path(__file__).parent
-LOG_PATH = "../logs/batch_add_logs"
-URI_EQ = open("../artifacts/eq_uris.uri", "r").read().strip("\n")
+LOG_PATH = filepaths['logs'] / "batch_add_logs"
+URI_EQ = open(filepaths['artifacts'] / "eq_uris.uri", "r").read().strip("\n")
 
 def print_flush(*args, flush=True, **kwargs):
     print(*args, **kwargs, flush=flush)

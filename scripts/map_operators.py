@@ -95,22 +95,10 @@ parser.add_argument("reactions", help=f"Path to reactions file from {filepaths['
 parser.add_argument("output", help=f"Save mapping results to this filename. Will be saved at {filepaths['operator_mapping']}")
 
 if __name__ == '__main__':
-    '''
-    Args
-    -----
-    rules - Path to operators tsv file w/ columns: Name | Reactants | SMARTS | Products
-    reactions - Path to reactions json w/ {unique_id: SMARTS} where SMARTS:str like 'reactant.reactant>>product.product'
-    output - Path to save mapping results
-
-    Returns
-    -------
-    Mapping results in a tsv w/ columns: Reaction ID | Rule | Aligned smarts | Reaction center
-    and every row is one Reaction-Rule map pair
-    '''
     args = parser.parse_args()
 
     do_template = True # Enforce template matching, i.e. cofactors
-    return_rc = False # Return reaction center while mapping operators
+    return_rc = True # Return reaction center while mapping operators
     pre_standardized = True # Reactions pre-standardized
     rm_stereo = True # Remove stereochemistry
     k_tautomers = 10 # Top k tautomers to select from TautomerEnumerator

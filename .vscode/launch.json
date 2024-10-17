@@ -25,9 +25,9 @@
             "console": "integratedTerminal",
             "cwd": "${fileDirname}",
             "args": [
-                "../data/rules/minimal1224_all_uniprot.tsv",
-                "../data/sprhea/sprhea_v3_20_random.json",
-                "../artifacts/test_mapping.tsv"
+                "minimal1224_all_uniprot.tsv",
+                "sprhea/sprhea_v3_20_random.json",
+                "test.tsv"
             ],
         },
         {

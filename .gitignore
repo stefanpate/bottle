@@ -18,6 +18,7 @@ artifacts/processed_expansions/known_reactions.json
 core*
 *.ipynb_checkpoints*
 *__pycache__*
+**/logs
 
 # Configs
 config.yaml

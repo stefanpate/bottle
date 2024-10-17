@@ -11,16 +11,18 @@ from minedatabase.filters import (
 
 # Directories and files
 st_dir = "../data/starters_targets/"
-input_cpds = "ccm_v0"
+input_cpds = "amino_acids"
 target_cpds = "bottle_targets_24"
 input_cpds_fn = st_dir + input_cpds + ".csv"
 target_cpds_fn = st_dir + target_cpds + ".csv"
-rule_list = '../data/rules/JN3604IMT_rules.tsv'
-# coreactant_list = "../data/rules/metacyc_coreactants_carbonyl_free.tsv"
+rule_list = '../data/rules/JN3604IMT_rules_carbonyl_free.tsv'
+coreactant_list = "../data/rules/metacyc_coreactants_carbonyl_free.tsv"
 
 rules_name = rule_list.split('/')[-1][:-4]
 
 # Pickaxe settings
+processes = 50 # 50
+generations = 3
 processes = 50 # 50
 generations = 3
 
@@ -35,9 +37,9 @@ weight = None # 5
 
 save_to = f"/projects/b1039/spn1560/bottle/data/raw_expansions/{input_cpds}_to_{target_cpds}_gen_{generations}_tan_sample_{int(tani_sample)}_n_samples_{sample_size}_rules_{rules_name}.pk"
 
-_, coreactant_list, rule_name = metacyc_intermediate(
-    fraction_coverage=1
-)
+# _, coreactant_list, rule_name = metacyc_intermediate(
+#     fraction_coverage=1
+# )
 
 pk = Pickaxe(
         coreactant_list=coreactant_list,

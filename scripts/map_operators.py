@@ -94,36 +94,33 @@ parser.add_argument("rules", help=f"Filename for operators tsv file w/ columns: 
 parser.add_argument("reactions", help=f"Path to reactions file from {filepaths['data']} w/ json[rxn_id]['smarts'] -> smarts rxn.")
 parser.add_argument("output", help=f"Save mapping results to this filename. Will be saved at {filepaths['operator_mapping']}")
 
-if __name__ == '__main__':
-    '''
-    Args
-    -----
-    rules - Path to operators tsv file w/ columns: Name | Reactants | SMARTS | Products
-    reactions - Path to reactions json w/ {unique_id: SMARTS} where SMARTS:str like 'reactant.reactant>>product.product'
-    output - Path to save mapping results
+parser = ArgumentParser()
+parser.add_argument("rules", help=f"Filename for operators tsv file w/ columns: Name | Reactants | SMARTS | Products. Located at {filepaths['rules']}")
+parser.add_argument("reactions", help=f"Path to reactions file from {filepaths['data']} w/ json[rxn_id]['smarts'] -> smarts rxn.")
+parser.add_argument("output", help=f"Save mapping results to this filename. Will be saved at {filepaths['operator_mapping']}")
 
-    Returns
-    -------
-    Mapping results in a tsv w/ columns: Reaction ID | Rule | Aligned smarts | Reaction center
-    and every row is one Reaction-Rule map pair
-    '''
+if __name__ == '__main__':
     args = parser.parse_args()
 
     do_template = True # Enforce template matching, i.e. cofactors
-    return_rc = False # Return reaction center while mapping operators
+    return_rc = True # Return reaction center while mapping operators
     pre_standardized = True # Reactions pre-standardized
     rm_stereo = True # Remove stereochemistry
     k_tautomers = 10 # Top k tautomers to select from TautomerEnumerator
 
     # Read in rules
     rules = pd.read_csv(filepaths['rules'] / args.rules, sep='\t')
+    rules = pd.read_csv(filepaths['rules'] / args.rules, sep='\t')
     rules.set_index("Name", inplace=True)
     rules.drop('Comments', axis=1, inplace=True)
 
     rxns = load_json(filepaths['data'] / args.reactions) # Read in reactions
+    rxns = load_json(filepaths['data'] / args.reactions) # Read in reactions
     n_rxns = len(list(rxns.keys())) # Total no. reactions to map
 
     # Read in cofactor lookup tables
+    paired_ref = pd.read_csv(filepaths["cofactors"] / 'paired_cofactors_reference.tsv', sep='\t')
+    unpaired_ref = pd.read_csv(filepaths["cofactors"] / 'unpaired_cofactors_reference.tsv', sep='\t')
     paired_ref = pd.read_csv(filepaths["cofactors"] / 'paired_cofactors_reference.tsv', sep='\t')
     unpaired_ref = pd.read_csv(filepaths["cofactors"] / 'unpaired_cofactors_reference.tsv', sep='\t')
     smi2paired_cof = expand_paired_cofactors(paired_ref, k=k_tautomers)
@@ -159,6 +156,7 @@ if __name__ == '__main__':
     )
 
     df.to_csv(
+        path_or_buf=filepaths["operator_mapping"] / args.output,
         path_or_buf=filepaths["operator_mapping"] / args.output,
         sep='\t',
         index=False

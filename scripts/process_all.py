@@ -67,18 +67,6 @@ def main(args):
         sep=',',
         index_col=0
     )
-    right_order = [
-        "starter_name",
-        "target_name",
-        "filename",
-        "generations",
-        "processed",
-        "starter_smiles",
-        "target_smiles",
-        "starter_id",
-        "target_id"
-    ]
-    tracker = pd.DataFrame(columns=right_order)
     tracker = track_new_expansions(tracker)
     tracker.to_csv(filepaths['artifacts'] / "expansion_tracking.csv", sep=',')
 

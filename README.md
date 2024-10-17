@@ -7,7 +7,7 @@ Runs network expansions using Pickaxe, finds paths, post-processes, and renders 
 
 ## Installation. 
 
-### Using `poetry` https://python-poetry.org/docs/
+### Use [poetry](https://python-poetry.org/docs/) to install dependencies
 
 It's better to install `poetry` globally, using something like `brew` or `mise`.
 
@@ -15,14 +15,35 @@ It's better to install `poetry` globally, using something like `brew` or `mise`.
 poetry install
 ```
 
+### Configure filepaths
+
+This script will create a yaml file with filepaths importable through src.config. Note: should either gitignore data and results directories or put them outside of project directory to avoid issues with Github file size limit.
+
+```shell
+python intialize_configs.py /path/to/artifacts /path/to/data /path/to/results
+```
+
+### Download equilibrator database
+
+```python
+from equilibrator_assets.local_compound_cache import LocalCompoundCache
+lc = LocalCompoundCache()
+lc.generate_local_cache_from_default_zenodo('compounds.sqlite')
+```
+
+### Convert equilibrator database from sqlite to postgres by following sqlite_to_postgres.ipynb
+
+### Acquire Chemaxon license 
+
+License must cover pKa calculator and ```cxcalc``` must exist in PATH. See more from [equilibrator docs](https://equilibrator.readthedocs.io/en/latest/local_cache.html)
+
 ## Directories
-1. artifacts (stores results)
-2. data (input data: known reactions, mappings, starters, targets, rules)
-3. logs
-4. scripts
-5. notebooks
-6. src (packages and modules)
-7. tests
+1. artifacts (ancillary small data files)
+2. logs
+3. scripts
+4. notebooks
+5. src (packages and modules)
+6. tests
 
 ## Usage
 - run_pickaxe.py does a network expansion from starters to targets.

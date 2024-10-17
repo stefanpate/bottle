@@ -21,17 +21,19 @@ from src.thermo.pickaxe_thermodynamics import PickaxeThermodynamics
 if __name__ == '__main__':
     set_start_method("spawn")
     parser = ArgumentParser()
-    parser.add_argument("fn", help='Expansion filename w/ extension .pk', type=str)
+    parser.add_argument("filename", help='Expansion filename not including the extension .pk', type=str)
     parser.add_argument("generations", help="Number of generations run in this expansion", type=int)
+    parser.add_argument("--do_thermo", action="store_true", help="Does thermo calculations if provided")
     args = parser.parse_args()
 
-    pk_fn = args.fn
-    generations = args.generations
-
     # Set params
-    pk_path = filepaths['raw_expansions'] / pk_fn
     k_tautomers = 10 # How many top scoring tautomers to generate for operator mapping
     pre_standardized = False # Predicted reactions assumed pre-standardized
+    
+    # CMD params
+    generations = args.generations
+    pk_path = filepaths['raw_expansions'] / f"{args.filename}.pk"
+    do_thermo = args.do_thermo
 
     # Load stored paths
     path_filepath = filepaths['processed_expansions'] / 'found_paths.json'
@@ -76,10 +78,11 @@ if __name__ == '__main__':
     pk = prune_pickaxe(pk, paths)
     print(f"Pruned pk object to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
 
-    # print("Adding compounds to equilibrator")
-    # add_compounds_to_eQ(pk)
+    if do_thermo:
+        print("Adding compounds to equilibrator")
+        add_compounds_to_eQ(pk)
 
-    # Create PredictedReaction objects
+    # Create new PredictedReaction objects where don't already have
     print("Creating new predicted reactions")
     new_predicted_reactions = {}
     for sid, tid in paths.keys():
@@ -89,7 +92,7 @@ if __name__ == '__main__':
                     pr = PredictedReaction.from_pickaxe(pk, rid)
                     new_predicted_reactions[rid] = pr
 
-    # Add KnownReactions to PredictedReactions
+    # Add KnownReactions to new PredictedReactions
     print("Adding known analogues")
     new_known_reactions = {}
     bad_ops = []
@@ -155,20 +158,22 @@ if __name__ == '__main__':
 
             pr.analogues = analogues # Add analogues to predicted reaction
 
-    # Connect to compound cache
-    with open(filepaths['artifacts'] / "eq_uris.uri", "r") as f:
-        URI_EQ = f.read().strip("\n")
+    if do_thermo:
+        # Connect to compound cache
+        with open(filepaths['artifacts'] / "eq_uris.uri", "r") as f:
+            URI_EQ = f.read().strip("\n")
+        
+        lcp = LocalCompoundCache()
+        lcp.ccache = CompoundCache(sqlalchemy.create_engine(URI_EQ))
     
-    lcp = LocalCompoundCache()
-    lcp.ccache = CompoundCache(sqlalchemy.create_engine(URI_EQ))
-    
-    # Create pk thermo and eQ objects
-    print(f"Getting Thermo Values for {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
-    PT = PickaxeThermodynamics(lc=lcp)
-    PT.generate_eQ_compound_dict_from_pickaxe(pk=pk)
-    PT.generate_eQ_reaction_dict_from_pickaxe(pk=pk)
+        # Create pk thermo and eQ objects
+        print(f"Getting Thermo Values for {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
+        PT = PickaxeThermodynamics(lc=lcp)
+        PT.generate_eQ_compound_dict_from_pickaxe(pk=pk)
+        PT.generate_eQ_reaction_dict_from_pickaxe(pk=pk)
     
     # Create Path objects
+    print("Adding new paths (and calculating mdf)")
     new_paths = {}
     for sid, tid in paths.keys():
         for path in paths[(sid, tid)]:
@@ -181,8 +186,8 @@ if __name__ == '__main__':
                 else:
                     prs.append(PredictedReaction.from_dict(stored_predicted_reactions[rid], stored_known_reactions))
 
-            if pid not in stored_paths:                
-                # Calculate path mdf
+            # If new path or missing thermo, and want to do thermo now, do it
+            if (pid not in stored_paths or stored_paths[pid]['mdf'] is None) and do_thermo:
                 mdf_res = PT.calculate_pathway_mdf(reaction_id_list=[pr.id for pr in prs])
                 mdf = mdf_res.mdf_value
                 dG_opt = {k : v.magnitude for k,v in mdf_res.reaction_energies.items()}
@@ -190,7 +195,15 @@ if __name__ == '__main__':
                 
                 if mdf is None:
                     print(f"Failed mdf for path: {pid}")
+            
+            # Otherwise these are the defaults
+            else:
+                mdf = None
+                dG_opt = {}
+                dG_err = {}
 
+            # If it was new, create a new path
+            if pid not in stored_paths:
                 # Add new path
                 new_paths[pid] = Path(
                     id=pid,
@@ -203,6 +216,12 @@ if __name__ == '__main__':
                     sid=sid,
                     tid=tid,
                 )
+            
+            # If it was missing thermo and old, update stored paths
+            elif stored_paths[pid]['mdf'] is None and do_thermo:
+                stored_paths[pid]['mdf'] = mdf
+                stored_paths[pid]['dG_opt'] = dG_opt
+                stored_paths[pid]['dG_err'] = dG_err
 
     # Generate rxn svgs
     for prid, pr in new_predicted_reactions.items():

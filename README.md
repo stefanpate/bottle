@@ -17,10 +17,10 @@ poetry install
 
 ### Configure filepaths
 
-This script will create a yaml file with filepaths importable through src.config. Note: should either gitignore data and results directories or put them outside of project directory to avoid issues with Github file size limit.
+This script will create a yaml file with filepaths importable through src.config. Note: should either place data and results directories outside project directory or gitignore them to avoid issues with Github file size limit.
 
 ```shell
-python intialize_configs.py /path/to/artifacts /path/to/data /path/to/results
+python intialize_configs.py /path/to/data /path/to/results
 ```
 
 ### Download equilibrator database

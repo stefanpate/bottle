@@ -62,6 +62,7 @@ def track_new_expansions(tracker: pd.DataFrame):
 
 
 def main(args):
+    process_expansion_script = filepaths['scripts'] / "process_expansion.py"
     tracker = pd.read_csv(
         filepath_or_buffer=filepaths['artifacts'] / "expansion_tracking.csv",
         sep=',',
@@ -77,15 +78,14 @@ def main(args):
             gen = tracker.loc[group.index, "generations"].to_list()[0]
             try:
                 if args.do_thermo:
-                    subprocess.run(["python", "./scripts/process_expansion.py", fn, str(gen), "--do_thermo"], check=True)
+                    subprocess.run(["python", process_expansion_script, fn, str(gen), "--do_thermo"], check=True)
                 else:
-                    subprocess.run(["python", "./scripts/process_expansion.py", fn, str(gen)], check=True)
+                    subprocess.run(["python", process_expansion_script, fn, str(gen)], check=True)
             except subprocess.CalledProcessError as e:
                 print(e)
             else:                
                 tracker.loc[group.index, "processed"] = True
                 tracker.to_csv(filepaths['artifacts'] / "expansion_tracking.csv", sep=',')
-
 
 if __name__ == '__main__':
     parser = ArgumentParser()

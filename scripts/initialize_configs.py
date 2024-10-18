@@ -3,8 +3,13 @@ from pathlib import Path
 import yaml
 
 def main(args):
+    project_dir = Path(__file__).parent.parent
+    in_project_paths = ["scripts", "logs", "artifacts"]
+    
     filepaths = {
-        'dirs': {},
+        'dirs': {
+            name: project_dir / name for name in in_project_paths
+        },
         'subdirs': {
             'results': [
                 "processed_expansions",
@@ -23,8 +28,7 @@ def main(args):
         },
     }
 
-    # Add user selected top-level direcotries
-    filepaths['dirs']['artifacts'] = args.artifacts
+    # Add user selected top-level directories
     filepaths['dirs']['data'] = args.data
     filepaths['dirs']['results'] = args.results
 
@@ -42,7 +46,6 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Configs initializer.")
-    parser.add_argument('artifacts', type=str, help='Filepath to artifacts directory')
     parser.add_argument('data', type=str, help='Filepath to data directory')
     parser.add_argument('results', type=str, help='Filepath to results directory')
 

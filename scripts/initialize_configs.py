@@ -42,8 +42,8 @@ def main(args):
             (Path(args.results) / sub).mkdir(parents=True, exist_ok=False)
 
     # Make gitignored project subdirs
-    if not filepaths['logs'].exists():
-        filepaths['logs'].mkdir()
+    if not Path(filepaths['dirs']['logs']).exists():
+        Path(filepaths['dirs']['logs']).mkdir()
 
     # Write the filepaths to config.yaml
     config_path = Path(__file__).parent.parent / "config.yaml"

@@ -3,7 +3,7 @@ from src.config import filepaths
 from minedatabase.pickaxe import Pickaxe
 from itertools import product, chain
 import subprocess
-from argparse import ArgumentParser
+from argparse import ArgumentParser                                                                                                                                              
 
 def get_expansion_info(file: str):
     pk = Pickaxe()

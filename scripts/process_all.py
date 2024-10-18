@@ -69,12 +69,12 @@ def main(args):
     )
     tracker = track_new_expansions(tracker)
     tracker.to_csv(filepaths['artifacts'] / "expansion_tracking.csv", sep=',')
-
     gb = tracker.groupby("filename")
-    for fn, group in gb:
+    srt_grps = gb["generations"].mean().sort_values(ascending=True)
+    for fn in srt_grps.index:
+        group = tracker.loc[tracker['filename'] == fn, :]
         if not all(tracker.loc[group.index, "processed"]):
             gen = tracker.loc[group.index, "generations"].to_list()[0]
-
             try:
                 if args.do_thermo:
                     subprocess.run(["python", "./scripts/process_expansion.py", fn, str(gen), "--do_thermo"], check=True)

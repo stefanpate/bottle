@@ -1,6 +1,5 @@
 from functools import partial
 from typing import Callable
-import PIL
 from rdkit import Chem
 from rdkit.Chem import Draw
 import svgutils.transform as st
@@ -8,9 +7,10 @@ import svgutils.compose as sc
 from collections import Counter
 import numpy as np
 import os
+from src.config import filepaths
 
 def draw_rxn_svg(rxn_sma, rid, hilite_atoms=None):
-    fn = f"../artifacts/imgs/rxns/{rid}.svg"
+    fn = filepaths['artifacts'] / f"imgs/rxns/{rid}.svg"
     if os.path.exists(fn):
         pass
     else:
@@ -20,7 +20,7 @@ def draw_rxn_svg(rxn_sma, rid, hilite_atoms=None):
         movex = [0]
         element_ctr = 0
         elements, element_ctr, movex = draw_side(reactants, elements, element_ctr, movex, hilite_atoms=hilite_atoms)    
-        elements.append(sc.SVG('../artifacts/arrow.svg'))
+        elements.append(sc.SVG(filepaths['artifacts'] / 'arrow.svg'))
         movex.append(movex[element_ctr] + 40)
         element_ctr += 1
         elements, element_ctr, movex = draw_side(products, elements, element_ctr, movex, hilite_atoms=hilite_atoms)
@@ -31,8 +31,7 @@ def draw_rxn_svg(rxn_sma, rid, hilite_atoms=None):
         rxn = sc.Figure(movex[-1], 200, *elements)
         rxn.save(fn)
 
-    return fn
-
+    return str(".." / fn.relative_to(filepaths['artifacts'].parent))
 
 def draw_side(smi_stoich, elements, element_ctr, movex, hilite_atoms=None):
     mol_ctr = 0
@@ -50,7 +49,7 @@ def draw_side(smi_stoich, elements, element_ctr, movex, hilite_atoms=None):
         element_ctr +=1
 
         if plus_ctr < len(smi_stoich.values()) - 1:
-            elements.append(sc.SVG('../artifacts/plus.svg'))
+            elements.append(sc.SVG(filepaths['artifacts'] / 'plus.svg'))
             movex.append(movex[element_ctr] + 40)
             element_ctr +=1
 
@@ -60,7 +59,7 @@ def draw_side(smi_stoich, elements, element_ctr, movex, hilite_atoms=None):
     return elements, element_ctr, movex
 
 def draw_mol_svg(smiles, stoich, hilite_atoms=None):
-    fn = f"../artifacts/imgs/mols/{hash((smiles, stoich))}.svg"
+    fn = filepaths['artifacts'] / f"imgs/mols/{hash((smiles, stoich))}.svg"
     if os.path.exists(fn):
         pass
     else:

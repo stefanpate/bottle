@@ -19,13 +19,15 @@ import sqlalchemy
 from src.thermo.pickaxe_thermodynamics import PickaxeThermodynamics
 
 if __name__ == '__main__':
-    set_start_method("spawn")
     parser = ArgumentParser()
     parser.add_argument("filename", help='Expansion filename not including the extension .pk', type=str)
     parser.add_argument("generations", help="Number of generations run in this expansion", type=int)
     parser.add_argument("--do_thermo", action="store_true", help="Does thermo calculations if provided")
     args = parser.parse_args()
 
+    if args.do_thermo:
+        set_start_method("spawn")
+    
     # Set params
     k_tautomers = 10 # How many top scoring tautomers to generate for operator mapping
     pre_standardized = False # Predicted reactions assumed pre-standardized
@@ -33,7 +35,6 @@ if __name__ == '__main__':
     # CMD params
     generations = args.generations
     pk_path = filepaths['raw_expansions'] / f"{args.filename}.pk"
-    do_thermo = args.do_thermo
 
     # Load stored paths
     path_filepath = filepaths['processed_expansions'] / 'found_paths.json'
@@ -78,7 +79,7 @@ if __name__ == '__main__':
     pk = prune_pickaxe(pk, paths)
     print(f"Pruned pk object to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
 
-    if do_thermo:
+    if args.do_thermo:
         print("Adding compounds to equilibrator")
         add_compounds_to_eQ(pk)
 
@@ -158,7 +159,7 @@ if __name__ == '__main__':
 
             pr.analogues = analogues # Add analogues to predicted reaction
 
-    if do_thermo:
+    if args.do_thermo:
         # Connect to compound cache
         with open(filepaths['artifacts'] / "eq_uris.uri", "r") as f:
             URI_EQ = f.read().strip("\n")
@@ -187,7 +188,7 @@ if __name__ == '__main__':
                     prs.append(PredictedReaction.from_dict(stored_predicted_reactions[rid], stored_known_reactions))
 
             # If new path or missing thermo, and want to do thermo now, do it
-            if (pid not in stored_paths or stored_paths[pid]['mdf'] is None) and do_thermo:
+            if (pid not in stored_paths or stored_paths[pid]['mdf'] is None) and args.do_thermo:
                 mdf_res = PT.calculate_pathway_mdf(reaction_id_list=[pr.id for pr in prs])
                 mdf = mdf_res.mdf_value
                 dG_opt = {k : v.magnitude for k,v in mdf_res.reaction_energies.items()}
@@ -218,7 +219,7 @@ if __name__ == '__main__':
                 )
             
             # If it was missing thermo and old, update stored paths
-            elif stored_paths[pid]['mdf'] is None and do_thermo:
+            elif stored_paths[pid]['mdf'] is None and args.do_thermo:
                 stored_paths[pid]['mdf'] = mdf
                 stored_paths[pid]['dG_opt'] = dG_opt
                 stored_paths[pid]['dG_err'] = dG_err

@@ -17,8 +17,9 @@ def post_standardize(mol, do_canon_taut):
     '''
     do_neutralize = False
     do_find_parent = False
+    quiet = True
     
-    return Chem.MolToSmiles(standardize_mol(mol, do_canon_taut=do_canon_taut, do_neutralize=do_neutralize, do_find_parent=do_find_parent))
+    return Chem.MolToSmiles(standardize_mol(mol, do_canon_taut=do_canon_taut, do_neutralize=do_neutralize, do_find_parent=do_find_parent, quiet=quiet))
 
 def split_reaction(rxn_smarts):
     return tuple([elt.split(".") for elt in rxn_smarts.split(">>")])
@@ -245,6 +246,7 @@ def standardize_template_map(
         smi2unpaired_cof:dict,
         return_rc:bool,
         pre_standardized:bool,
+        quiet:bool = False,
     ):
     '''
     Convenience function to standardize, match cofactor templates, 
@@ -277,7 +279,7 @@ def standardize_template_map(
     '''
     if not pre_standardized:
         try:
-            rxn = standardize_smarts_rxn(rxn)
+            rxn = standardize_smarts_rxn(rxn, quiet=quiet)
         except:
             print(f"Unable to standardize reaction: {rxn}")
     

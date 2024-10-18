@@ -3,6 +3,7 @@ from typing import Tuple, Union
 import collections
 import re
 from rdkit import Chem
+from rdkit import rdBase
 from rdkit.Chem import AllChem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
@@ -15,6 +16,7 @@ def _handle_kwargs(**kwargs):
         'do_find_parent':True,
         'do_remove_stereo':True,
         'max_tautomers':50,
+        'quiet': False,
     }
     filtered_kwargs = {k : v for k, v in kwargs.items() if k in default_kwargs}
     default_kwargs.update(filtered_kwargs)
@@ -23,6 +25,9 @@ def _handle_kwargs(**kwargs):
 
 def standardize_mol(mol, **kwargs):
     kwargs = _handle_kwargs(**kwargs)
+
+    if kwargs['quiet']:
+        blocker = rdBase.BlockLogs()
 
     if kwargs['do_remove_stereo']:
         Chem.rdmolops.RemoveStereochemistry(mol)

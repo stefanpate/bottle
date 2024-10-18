@@ -5,6 +5,7 @@ from minedatabase.pickaxe import Pickaxe
 from minedatabase.utils import get_compound_hash
 from typing import Dict
 from collections import defaultdict
+from rdkit import rdBase
 
 def prune_pickaxe(pk:Pickaxe, paths:Dict):
     '''
@@ -29,6 +30,7 @@ def prune_pickaxe(pk:Pickaxe, paths:Dict):
     return pk
 
 def get_canon_smiles(smi):
+    blocker = rdBase.BlockLogs()
     try:
         return CanonSmiles(smi)
     except BaseException as e:

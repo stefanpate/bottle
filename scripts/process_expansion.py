@@ -111,6 +111,7 @@ if __name__ == '__main__':
                 smi2unpaired_cof=smi2unpaired_cof,
                 return_rc=True,
                 pre_standardized=pre_standardized,
+                quiet=True,
             )
 
             if did_map:

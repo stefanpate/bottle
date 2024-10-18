@@ -34,10 +34,12 @@ def main(args):
 
     # Make sub directories for directories external to project directory
     for sub in filepaths['subdirs']['data']:
-        (Path(args.data) / sub).mkdir(parents=True, exist_ok=False)
+        if not (Path(args.data) / sub).exists():
+            (Path(args.data) / sub).mkdir(parents=True, exist_ok=False)
 
     for sub in filepaths['subdirs']['results']:
-        (Path(args.results) / sub).mkdir(parents=True, exist_ok=False)
+        if not (Path(args.results) / sub).exists():
+            (Path(args.results) / sub).mkdir(parents=True, exist_ok=False)
 
     # Write the filepaths to config.yaml
     config_path = Path(__file__).parent.parent / "config.yaml"

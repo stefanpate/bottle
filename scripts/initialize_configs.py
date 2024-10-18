@@ -8,7 +8,7 @@ def main(args):
     
     filepaths = {
         'dirs': {
-            name: project_dir / name for name in in_project_paths
+            name: str(project_dir / name) for name in in_project_paths
         },
         'subdirs': {
             'results': [

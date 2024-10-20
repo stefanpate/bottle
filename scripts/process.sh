@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH -A p30041
-#SBATCH -p short
+#SBATCH -p normal
 #SBATCH -N 1
 #SBATCH -n 1
-#SBATCH --mem=8GB
-#SBATCH -t 00:10:00
+#SBATCH --mem=32GB
+#SBATCH -t 48:00:00
 #SBATCH --job-name="process"
 #SBATCH -o ../logs/out/process_expansions
 #SBATCH -e ../logs/error/e_tmp_1

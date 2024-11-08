@@ -1,9 +1,16 @@
 from src.utils import load_json
-from src.pickaxe_processing import pk_rhash_to_smarts
+from minedatabase.utils import get_compound_hash
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Iterable
 from enum import Enum
 import hashlib
+import pathlib
+import pickle
+from rdkit import rdBase
+from rdkit.Chem import CanonSmiles
+from collections import defaultdict
+import networkx as nx
+import re
 
 def get_path_id(reaction_ids:Iterable[str]):
     '''Returns hash id for pathway given
@@ -19,6 +26,218 @@ class DatabaseEntry:
     @classmethod
     def from_dict(cls, dbe:dict):
         return cls(**dbe)
+
+class Expansion:
+    def __init__(self, forward: pathlib.Path = None, reverse: pathlib.Path = None):
+        self.compounds = {}
+        self.reactions = {}
+        self.operators = {}
+        self.starters = {}
+        self.targets = {}
+        self.generations = 0
+
+        if not forward and not reverse:
+            raise ValueError("Must provide at least one expansion")
+        
+        if forward:
+            self._load(forward, flip=False)
+        
+        if reverse:
+            self._load(reverse, flip=True)
+
+    def _load(self, path, flip: bool):
+        with open(path, 'rb') as f:
+            contents = pickle.load(f)
+
+        # Compound ID to name dicts for starters and targets
+        starters = {}
+        for v in contents['compounds'].values():
+            if v["Type"].startswith("Start"):
+                starters[v['_id']] = v["ID"]
+    
+        targets = {}
+        for v in contents['targets'].values():
+            target_cid = get_compound_hash(v['SMILES'])[0] # Get neutral (non-target) cpd hash
+            target_name = v['ID']
+            targets[target_cid] = target_name
+
+        if flip:
+            contents['starters'] = targets
+            contents['targets'] = starters
+        else:
+            contents['starters'] = starters
+            contents['targets'] = targets
+
+        for k, v in vars(self).items():
+            if k == 'generations':
+                setattr(self, k, v + 2)
+            else:
+                setattr(self, k, {**v, **contents[k]})
+
+    def find_paths(self):
+        DG, _, _ = self.construct_network()
+        found_paths = defaultdict(list)
+        for target in self.targets:
+            target_paths = find_paths_single_target(DG, list(self.starters.keys()), target, self.generations)
+            for path in target_paths:
+                sid = path[0]
+                rids = path[1:]
+                found_paths[(sid, target)].append(rids)
+
+        return found_paths      
+
+    def construct_network(self):
+        # Generate a directed bipartite graph
+        # 1. Add Compound Nodes
+        # 2. Add Reaction Nodes
+        # 3. Add directed edges
+        cpd_node_list = []
+        rxn_node_list = []
+        edge_list = []
+
+        starting_nodes = []
+        smiles_to_cid = {}
+
+        # Get compound information
+        for i, cpd in self.compounds.items(): 
+            cpd_node_list.append(
+                (
+                    i,
+                    {
+                        "SMILES": cpd["SMILES"],
+                        "InChIKey": cpd["InChI_key"],
+                        "Type": cpd["Type"],
+                        "Generation": cpd["Generation"],
+                        "_id": cpd["_id"]
+                    }
+                )
+            )
+
+            if cpd["Type"] == "Starting Compound":
+                starting_nodes.append(i)
+            
+            smiles_to_cid[cpd["SMILES"]] = i
+
+        # Get reaction information
+        for i, rxn in self.reactions.items():
+            stoich = get_stoich_pk(rxn["SMILES_rxn"])
+            rxn_node_list.append(
+                (
+                    i,
+                    {
+                        "Rule": rxn["Operators"],
+                        "Stoich": stoich,
+                        "Type": "Reaction",
+                        "feasible": None,
+                        "Reactants": rxn["Reactants"],
+                        "Products": rxn["Products"]
+                    }
+                )
+            )
+            
+            for _, c_id in rxn["Reactants"]:
+                edge_list.append((c_id, i))
+            for _, c_id in rxn["Products"]:
+                edge_list.append((i, c_id))
+        
+        # Create Graph
+        DG = nx.DiGraph(smiles_to_cid=smiles_to_cid)  
+        DG.add_nodes_from(cpd_node_list, bipartite=0)
+        DG.add_nodes_from(rxn_node_list, bipartite=1)
+        DG.add_edges_from(edge_list)
+        
+        return DG, rxn_node_list, edge_list
+    
+    def prune(self, paths: dict[tuple, tuple]):
+        '''
+        Prune compounds and reactions to save time
+        e.g., with thermo stuff
+        '''
+        pruned_rxns = {}
+        pruned_cpds = {}
+
+        for st_paths in paths.values():
+            for p in st_paths:
+                for rid in p:
+                    rxn = self.reactions[rid]
+                    pruned_rxns[rid] = rxn
+                    for _, cid in rxn['Reactants'] + rxn['Products']:
+                        pruned_cpds[cid] = self.compounds[cid]
+        
+        setattr(self, 'reactions', pruned_rxns)
+        setattr(self, 'compounds', pruned_cpds)
+    
+def find_paths_single_target(DG, starters, target, n_gen):
+    """
+    Get the pathways from starter to target compounds.
+
+    Parameters
+    ----------
+    DG:nx.DiGraph
+
+    starters : List[str]
+        A list of pickaxe cids for the desired end nodes
+    target : str
+        The pickaxe cid of the beginning node
+    n_gen : int
+        Number of generations.
+    """
+    max_depth = n_gen * 2 # Bipartite mol -> rxn -> mol graph
+    
+    def depth_first_reversed(G, current_node, target_nodes, visited, depth):
+        # Are we too deep?
+        if max_depth <= depth:
+            return
+
+        # Record current positon and decide if we should go further
+        visited.append(current_node)
+        for in_edge in G.in_edges(current_node):
+            # Have we reached our target?
+            if in_edge[0] in target_nodes:
+                visited.append(in_edge[0])
+                found_paths.append(visited)
+                return
+
+            # Is the connection a cofactor? If so, terminate here
+            elif G.nodes()[in_edge[0]]["Type"] == "Coreactant":
+                continue
+            # If not, have we seen this node before?
+            elif in_edge[0] in visited:
+                return
+            # Can also add in more constraints here, e.g. thermo, Type, etc.
+            # Finally continue traversal
+            else:
+                depth_first_reversed(G, in_edge[0], target_nodes, visited.copy(), depth+1)
+
+    found_paths = []
+    depth_first_reversed(DG, target, starters, [], 0)
+
+    # Reverse paths, extract starting compound id and reaction ids
+    if found_paths:
+        found_paths = list(
+            set(
+                [tuple([path[0]] + path[1::2]) for path in [[*reversed(ind_path)] for ind_path in found_paths]]
+            )
+        )
+    
+    return found_paths
+
+def get_stoich_pk(smiles_rxn):
+    lhs, rhs = [r for r in smiles_rxn.split("=>")]
+    lhs, rhs = [[rct.strip(" ") for rct in side.split(" + ")] for side in [lhs, rhs]]
+    [rct.split(" ") for rct in lhs]
+    pat = re.compile("\((\d+)\) (.+)")
+    reactants = {get_canon_smiles(smiles): -1*int(stoich) for stoich, smiles in [pat.findall(rct)[0] for rct in lhs]}
+    products = {get_canon_smiles(smiles): int(stoich) for stoich, smiles in [pat.findall(rct)[0] for rct in rhs]}
+    reactants.update(products)
+    return reactants
+
+def get_canon_smiles(smi):
+    _ = rdBase.BlockLogs()
+    try:
+        return CanonSmiles(smi)
+    except BaseException as e:
+        return smi
 
 @dataclass
 class Enzyme:
@@ -385,84 +604,100 @@ class PathWrangler:
                 raise ValueError(f"Missing required argument {k}")
             if type(sort_by[k]) is not t:
                 raise ValueError(f"Invalid type {sort_by[k]} for argument {k}. Must be {t}")
+            
+def pk_rhash_to_smarts(rhash, pk):
+    '''
+    Make reaction smarts string for
+    reaction indexed by rhash in a pk
+    object
+    '''
+    rxn_stoich = get_stoich_pk(rhash, pk)
+    products = ".".join([".".join([smi]*stoich) for smi, stoich in rxn_stoich.items() if stoich >= 0])
+    reactants = ".".join([".".join([smi]*abs(stoich)) for smi, stoich in rxn_stoich.items() if stoich <= 0])
+    rxn_sma = ">>".join([reactants, products])
+    return rxn_sma
 
 if __name__ == '__main__':
-    e1 = Enzyme('up1', 'AARTGW', 'Evidence at protein level', 'reviewed', '1.1.1.1', 'mouse', 'mouse protein')
-    e2 = Enzyme('up2', 'QWYPOI', 'Evidence at transcript level', 'reviewed', '1.1.1.2', 'e. coli', 'bacteria protein')
-    db1 = DatabaseEntry('rhea', '123')
-    db2 = DatabaseEntry('rhea', '456')
-    es = [e1, e2]
-    dbs = [db1, db2]
-    kr = KnownReaction('1', 'CC=O>>CCO', '/home/stef/bottle/artifacts/imgs/img1.svg', es, dbs)
-    kr2 = KnownReaction('2', 'CC(=O)O>>CC.O=C=O', '/home/stef/bottle/artifacts/imgs/img2.svg', es, dbs)
-    pr = PredictedReaction(
-        id='1',
-        smarts='O=CCC(=O)O>>O=CCC.O=C=O',
-        image='/home/stef/bottle/artifacts/imgs/img3.svg',
-        operators=['rule1', 'rule2'],
-        analogues={'1':kr, '2': kr2},
-        rcmcs={'1': 0.9, '2': 0.2}
-    )
+    # e1 = Enzyme('up1', 'AARTGW', 'Evidence at protein level', 'reviewed', '1.1.1.1', 'mouse', 'mouse protein')
+    # e2 = Enzyme('up2', 'QWYPOI', 'Evidence at transcript level', 'reviewed', '1.1.1.2', 'e. coli', 'bacteria protein')
+    # db1 = DatabaseEntry('rhea', '123')
+    # db2 = DatabaseEntry('rhea', '456')
+    # es = [e1, e2]
+    # dbs = [db1, db2]
+    # kr = KnownReaction('1', 'CC=O>>CCO', '/home/stef/bottle/artifacts/imgs/img1.svg', es, dbs)
+    # kr2 = KnownReaction('2', 'CC(=O)O>>CC.O=C=O', '/home/stef/bottle/artifacts/imgs/img2.svg', es, dbs)
+    # pr = PredictedReaction(
+    #     id='1',
+    #     smarts='O=CCC(=O)O>>O=CCC.O=C=O',
+    #     image='/home/stef/bottle/artifacts/imgs/img3.svg',
+    #     operators=['rule1', 'rule2'],
+    #     analogues={'1':kr, '2': kr2},
+    #     rcmcs={'1': 0.9, '2': 0.2}
+    # )
 
-    # to / from dict
-    kr_dict = asdict(kr)
-    kr_from = kr.from_dict(kr_dict)
-    pr_dict = pr.to_dict()
-    pr_from = PredictedReaction.from_dict(pr_dict, {'1':kr, '2':kr2})
+    # # to / from dict
+    # kr_dict = asdict(kr)
+    # kr_from = kr.from_dict(kr_dict)
+    # pr_dict = pr.to_dict()
+    # pr_from = PredictedReaction.from_dict(pr_dict, {'1':kr, '2':kr2})
 
-    # Filter enzymes in known reactions
-    kr.filter_enzymes({'existence': [EnzymeExistence.PROTEIN.value]})
-    print(kr.has_valid_enzymes)
-    kr2.filter_enzymes({'existence': [EnzymeExistence.HOMOLOGY.value]})
+    # # Filter enzymes in known reactions
+    # kr.filter_enzymes({'existence': [EnzymeExistence.PROTEIN.value]})
+    # print(kr.has_valid_enzymes)
+    # kr2.filter_enzymes({'existence': [EnzymeExistence.HOMOLOGY.value]})
 
-    # Filter known reactions in predicted reaction
-    pr.filter_analogues({'has_valid_enzymes': [True]})
+    # # Filter known reactions in predicted reaction
+    # pr.filter_analogues({'has_valid_enzymes': [True]})
 
-    # Sort analogues
-    pr = PredictedReaction(
-        id='1',
-        smarts='O=CCC(=O)O>>O=CCC.O=C=O',
-        image='/home/stef/bottle/artifacts/imgs/img3.svg',
-        operators=['rule1', 'rule2'],
-        analogues={'1':kr, '2': kr2},
-        rcmcs={'1': 0.9, '2': 0.2}
-    )
+    # # Sort analogues
+    # pr = PredictedReaction(
+    #     id='1',
+    #     smarts='O=CCC(=O)O>>O=CCC.O=C=O',
+    #     image='/home/stef/bottle/artifacts/imgs/img3.svg',
+    #     operators=['rule1', 'rule2'],
+    #     analogues={'1':kr, '2': kr2},
+    #     rcmcs={'1': 0.9, '2': 0.2}
+    # )
 
-    print(pr.top_analogues(k=2))
-    print(pr.top_analogues(k=1))
+    # print(pr.top_analogues(k=2))
+    # print(pr.top_analogues(k=1))
 
-    # Top RCMCS
-    print(pr.top_rcmcs(k=2))
-    print(pr.top_rcmcs(k=1))
+    # # Top RCMCS
+    # print(pr.top_rcmcs(k=2))
+    # print(pr.top_rcmcs(k=1))
 
-    # Path-level operations
-    path = Path(
-        id='1',
-        starter='akg',
-        target='hopa',
-        reactions=[pr, pr],
-        sid='Csdlfk',
-        tid="Caweor34np"
-    )
+    # # Path-level operations
+    # path = Path(
+    #     id='1',
+    #     starter='akg',
+    #     target='hopa',
+    #     reactions=[pr, pr],
+    #     sid='Csdlfk',
+    #     tid="Caweor34np"
+    # )
 
-    print(path.valid)
-    print(path.min_rcmcs)
-    print(path.mean_rcmcs)
-    print(path.aggregate_rcmcs(pr_agg='min', kr_agg='mean', k=5))
+    # print(path.valid)
+    # print(path.min_rcmcs)
+    # print(path.mean_rcmcs)
+    # print(path.aggregate_rcmcs(pr_agg='min', kr_agg='mean', k=5))
 
-    # Path wrangling
-    path_filepath = '../artifacts/processed_expansions/found_paths.json'
-    predicted_reactions_filepath = "../artifacts/processed_expansions/predicted_reactions.json"
-    known_reactions_filepath = "../artifacts/processed_expansions/known_reactions.json"
-    pw = PathWrangler(
-        path_filepath=path_filepath,
-        pr_filepath=predicted_reactions_filepath,
-        kr_filepath=known_reactions_filepath
-    )
+    # # Path wrangling
+    # path_filepath = '../artifacts/processed_expansions/found_paths.json'
+    # predicted_reactions_filepath = "../artifacts/processed_expansions/predicted_reactions.json"
+    # known_reactions_filepath = "../artifacts/processed_expansions/known_reactions.json"
+    # pw = PathWrangler(
+    #     path_filepath=path_filepath,
+    #     pr_filepath=predicted_reactions_filepath,
+    #     kr_filepath=known_reactions_filepath
+    # )
 
-    pw.get_paths()
-    pw.get_paths(sort_by='min_rcmcs')
-    pw.get_paths(sort_by='mean_rcmcs')
-    pw.get_paths(filter_by_enzymes={'existence':['protein']})
+    # pw.get_paths()
+    # pw.get_paths(sort_by='min_rcmcs')
+    # pw.get_paths(sort_by='mean_rcmcs')
+    # pw.get_paths(filter_by_enzymes={'existence':['protein']})
     
-    print('hold')
+    # print('hold')
+
+    from src.config import filepaths
+    forward = filepaths['raw_expansions'] / "alpha_ketoglutarate_to_hopa_gen_2_tan_sample_0_n_samples_1000.pk"
+    expansion = Expansion(forward=forward)

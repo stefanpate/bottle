@@ -1,14 +1,20 @@
 import pandas as pd
-from minedatabase.pickaxe import Pickaxe
 from collections import defaultdict
 from argparse import ArgumentParser
 from multiprocessing import set_start_method
 
 from src.config import filepaths
-from src.post_processing import Path, PredictedReaction, KnownReaction, Enzyme, DatabaseEntry, get_path_id
+from src.post_processing import (
+    Expansion,
+    Path,
+    PredictedReaction,
+    KnownReaction,
+    Enzyme,
+    DatabaseEntry,
+    get_path_id
+) 
 from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
 from src.operator_mapping import expand_paired_cofactors, expand_unpaired_cofactors, standardize_template_map
-from src.pickaxe_processing import find_paths, prune_pickaxe
 from src.utils import load_json, save_json
 from src.chem_draw import draw_rxn_svg
 
@@ -20,10 +26,21 @@ from src.thermo.pickaxe_thermodynamics import PickaxeThermodynamics
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument("filename", help='Expansion filename not including the extension .pk', type=str)
-    parser.add_argument("generations", help="Number of generations run in this expansion", type=int)
+    parser.add_argument("-f", "--forward", default=None, help='Expansion filename not including the extension .pk', type=str)
+    parser.add_argument("-r", "--reverse", default=None, help='Expansion filename not including the extension .pk', type=str)
+    parser.add_argument("-g", "--generations", nargs='+', help="Number of generations run in this expansion", type=int)
     parser.add_argument("--do_thermo", action="store_true", help="Does thermo calculations if provided")
     args = parser.parse_args()
+
+    print("Loading expansion")
+    pk = Expansion(
+        forward=filepaths['raw_expansions'] / f"{args.forward}.pk" if args.forward else args.forward,
+        reverse=filepaths['raw_expansions'] / f"{args.reverse}.pk" if args.reverse else args.reverse
+    )
+    print("Searching for paths")
+    paths = pk.find_paths()
+    pk.prune(paths)
+    print(f"Pruned expansion to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
 
     if args.do_thermo:
         set_start_method("spawn")
@@ -31,10 +48,6 @@ if __name__ == '__main__':
     # Set params
     k_tautomers = 10 # How many top scoring tautomers to generate for operator mapping
     pre_standardized = False # Predicted reactions assumed pre-standardized
-    
-    # CMD params
-    generations = args.generations
-    pk_path = filepaths['raw_expansions'] / f"{args.filename}.pk"
 
     # Load stored paths
     path_filepath = filepaths['processed_expansions'] / 'found_paths.json'
@@ -64,20 +77,11 @@ if __name__ == '__main__':
     imt2ct = {k : len(v) for k, v in imt2krs.items()}
 
     # Read in cofactor lookup tables
-    paired_ref = pd.read_csv(filepaths['cofactors'] / 'paired_cofactors_reference.tsv', sep='\t')
-    unpaired_ref = pd.read_csv(filepaths['cofactors'] / 'unpaired_cofactors_reference.tsv', sep='\t')
+    paired_ref = pd.read_csv(filepaths['coreactants'] / 'paired_cofactors_reference.tsv', sep='\t')
+    unpaired_ref = pd.read_csv(filepaths['coreactants'] / 'unpaired_cofactors_reference.tsv', sep='\t')
     smi2paired_cof = expand_paired_cofactors(paired_ref, k=k_tautomers)
     smi2unpaired_cof = expand_unpaired_cofactors(unpaired_ref, k=k_tautomers)
 
-    # Load raw expansion object
-    pk = Pickaxe()
-    pk.load_pickled_pickaxe(pk_path)
-
-    print("Finding paths")
-    paths, starters, targets = find_paths(pk, generations)
-
-    pk = prune_pickaxe(pk, paths)
-    print(f"Pruned pk object to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
 
     if args.do_thermo:
         print("Adding compounds to equilibrator")

@@ -28,7 +28,7 @@ class DatabaseEntry:
         return cls(**dbe)
 
 class Expansion:
-    def __init__(self, forward: pathlib.Path = None, reverse: pathlib.Path = None):
+    def __init__(self, forward: pathlib.Path = None, reverse: pathlib.Path = None, operator_reverses: dict = None):
         self.compounds = {}
         self.reactions = {}
         self.operators = {}
@@ -39,13 +39,16 @@ class Expansion:
         if not forward and not reverse:
             raise ValueError("Must provide at least one expansion")
         
+        if reverse and not operator_reverses:
+            raise ValueError("Must provide mappings of operator to reversese to process a reverse expansion")
+        
         if forward:
-            self._load(forward, flip=False)
+            self._load(forward)
         
         if reverse:
-            self._load(reverse, flip=True)
+            self._load(reverse, operator_reverses=operator_reverses)
 
-    def _load(self, path, flip: bool):
+    def _load(self, path, operator_reverses: dict = {}):
         with open(path, 'rb') as f:
             contents = pickle.load(f)
 
@@ -61,7 +64,7 @@ class Expansion:
             target_name = v['ID']
             targets[target_cid] = target_name
 
-        if flip:
+        if operator_reverses:
             contents['starters'] = targets
             contents['targets'] = starters
         else:
@@ -70,9 +73,26 @@ class Expansion:
 
         for k, v in vars(self).items():
             if k == 'generations':
-                setattr(self, k, v + 2)
+                setattr(self, k, v + contents['generations'])
+            elif k == 'reactions' and operator_reverses:
+                reactions = dict([self._flip_reaction(rxn, operator_reverses) for rxn in contents[k].values()])
+                setattr(self, k, {**v, **reactions})
             else:
                 setattr(self, k, {**v, **contents[k]})
+
+    def _flip_reaction(self, rxn: dict, operator_reverses: dict):
+        flipped_rxn = {}
+        flipped_rxn['_id'] = get_reaction_hash(rxn['Reactants'], rxn['Products'])
+        flipped_rxn['Reactants'] = rxn['Products']
+        flipped_rxn['Products'] = rxn['Reactants']
+        flipped_operators = set()
+        for o in rxn['Operators']:
+            if o in operator_reverses:
+                for fo in operator_reverses[o]:
+                    flipped_operators.add(fo)
+        flipped_rxn['Operators'] = flipped_operators
+        flipped_rxn['SMILES_rxn'] = ' => '.join(rxn['SMILES_rxn'].split(' => ')[::-1])
+        return flipped_rxn['_id'], flipped_rxn
 
     def find_paths(self):
         DG, _, _ = self.construct_network()
@@ -238,6 +258,26 @@ def get_canon_smiles(smi):
         return CanonSmiles(smi)
     except BaseException as e:
         return smi
+    
+def get_reaction_hash(
+    reactants: List[tuple], products: List[tuple]
+) -> str:
+    """Tries to do what Pickaxe does mid transform.
+    By the way pickaxe is not doing what I think it
+    wants to do.
+    TODO: make hashes stoich-sensitive
+    """
+    def to_str(half_rxn):
+        return [f"(1) {x}" for x in sorted(half_rxn)]
+
+    reactant_ids = [reactant[1] for reactant in reactants]
+    product_ids = [product[1] for product in products]
+    text_ids_rxn = (
+        " + ".join(to_str(reactant_ids)) + " => " + " + ".join(to_str(product_ids))
+    )
+    rhash = "R" + hashlib.sha256(text_ids_rxn.encode()).hexdigest()
+
+    return rhash
 
 @dataclass
 class Enzyme:
@@ -605,13 +645,14 @@ class PathWrangler:
             if type(sort_by[k]) is not t:
                 raise ValueError(f"Invalid type {sort_by[k]} for argument {k}. Must be {t}")
             
-def pk_rhash_to_smarts(rhash, pk):
+def pk_rhash_to_smarts(rhash: str, pk: Expansion):
     '''
     Make reaction smarts string for
-    reaction indexed by rhash in a pk
+    reaction indexed by rhash in a Expansion
     object
     '''
-    rxn_stoich = get_stoich_pk(rhash, pk)
+    rxn_smiles = pk.reactions[rhash]["SMILES_rxn"]
+    rxn_stoich = get_stoich_pk(rxn_smiles)
     products = ".".join([".".join([smi]*stoich) for smi, stoich in rxn_stoich.items() if stoich >= 0])
     reactants = ".".join([".".join([smi]*abs(stoich)) for smi, stoich in rxn_stoich.items() if stoich <= 0])
     rxn_sma = ">>".join([reactants, products])

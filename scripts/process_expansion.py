@@ -25,17 +25,23 @@ import sqlalchemy
 from src.thermo.pickaxe_thermodynamics import PickaxeThermodynamics
 
 if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument("-f", "--forward", default=None, help='Expansion filename not including the extension .pk', type=str)
-    parser.add_argument("-r", "--reverse", default=None, help='Expansion filename not including the extension .pk', type=str)
-    parser.add_argument("-g", "--generations", nargs='+', help="Number of generations run in this expansion", type=int)
+    parser = ArgumentParser(
+        description=('Processes forward & reverse expansions singly or in combination.'
+                     'Finds paths from starters to targets, stores predicted reactions,'
+                     'their known analogues with similarity scores, and thermo calculations.')
+    )
+    parser.add_argument("-f", "--forward", default=None, help='Filename of forward expansion (w/o extension)', type=str)
+    parser.add_argument("-r", "--reverse", default=None, help='Filename of reverse expansion (w/o extension)', type=str)
     parser.add_argument("--do_thermo", action="store_true", help="Does thermo calculations if provided")
     args = parser.parse_args()
+
+    imt_reverses = load_json(filepaths['rules'] / "jnimt_reverses.json")
 
     print("Loading expansion")
     pk = Expansion(
         forward=filepaths['raw_expansions'] / f"{args.forward}.pk" if args.forward else args.forward,
-        reverse=filepaths['raw_expansions'] / f"{args.reverse}.pk" if args.reverse else args.reverse
+        reverse=filepaths['raw_expansions'] / f"{args.reverse}.pk" if args.reverse else args.reverse,
+        operator_reverses=imt_reverses,
     )
     print("Searching for paths")
     paths = pk.find_paths()
@@ -213,8 +219,8 @@ if __name__ == '__main__':
                 # Add new path
                 new_paths[pid] = Path(
                     id=pid,
-                    starter=starters[sid],
-                    target=targets[tid],
+                    starter=pk.starters[sid],
+                    target=pk.targets[tid],
                     reactions=prs,
                     mdf=mdf,
                     dG_opt=dG_opt,

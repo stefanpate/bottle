@@ -19,7 +19,7 @@ requests = "^2.32.3"
 cvxpy = "^1.5.2"
 sqlalchemy = "^2.0.31"
 equilibrator-api = "^0.6.0"
-minedatabase = { git = "https://github.com/p7k/MINE-Database.git", branch = "py3.12" }
+minedatabase = {git = "https://github.com/stefanpate/pickaxe", branch = "master"}
 lxml = "^5.2.2"
 setuptools = "^70.1.1"
 more-itertools = "^10.3.0"

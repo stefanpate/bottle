@@ -9,8 +9,46 @@ import pickle
 from rdkit import rdBase
 from rdkit.Chem import CanonSmiles
 from collections import defaultdict
+from itertools import permutations, product
 import networkx as nx
 import re
+
+# TODO: modify pickaxe so that we don't have to do this downstream
+def realign_pred_rxn_to_rule(rxn_smarts: str, rule_template: str, coreactants: dict[str, str]) -> list[tuple[int]]:
+    '''
+    Returns permutations of reaction's reactant indices that match rule template
+
+    Args
+    ----
+    rxn_smarts:str
+        Reaction smarts
+    rule_template:str
+        Reactant names from rule ordered as designated in the operator.
+        Separated by ';'
+    coreactants:dict[str, str]
+        Lookup SMILES to coreactant names
+
+    Returns
+    ------
+    matched_idxs:list[tuple[int]]
+        List of correctly ordered reactant indices
+    '''
+    rct_smi = rxn_smarts.split('>>')[0].split('.')
+    rule_template = rule_template.split(';')
+
+    if len(rct_smi) != len(rule_template):
+        return []
+    
+    rct_names = [coreactants.get(smi, ('Any',)) for smi in rct_smi]
+    rct_idxs = [i for i in range(len(rct_names))]
+    matched_idxs = []
+    for perm in permutations(rct_idxs):
+        permuted_rct_names = [rct_names[idx] for idx in perm]
+        for prod in product(*permuted_rct_names):
+            if all([elt[0] == elt[1] for elt in zip(rule_template, prod)]):
+                matched_idxs.append(perm)
+        
+    return matched_idxs
 
 def get_path_id(reaction_ids:Iterable[str]):
     '''Returns hash id for pathway given

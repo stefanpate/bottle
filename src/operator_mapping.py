@@ -202,7 +202,7 @@ def compare_operator_outputs_w_products(outputs: tuple[Mol], products: list[str]
         if output == products: 
             return True
         
-    # # Try WITH tautomer canonicalization
+    # # Try WITH tautomer canonicalization TODO: unacceptably slow
     # try:
     #     products = sorted([post_standardize(Chem.MolFromSmiles(smi), do_canon_taut=True) for smi in products])
     # except:

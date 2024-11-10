@@ -2,7 +2,7 @@ import pandas as pd
 from collections import defaultdict
 from argparse import ArgumentParser
 from multiprocessing import set_start_method
-
+from time import perf_counter
 from src.config import filepaths
 from src.post_processing import (
     Expansion,
@@ -11,10 +11,12 @@ from src.post_processing import (
     KnownReaction,
     Enzyme,
     DatabaseEntry,
-    get_path_id
+    get_path_id,
+    realign_pred_rxn_to_rule
 ) 
 from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
-from src.operator_mapping import expand_paired_cofactors, expand_unpaired_cofactors, standardize_template_map
+from src.operator_mapping import map_rxn2rule
+from src.cheminfo_utils import standardize_smiles, standardize_smarts_rxn
 from src.utils import load_json, save_json
 from src.chem_draw import draw_rxn_svg
 
@@ -43,8 +45,18 @@ if __name__ == '__main__':
         reverse=filepaths['raw_expansions'] / f"{args.reverse}.pk" if args.reverse else args.reverse,
         operator_reverses=imt_reverses,
     )
+    # TODO integreate into expansion object, pickaxe saving
+    coreactants = defaultdict(set)
+    tmp = pd.read_csv(filepaths['coreactants'] / "metacyc_coreactants.tsv", sep='\t')
+    for i, row in tmp.iterrows():
+        smiles = standardize_smiles(row['SMILES'], do_remove_stereo=True, do_find_parent=False, do_neutralize=False)
+        coreactants[smiles].add(row['#ID'])
+    pk.coreactants = coreactants
     print("Searching for paths")
+    tic = perf_counter()
     paths = pk.find_paths()
+    toc = perf_counter()
+    print(f"Path finding took: {toc - tic : .2f} seconds")
     pk.prune(paths)
     print(f"Pruned expansion to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
 
@@ -52,7 +64,6 @@ if __name__ == '__main__':
         set_start_method("spawn")
     
     # Set params
-    k_tautomers = 10 # How many top scoring tautomers to generate for operator mapping
     pre_standardized = False # Predicted reactions assumed pre-standardized
 
     # Load stored paths
@@ -63,6 +74,7 @@ if __name__ == '__main__':
     stored_paths = load_processed(path_filepath)
     stored_predicted_reactions = load_processed(predicted_reactions_filepath)
     stored_known_reactions = load_processed(known_reactions_filepath)
+    stored_predicted_reactions = {} # TODO REMOVE AFTER DEBUGGING
 
     # Read in rules
     rules_dir = filepaths['rules']
@@ -82,13 +94,6 @@ if __name__ == '__main__':
 
     imt2ct = {k : len(v) for k, v in imt2krs.items()}
 
-    # Read in cofactor lookup tables
-    paired_ref = pd.read_csv(filepaths['coreactants'] / 'paired_cofactors_reference.tsv', sep='\t')
-    unpaired_ref = pd.read_csv(filepaths['coreactants'] / 'unpaired_cofactors_reference.tsv', sep='\t')
-    smi2paired_cof = expand_paired_cofactors(paired_ref, k=k_tautomers)
-    smi2unpaired_cof = expand_unpaired_cofactors(unpaired_ref, k=k_tautomers)
-
-
     if args.do_thermo:
         print("Adding compounds to equilibrator")
         add_compounds_to_eQ(pk)
@@ -105,24 +110,32 @@ if __name__ == '__main__':
 
     # Add KnownReactions to new PredictedReactions
     print("Adding known analogues")
+    tic = perf_counter()
     new_known_reactions = {}
     bad_ops = []
-    for id, pr in new_predicted_reactions.items():
+    for id, pr in sorted(new_predicted_reactions.items()):
         analogues = {}
         imt_that_mapped_krs = [elt for elt in pr.operators if elt in imt2ct] # Filter out those that don't map any known reactions
         srt_imt = sorted(imt_that_mapped_krs, key= lambda x : imt2ct[x], reverse=True) # If multiple imt operators, start w/ most common
         for imt in srt_imt:
             min = imt.split('_')[0] # Minify imt operator to get reaction center by protection-guess-and-check
+
+            # Standardize smarts
+            if not pre_standardized:
+                try:
+                    rxn = standardize_smarts_rxn(pr.smarts, quiet=True)
+                except:
+                    print(f"Unable to standardize reaction: {pr.smarts}")
+                    rxn = pr.smarts
+
+            matched_idxs = realign_pred_rxn_to_rule(rxn, min_rules.loc[min, "Reactants"], pk.coreactants) # Align reactants to rule
                 
-            did_map, aligned_smarts, reaction_center = standardize_template_map(
-                rxn=pr.smarts,
-                rule_row=min_rules.loc[min],
-                smi2paired_cof=smi2paired_cof,
-                smi2unpaired_cof=smi2unpaired_cof,
-                return_rc=True,
-                pre_standardized=pre_standardized,
-                quiet=True,
-            )
+            # Map rule to reaction
+            if matched_idxs:
+                res = map_rxn2rule(rxn, min_rules.loc[min, "SMARTS"], return_rc=True, matched_idxs=matched_idxs)
+                did_map, aligned_smarts, reaction_center = res['did_map'], res['aligned_smarts'], res['reaction_center']
+            else:
+                did_map = False
 
             if did_map:
                 pr.smarts = aligned_smarts
@@ -170,6 +183,9 @@ if __name__ == '__main__':
 
             pr.analogues = analogues # Add analogues to predicted reaction
 
+    toc = perf_counter()
+    print(f"Analogue analysis took: {toc - tic : .2f} seconds")
+    
     if args.do_thermo:
         # Connect to compound cache
         with open(filepaths['artifacts'] / "eq_uris.uri", "r") as f:

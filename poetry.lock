@@ -2779,7 +2779,7 @@ name = "minedatabase"
 version = "2.2.0"
 description = "Metabolic In silico Network Expansions"
 optional = false
-python-versions = ">= 3.7"
+python-versions = ">=3.7"
 files = []
 develop = false
 
@@ -2801,7 +2801,7 @@ test = ["pytest"]
 type = "git"
 url = "https://github.com/stefanpate/pickaxe"
 reference = "master"
-resolved_reference = "9309a0d7e738e5247a37855fff4b20eef1a51e79"
+resolved_reference = "810b9082d2f0373bd234f4521c972c8666c01136"
 
 [[package]]
 name = "mistune"

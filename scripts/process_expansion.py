@@ -16,7 +16,7 @@ from src.post_processing import (
 ) 
 from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
 from src.operator_mapping import map_rxn2rule
-from src.cheminfo_utils import standardize_smiles, standardize_smarts_rxn
+from src.cheminfo_utils import standardize_smarts_rxn
 from src.utils import load_json, save_json
 from src.chem_draw import draw_rxn_svg
 
@@ -45,13 +45,6 @@ if __name__ == '__main__':
         reverse=filepaths['raw_expansions'] / f"{args.reverse}.pk" if args.reverse else args.reverse,
         operator_reverses=imt_reverses,
     )
-    # TODO integreate into expansion object, pickaxe saving
-    coreactants = defaultdict(set)
-    tmp = pd.read_csv(filepaths['coreactants'] / "metacyc_coreactants.tsv", sep='\t')
-    for i, row in tmp.iterrows():
-        smiles = standardize_smiles(row['SMILES'], do_remove_stereo=True, do_find_parent=False, do_neutralize=False)
-        coreactants[smiles].add(row['#ID'])
-    pk.coreactants = coreactants
     print("Searching for paths")
     tic = perf_counter()
     paths = pk.find_paths()
@@ -74,7 +67,6 @@ if __name__ == '__main__':
     stored_paths = load_processed(path_filepath)
     stored_predicted_reactions = load_processed(predicted_reactions_filepath)
     stored_known_reactions = load_processed(known_reactions_filepath)
-    stored_predicted_reactions = {} # TODO REMOVE AFTER DEBUGGING
 
     # Read in rules
     rules_dir = filepaths['rules']
@@ -112,7 +104,7 @@ if __name__ == '__main__':
     print("Adding known analogues")
     tic = perf_counter()
     new_known_reactions = {}
-    bad_ops = []
+    unmapped = dict(new_predicted_reactions.items())
     for id, pr in sorted(new_predicted_reactions.items()):
         analogues = {}
         imt_that_mapped_krs = [elt for elt in pr.operators if elt in imt2ct] # Filter out those that don't map any known reactions
@@ -143,6 +135,7 @@ if __name__ == '__main__':
                 lhs_patts = extract_operator_patts(min_rules.loc[min, 'SMARTS'], side=0)
                 pr_rcts = pr.smarts.split(">>")[0].split('.')
                 pr_rcts_rc = [pr_rcts, pr.reaction_center]
+                unmapped.pop(id, None)
 
                 for krid in imt2krs[imt]: # Assign analogue to pr only on imt operator level
                     if krid in stored_known_reactions: # Load from stored known reactions
@@ -179,12 +172,12 @@ if __name__ == '__main__':
                     analogues[krid] = kr # Append predicted reaction analogues
             else:
                 print(f"Minified operator failed to recapitulate reaction {imt} {id}")
-                bad_ops.append((imt, id))
 
             pr.analogues = analogues # Add analogues to predicted reaction
 
     toc = perf_counter()
     print(f"Analogue analysis took: {toc - tic : .2f} seconds")
+    print(f"{len(unmapped)} predicted reactions left unmapped")
     
     if args.do_thermo:
         # Connect to compound cache

@@ -1,4 +1,5 @@
 from src.utils import load_json
+from src.cheminfo_utils import standardize_smiles
 from minedatabase.utils import get_compound_hash
 from dataclasses import dataclass, asdict, field
 from typing import Optional, List, Dict, Iterable
@@ -70,6 +71,7 @@ class Expansion:
         self.compounds = {}
         self.reactions = {}
         self.operators = {}
+        self.coreactants = {}
         self.starters = {}
         self.targets = {}
         self.generations = 0
@@ -115,12 +117,19 @@ class Expansion:
             elif k == 'reactions' and operator_reverses:
                 reactions = dict([self._flip_reaction(rxn, operator_reverses) for rxn in contents[k].values()])
                 setattr(self, k, {**v, **reactions})
+            elif k == 'coreactants':
+                coreactants = defaultdict(set)
+                for name, (smiles, cid) in contents['coreactants'].items():
+                    smiles = standardize_smiles(smiles, do_remove_stereo=True, do_find_parent=False, do_neutralize=False)
+                    coreactants[smiles].add(name)
+                    setattr(self, k, {**v, **coreactants})
             else:
                 setattr(self, k, {**v, **contents[k]})
 
     def _flip_reaction(self, rxn: dict, operator_reverses: dict):
         flipped_rxn = {}
-        flipped_rxn['_id'] = get_reaction_hash(rxn['Reactants'], rxn['Products'])
+        flipped_rxn['_id'] = rxn['_id'] + '_reverse'
+        # flipped_rxn['_id'] = get_reaction_hash(rxn['Reactants'], rxn['Products']) # TODO go with this when ready
         flipped_rxn['Reactants'] = rxn['Products']
         flipped_rxn['Products'] = rxn['Reactants']
         flipped_operators = set()

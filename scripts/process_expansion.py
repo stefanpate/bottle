@@ -3,6 +3,7 @@ from collections import defaultdict
 from argparse import ArgumentParser
 from multiprocessing import set_start_method
 from time import perf_counter
+from tqdm import tqdm
 from src.config import filepaths
 from src.post_processing import (
     Expansion,
@@ -105,7 +106,7 @@ if __name__ == '__main__':
     tic = perf_counter()
     new_known_reactions = {}
     unmapped = dict(new_predicted_reactions.items())
-    for id, pr in sorted(new_predicted_reactions.items()):
+    for id, pr in tqdm(sorted(new_predicted_reactions.items())):
         analogues = {}
         imt_that_mapped_krs = [elt for elt in pr.operators if elt in imt2ct] # Filter out those that don't map any known reactions
         srt_imt = sorted(imt_that_mapped_krs, key= lambda x : imt2ct[x], reverse=True) # If multiple imt operators, start w/ most common

@@ -15,7 +15,6 @@ artifacts/rxn_svgs/
 artifacts/tmp_pdfs/
 artifacts/pwy_svgs/
 artifacts/processed_expansions/known_reactions.json
-core*
 *.ipynb_checkpoints*
 *__pycache__*
 **/logs

@@ -1,0 +1,29 @@
+----------------------------------------
+Intializing pickaxe object
+
+Done intializing pickaxe object
+----------------------------------------
+
+1 compounds loaded...
+(1 after removing stereochemistry)
+3 target compounds loaded
+
+----------------------------------------
+Expanding Generation 1
+
+Generation 1: 0 percent complete
+Generation 1 finished in 3.1459057331085205 s and contains:
+		53 new compounds
+		61 new reactions
+
+Done expanding Generation: 1.
+----------------------------------------
+
+----------------------------------------
+Pruning to 3 target compounds
+Pruned network to 10 compounds and 3 reactions based on 3 whitelisted compounds.
+
+Found 2 targets.
+Pruning took 4.220008850097656e-05s
+----------------------------------------
+

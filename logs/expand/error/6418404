@@ -1,0 +1,9 @@
+/home/spn1560/.cache/pypoetry/virtualenvs/bottle-OcfYl-TY-py3.12/lib/python3.12/site-packages/mordred/InformationContent.py:53: SyntaxWarning: "is" with 'tuple' literal. Did you mean "=="?
+  if dst is ():
+Traceback (most recent call last):
+  File "/home/spn1560/bottle/scripts/run_pickaxe.py", line 48, in <module>
+    main(args)
+  File "/home/spn1560/bottle/scripts/run_pickaxe.py", line 8, in main
+    coreactant_list=filepaths['coreactants'] /  f"{args.coreactants}.tsv",
+                    ~~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'coreactants'

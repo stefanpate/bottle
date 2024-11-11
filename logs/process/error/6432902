@@ -1,0 +1,6 @@
+/home/spn1560/bottle/src/post_processing.py:296: SyntaxWarning: invalid escape sequence '\('
+  pat = re.compile("\((\d+)\) (.+)")
+/home/spn1560/.cache/pypoetry/virtualenvs/bottle-OcfYl-TY-py3.12/lib/python3.12/site-packages/svgutils/compose.py:379: SyntaxWarning: invalid escape sequence '\.'
+  m = re.match("([0-9]+\.?[0-9]*)([a-z]+)", measure)
+/var/spool/slurmd/job6432902/slurm_script: line 24: 67912 Killed                  python $scripts_dir/process_expansion.py -f $forward -r $reverse
+slurmstepd: error: Detected 1 oom_kill event in StepId=6432902.batch. Some of the step tasks have been OOM Killed.

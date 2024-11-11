@@ -16,7 +16,7 @@ def main(args):
                 "raw_expansions",
             ],
             'artifacts': [
-                "cofactors",
+                "coreactants",
                 "rules",
                 "starters_targets",
                 "imgs",

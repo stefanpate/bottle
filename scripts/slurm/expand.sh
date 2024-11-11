@@ -6,15 +6,15 @@
 #SBATCH --mem=0
 #SBATCH -t 4:00:00
 #SBATCH --job-name="exp"
-#SBATCH --output=/path/to/outlogs/%A
-#SBATCH --error=/path/to/error/logs/%A
+#SBATCH --output=/home/spn1560/bottle/logs/out/%A
+#SBATCH --error=/home/spn1560/bottle/logs/error/%A
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=stefan.pate@northwestern.edu
 
 # Args
 scripts_dir=/home/spn1560/bottle/scripts
-starters=bottle_targets_24
+starters=ccm_v0
 generations=2
 processes=50
 

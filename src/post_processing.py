@@ -120,7 +120,7 @@ class Expansion:
             elif k == 'coreactants':
                 coreactants = defaultdict(set)
                 for name, (smiles, cid) in contents['coreactants'].items():
-                    smiles = standardize_smiles(smiles, do_remove_stereo=True, do_find_parent=False, do_neutralize=False)
+                    smiles = standardize_smiles(smiles, do_remove_stereo=True, do_find_parent=False, do_neutralize=False, quiet=True)
                     coreactants[smiles].add(name)
                     setattr(self, k, {**v, **coreactants})
             else:

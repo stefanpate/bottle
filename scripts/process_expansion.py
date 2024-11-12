@@ -108,7 +108,7 @@ if __name__ == '__main__':
     unmapped = dict(new_predicted_reactions.items())
     for id, pr in tqdm(sorted(new_predicted_reactions.items())):
         analogues = {}
-        imt_that_mapped_krs = [elt for elt in pr.operators if elt in imt2ct] # Filter out those that don't map any known reactions
+        imt_that_mapped_krs = [elt for elt in pr.operators if elt in imt2ct] # Filter out those that don't map any known reactions TODO dont filter here
         srt_imt = sorted(imt_that_mapped_krs, key= lambda x : imt2ct[x], reverse=True) # If multiple imt operators, start w/ most common
         for imt in srt_imt:
             min = imt.split('_')[0] # Minify imt operator to get reaction center by protection-guess-and-check

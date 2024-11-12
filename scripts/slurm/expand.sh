@@ -14,8 +14,8 @@
 
 # Args
 scripts_dir=/home/spn1560/bottle/scripts
-starters=pivalic_acid
-targets=bottle_targets_24
+starters=dmb
+targets=dmhb
 generations=1
 processes=1
 

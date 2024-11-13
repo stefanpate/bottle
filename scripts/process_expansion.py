@@ -33,6 +33,7 @@ if __name__ == '__main__':
                      'Finds paths from starters to targets, stores predicted reactions,'
                      'their known analogues with similarity scores, and thermo calculations.')
     )
+    parser.add_argument("stored_dir", help="Subdirectory of results/processed_expansions to read & write processed expansions")
     parser.add_argument("-f", "--forward", default=None, help='Filename of forward expansion (w/o extension)', type=str)
     parser.add_argument("-r", "--reverse", default=None, help='Filename of reverse expansion (w/o extension)', type=str)
     parser.add_argument("--do_thermo", action="store_true", help="Does thermo calculations if provided")
@@ -61,9 +62,13 @@ if __name__ == '__main__':
     pre_standardized = False # Predicted reactions assumed pre-standardized
 
     # Load stored paths
-    path_filepath = filepaths['processed_expansions'] / 'found_paths.json'
-    predicted_reactions_filepath = filepaths['processed_expansions'] / "predicted_reactions.json"
-    known_reactions_filepath = filepaths['processed_expansions'] / "known_reactions.json"
+    stored_fp = filepaths['processed_expansions'] / args.stored_dir 
+    if not stored_fp.exists():
+        stored_fp.mkdir()
+
+    path_filepath = stored_fp / 'found_paths.json'
+    predicted_reactions_filepath = stored_fp / "predicted_reactions.json"
+    known_reactions_filepath = stored_fp / "known_reactions.json"
     load_processed = lambda path : load_json(path) if path.exists() else {}
     stored_paths = load_processed(path_filepath)
     stored_predicted_reactions = load_processed(predicted_reactions_filepath)

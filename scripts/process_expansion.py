@@ -35,7 +35,7 @@ if __name__ == '__main__':
     )
     parser.add_argument("-f", "--forward", default=None, help='Filename of forward expansion (w/o extension)', type=str)
     parser.add_argument("-r", "--reverse", default=None, help='Filename of reverse expansion (w/o extension)', type=str)
-    parser.add_argument("--do_thermo", action="store_true", help="Does thermo calculations if provided")
+    parser.add_argument("--do-thermo", action="store_true", help="Does thermo calculations if provided")
     args = parser.parse_args()
 
     imt_reverses = load_json(filepaths['rules'] / "jnimt_reverses.json")
@@ -121,6 +121,7 @@ if __name__ == '__main__':
                     print(f"Unable to standardize reaction: {pr.smarts}")
                     rxn = pr.smarts
 
+            # TODO things could get tricky here with combo expansions and multiple sets of coreactants...
             matched_idxs = realign_pred_rxn_to_rule(rxn, min_rules.loc[min, "Reactants"], pk.coreactants) # Align reactants to rule
                 
             # Map rule to reaction

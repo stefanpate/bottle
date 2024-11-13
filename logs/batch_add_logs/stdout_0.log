@@ -2,34 +2,260 @@ Starting Child Process 0 Timer, setting timer to 0
 Importing eQuilibrator
 Connecting 0 to postgresql DB and creating Local Compound Cache.
 
-<src.thermo.local_compound_cache.LocalCompoundCache object at 0x7fb876d7e390>
+<src.thermo.local_compound_cache.LocalCompoundCache object at 0x7f284eeba1e0>
 ---------------
 Child Process 0 succesfully initialized
-Time for Child Process 0 Timer from start: 21.796463012695312
+Time for Child Process 0 Timer from start: 13.78117036819458
 ---------------
 ---------------
 Child Process 0 | Loop 1: Sucessfuly got new compound list.
-Time for Child Process 0 Timer from last checkpoint: 0.00015044212341308594
+Time for Child Process 0 Timer from last checkpoint: 0.000335693359375
 ---------------
-Time for Child Process 0 Timer from last checkpoint: 0.0001685619354248047
+Time for Child Process 0 Timer from last checkpoint: 0.0003528594970703125
 Child Process 0 | Loop 1: Trying to evaluate 50 compounds with timeout 6000
 Child Process 0 | Loop 1: Succesfully added compounds.
-Time for Child Process 0 Timer from last checkpoint: 4.816187620162964
+Time for Child Process 0 Timer from last checkpoint: 3.7291793823242188
 ---------------
 Child Process 0 | Loop 2: Sucessfuly got new compound list.
-Time for Child Process 0 Timer from last checkpoint: 0.00026226043701171875
+Time for Child Process 0 Timer from last checkpoint: 0.00041937828063964844
 ---------------
-Time for Child Process 0 Timer from last checkpoint: 0.00027823448181152344
-Child Process 0 | Loop 2: Trying to evaluate 34 compounds with timeout 6000
+Time for Child Process 0 Timer from last checkpoint: 0.00043129920959472656
+Child Process 0 | Loop 2: Trying to evaluate 50 compounds with timeout 6000
 Child Process 0 | Loop 2: Succesfully added compounds.
-Time for Child Process 0 Timer from last checkpoint: 2.9583163261413574
-Child Process 0 | Loop 3: Found Empty Queue after 
+Time for Child Process 0 Timer from last checkpoint: 3.385511636734009
+---------------
+Child Process 0 | Loop 3: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00017142295837402344
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00018143653869628906
+Child Process 0 | Loop 3: Trying to evaluate 50 compounds with timeout 6000
+in method 'OBConversion_ReadString', argument 3 of type 'std::string'
+in method 'OBConversion_ReadString', argument 3 of type 'std::string'
+Child Process 0 | Loop 3: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 3.250265121459961
+---------------
+Child Process 0 | Loop 4: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.0001900196075439453
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00019979476928710938
+Child Process 0 | Loop 4: Trying to evaluate 50 compounds with timeout 6000
+in method 'OBConversion_ReadString', argument 3 of type 'std::string'
+in method 'OBConversion_ReadString', argument 3 of type 'std::string'
+Child Process 0 | Loop 4: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 2.8933207988739014
+---------------
+Child Process 0 | Loop 5: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.0001952648162841797
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00020766258239746094
+Child Process 0 | Loop 5: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 5: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 4.5042641162872314
+---------------
+Child Process 0 | Loop 6: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00023698806762695312
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00024700164794921875
+Child Process 0 | Loop 6: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 6: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 1.2615296840667725
+---------------
+Child Process 0 | Loop 7: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00014352798461914062
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00015306472778320312
+Child Process 0 | Loop 7: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 7: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 5.270665168762207
+---------------
+Child Process 0 | Loop 8: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00020265579223632812
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.0002129077911376953
+Child Process 0 | Loop 8: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 8: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 7.1960296630859375
+---------------
+Child Process 0 | Loop 9: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00013065338134765625
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00014019012451171875
+Child Process 0 | Loop 9: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 9: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 9.054314613342285
+---------------
+Child Process 0 | Loop 10: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00018262863159179688
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.0001919269561767578
+Child Process 0 | Loop 10: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 10: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 4.327636480331421
+---------------
+Child Process 0 | Loop 11: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00018858909606933594
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00019979476928710938
+Child Process 0 | Loop 11: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 11: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 3.42232346534729
+---------------
+Child Process 0 | Loop 12: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 8.893013000488281e-05
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.0007119178771972656
+Child Process 0 | Loop 12: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 12: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 1.4111719131469727
+---------------
+Child Process 0 | Loop 13: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00018167495727539062
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00019121170043945312
+Child Process 0 | Loop 13: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 13: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 3.492431879043579
+---------------
+Child Process 0 | Loop 14: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00044918060302734375
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00048422813415527344
+Child Process 0 | Loop 14: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 14: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 4.667661428451538
+---------------
+Child Process 0 | Loop 15: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00016832351684570312
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00017833709716796875
+Child Process 0 | Loop 15: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 15: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 11.589799165725708
+---------------
+Child Process 0 | Loop 16: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 9.226799011230469e-05
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00010371208190917969
+Child Process 0 | Loop 16: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 16: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 9.039680480957031
+---------------
+Child Process 0 | Loop 17: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.0002052783966064453
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.0002155303955078125
+Child Process 0 | Loop 17: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 17: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 3.2303473949432373
+---------------
+Child Process 0 | Loop 18: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 9.894371032714844e-05
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00011110305786132812
+Child Process 0 | Loop 18: Trying to evaluate 50 compounds with timeout 6000
+in method 'OBConversion_ReadString', argument 3 of type 'std::string'
+in method 'OBConversion_ReadString', argument 3 of type 'std::string'
+Child Process 0 | Loop 18: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 5.356860160827637
+---------------
+Child Process 0 | Loop 19: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00010657310485839844
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00011801719665527344
+Child Process 0 | Loop 19: Trying to evaluate 50 compounds with timeout 6000
+in method 'OBConversion_ReadString', argument 3 of type 'std::string'
+in method 'OBConversion_ReadString', argument 3 of type 'std::string'
+Child Process 0 | Loop 19: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 4.756807565689087
+---------------
+Child Process 0 | Loop 20: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.0001049041748046875
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00011730194091796875
+Child Process 0 | Loop 20: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 20: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 4.663683891296387
+---------------
+Child Process 0 | Loop 21: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.0002071857452392578
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.0002224445343017578
+Child Process 0 | Loop 21: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 21: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 24.059582233428955
+---------------
+Child Process 0 | Loop 22: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00019931793212890625
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00020885467529296875
+Child Process 0 | Loop 22: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 22: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 25.87981915473938
+---------------
+Child Process 0 | Loop 23: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.0002276897430419922
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.0002377033233642578
+Child Process 0 | Loop 23: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 23: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 24.56141424179077
+---------------
+Child Process 0 | Loop 24: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 8.153915405273438e-05
+---------------
+Time for Child Process 0 Timer from last checkpoint: 9.274482727050781e-05
+Child Process 0 | Loop 24: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 24: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 26.607165098190308
+---------------
+Child Process 0 | Loop 25: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.0002460479736328125
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.0002586841583251953
+Child Process 0 | Loop 25: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 25: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 26.830448865890503
+---------------
+Child Process 0 | Loop 26: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00011467933654785156
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.0001239776611328125
+Child Process 0 | Loop 26: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 26: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 25.36637854576111
+---------------
+Child Process 0 | Loop 27: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.0002696514129638672
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00028228759765625
+Child Process 0 | Loop 27: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 27: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 17.983264684677124
+---------------
+Child Process 0 | Loop 28: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 8.916854858398438e-05
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00010156631469726562
+Child Process 0 | Loop 28: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 28: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 9.109813451766968
+---------------
+Child Process 0 | Loop 29: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00013208389282226562
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00014328956604003906
+Child Process 0 | Loop 29: Trying to evaluate 32 compounds with timeout 6000
+in method 'OBConversion_ReadString', argument 3 of type 'std::string'
+in method 'OBConversion_ReadString', argument 3 of type 'std::string'
+Child Process 0 | Loop 29: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 3.553226947784424
+Child Process 0 | Loop 30: Found Empty Queue after 
 None
 ---------------
-Child Process 0 | Loop 3: Empty queue found, terminating.
-Time for Child Process 0 Timer from start: 31.57872986793518
+Child Process 0 | Loop 30: Empty queue found, terminating.
+Time for Child Process 0 Timer from start: 296.2529261112213
 ---------------
 ---------------
-Child Process 0 | Loop 3: Succesfully terminated.
-Time for Child Process 0 Timer from start: 31.60859775543213
+Child Process 0 | Loop 30: Succesfully terminated.
+Time for Child Process 0 Timer from start: 296.314829826355
 ---------------

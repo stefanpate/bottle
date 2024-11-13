@@ -84,16 +84,22 @@ class Expansion:
         else:
             self.checkpoints = None
 
-        self._reactions = None
         self._compounds = None
+        self._reactions = None
+        self._coreactants = None
+
+        if self.forward and self.reverse:
+            self._compounds = {**self.forward['compounds'], **self.reverse['compounds']}
+            self._reactions = {**self.forward['reactions'], **self.reverse['reactions']}
+            self._coreactants = {**self.forward['coreactants'], **self.reverse['coreactants']}
 
     @property
     def coreactants(self):
-        if self.forward and self.reverse:
-            return {**self.forward['coreactants'], **self.reverse['coreactants']}
-        elif self.forward:
+        if self._coreactants:
+            return self._coreactants
+        elif not self.reverse:
             return self.forward['coreactants']
-        elif self.reverse:
+        else:
             return self.reverse['coreactants']
     
     @property
@@ -102,10 +108,8 @@ class Expansion:
             return self._compounds
         elif not self.reverse:
             return self.forward['compounds']
-        elif not self.forward:
-            return self.reverse['compounds']
         else:
-            return {**self.forward['compounds'], **self.reverse['compounds']}
+            return self.reverse['compounds']
         
     @compounds.setter
     def compounds(self, value: dict):
@@ -131,10 +135,8 @@ class Expansion:
             return self._reactions
         elif not self.reverse:
             return self.forward['reactions']
-        elif not self.forward:
-            return self.reverse['reactions']
         else:
-            return {**self.forward['reactions'], **self.reverse['reactions']}
+            return self.reverse['reactions']
         
     @reactions.setter
     def reactions(self, value: dict):

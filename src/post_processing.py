@@ -2,7 +2,7 @@ from src.utils import load_json
 from src.cheminfo_utils import standardize_smiles
 from minedatabase.utils import get_compound_hash
 from dataclasses import dataclass, asdict, field
-from typing import Optional, List, Dict, Iterable
+from typing import Optional, List, Dict, Iterable, Any
 from enum import Enum
 import hashlib
 import pathlib
@@ -68,68 +68,158 @@ class DatabaseEntry:
 
 class Expansion:
     def __init__(self, forward: pathlib.Path = None, reverse: pathlib.Path = None, operator_reverses: dict = None):
-        self.compounds = {}
-        self.reactions = {}
-        self.operators = {}
-        self.coreactants = {}
-        self.starters = {}
-        self.targets = {}
-        self.generations = 0
+        self.operator_reverses = operator_reverses
 
         if not forward and not reverse:
             raise ValueError("Must provide at least one expansion")
         
         if reverse and not operator_reverses:
-            raise ValueError("Must provide mappings of operator to reversese to process a reverse expansion")
+            raise ValueError("Must provide mappings of operator to reverses to process a reverse expansion")
         
-        if forward:
-            self._load(forward)
+        self.forward = self._load(forward, flip=False) if forward else None
+        self.reverse = self._load(reverse, flip=True) if reverse else None
         
-        if reverse:
-            self._load(reverse, operator_reverses=operator_reverses)
+        if self.forward and self.reverse:
+            self.checkpoints = {k for k in self.forward['compounds'] if k[0] != 'X'} & {k for k in self.reverse['compounds'] if k[0] != 'X'}
+        else:
+            self.checkpoints = None
 
-    def _load(self, path, operator_reverses: dict = {}):
-        with open(path, 'rb') as f:
+        self._reactions = None
+        self._compounds = None
+
+    @property
+    def coreactants(self):
+        if self.forward and self.reverse:
+            return {**self.forward['coreactants'], **self.reverse['coreactants']}
+        elif self.forward:
+            return self.forward['coreactants']
+        elif self.reverse:
+            return self.reverse['coreactants']
+    
+    @property
+    def compounds(self):
+        if self._compounds:
+            return self._compounds
+        elif not self.reverse:
+            return self.forward['compounds']
+        elif not self.forward:
+            return self.reverse['compounds']
+        else:
+            return {**self.forward['compounds'], **self.reverse['compounds']}
+        
+    @compounds.setter
+    def compounds(self, value: dict):
+        self._compounds = value
+    
+    @property
+    def starters(self):
+        if self.forward: # Forward or combo
+            return self.forward['starters']
+        else: # Retro
+            return self.reverse['starters']
+        
+    @property
+    def targets(self):
+        if self.reverse: # Retro or combo
+            return self.reverse['targets']
+        else: # Forward
+            return self.forward['targets']
+        
+    @property
+    def reactions(self):
+        if self._reactions:
+            return self._reactions
+        elif not self.reverse:
+            return self.forward['reactions']
+        elif not self.forward:
+            return self.reverse['reactions']
+        else:
+            return {**self.forward['reactions'], **self.reverse['reactions']}
+        
+    @reactions.setter
+    def reactions(self, value: dict):
+        self._reactions = value
+        
+    @property
+    def generations(self):
+        if self.forward and self.reverse:
+            return self.forward['generations'] + self.reverse['generations']
+        elif self.forward:
+            return self.forward['generations']
+        elif self.reverse:
+            return self.reverse['generations']
+
+    def _load(self, filepath: pathlib.Path, flip: bool) -> dict[str, Any]:
+        '''
+        Loads half expansions and stores in the direction of real-world synthesis
+
+        Args
+        -----
+        filepath:pathlib.Path
+            To half expansion file
+        flip:bool
+            Need to flip reactions, i.e., direction of expansion
+            is opposite real-world direction of synthesis
+        '''
+
+        attributes = [
+            'compounds',
+            'reactions',
+            'operators',
+            'coreactants',
+            'starters',
+            'targets',
+            'generations'
+        ]
+        half_expansion = {}
+
+        with open(filepath, 'rb') as f:
             contents = pickle.load(f)
 
-        # Compound ID to name dicts for starters and targets
-        starters = {}
-        for v in contents['compounds'].values():
-            if v["Type"].startswith("Start"):
-                starters[v['_id']] = v["ID"]
-    
-        targets = {}
-        for v in contents['targets'].values():
-            target_cid = get_compound_hash(v['SMILES'])[0] # Get neutral (non-target) cpd hash
-            target_name = v['ID']
-            targets[target_cid] = target_name
-
-        if operator_reverses:
-            contents['starters'] = targets
-            contents['targets'] = starters
-        else:
-            contents['starters'] = starters
-            contents['targets'] = targets
-
-        for k, v in vars(self).items():
+        for k in attributes:
             if k == 'generations':
-                setattr(self, k, v + contents['generations'])
-            elif k == 'reactions' and operator_reverses:
-                reactions = dict([self._flip_reaction(rxn, operator_reverses) for rxn in contents[k].values()])
-                setattr(self, k, {**v, **reactions})
+                half_expansion[k] = contents[k]
+            
             elif k == 'coreactants':
                 coreactants = defaultdict(set)
                 for name, (smiles, cid) in contents['coreactants'].items():
-                    smiles = standardize_smiles(smiles, do_remove_stereo=True, do_find_parent=False, do_neutralize=False)
+                    smiles = standardize_smiles(smiles, do_remove_stereo=True, do_find_parent=False, do_neutralize=False, quiet=True)
                     coreactants[smiles].add(name)
-                    setattr(self, k, {**v, **coreactants})
+                    half_expansion[k] = coreactants
+            
+            elif k == 'starters':
+                starters = {}
+                for v in contents['compounds'].values():
+                    if v["Type"].startswith("Start"):
+                        starters[v['_id']] = v["ID"]
+
+            elif k == 'targets':
+                targets = {}
+                for v in contents['targets'].values():
+                    target_cid = get_compound_hash(v['SMILES'])[0] # Get neutral (non-target) cpd hash
+                    target_name = v['ID']
+                    targets[target_cid] = target_name
+
+            elif flip and k == 'reactions':
+                reversed_reactions = dict([self._flip_reaction(rxn, self.operator_reverses) for rxn in contents[k].values()])
+                half_expansion[k] = reversed_reactions
+            
             else:
-                setattr(self, k, {**v, **contents[k]})
+                half_expansion[k] = contents[k]
+
+        if flip:
+            half_expansion['targets'] = starters
+            half_expansion['starters'] = targets
+        else:
+            half_expansion['starters'] = starters
+            half_expansion['targets'] = targets
+
+        return half_expansion
 
     def _flip_reaction(self, rxn: dict, operator_reverses: dict):
         flipped_rxn = {}
-        flipped_rxn['_id'] = rxn['_id'] + '_reverse'
-        # flipped_rxn['_id'] = get_reaction_hash(rxn['Reactants'], rxn['Products']) # TODO go with this when ready
+        flipped_rxn['_id'] = get_reaction_hash(rxn['Products'], rxn['Reactants']) # TODO go with this when ready
+        # flipped_rxn['_id'] = rxn['_id'] + '_reverse'
         flipped_rxn['Reactants'] = rxn['Products']
         flipped_rxn['Products'] = rxn['Reactants']
         flipped_operators = set()
@@ -140,33 +230,115 @@ class Expansion:
         flipped_rxn['Operators'] = flipped_operators
         flipped_rxn['SMILES_rxn'] = ' => '.join(rxn['SMILES_rxn'].split(' => ')[::-1])
         return flipped_rxn['_id'], flipped_rxn
-
+    
     def find_paths(self):
-        DG, _, _ = self.construct_network()
-        found_paths = defaultdict(list)
-        for target in self.targets:
-            target_paths = find_paths_single_target(DG, list(self.starters.keys()), target, self.generations)
-            for path in target_paths:
-                sid = path[0]
-                rids = path[1:]
-                found_paths[(sid, target)].append(rids)
+        '''
+        Returns reaction paths from real-world starters to real-world targets
+        in real-world forward direction.
+        '''
+        def dictize_paths(paths: list):
+            dpaths = defaultdict(list)
+            for p in paths:
+                dpaths[(p[0], p[-1])].append(p[1::2])
+            return dpaths
 
-        return found_paths      
+        # Single direction expansions
+        if self.forward and not self.reverse:
+            paths = self._find_paths(self.forward, retro=False)
+        elif self.reverse and not self.forward:
+            paths = self._find_paths(self.reverse, retro=True)
 
-    def construct_network(self):
-        # Generate a directed bipartite graph
-        # 1. Add Compound Nodes
-        # 2. Add Reaction Nodes
-        # 3. Add directed edges
+        else: # Combo expansions
+            forward_paths = self._find_paths(self.forward, retro=False)
+            retro_paths = self._find_paths(self.reverse, retro=True)
+
+            # Stitch together halves of combo
+            forward_by_checkpoint = defaultdict(list)
+            for fp in forward_paths:
+                forward_by_checkpoint[fp[-1]].append(fp)
+
+            retro_by_checkpoint = defaultdict(list)
+            for rp in retro_paths:
+                retro_by_checkpoint[rp[0]].append(rp)
+
+            paths = []
+            for ckpt in forward_by_checkpoint.keys() & retro_by_checkpoint.keys():
+                path_pairs = product(forward_by_checkpoint[ckpt], retro_by_checkpoint[ckpt])
+                for pair in path_pairs:
+                    paths.append(pair[0][:-1] + pair[1])
+
+            # Catch paths that connect over just half of the combo expansion
+            for rws in self.forward['starters']:
+                for p in retro_by_checkpoint[rws]:
+                    paths.append(p)
+            for rwt in self.reverse['targets']:
+                for p in forward_by_checkpoint[rwt]:
+                    paths.append(p)
+
+        return dictize_paths(paths)     
+
+    def _find_paths(self, half_expansion: dict, retro: bool):
+        '''
+        
+        Args
+        ----
+        retro
+            is retro expansion
+        
+        '''
+        if self.checkpoints and retro: # Combo, retro half
+            sources = self.checkpoints
+            sinks = half_expansion['targets'].keys()
+        elif self.checkpoints and not retro: # Combo, fwd half
+            sources = half_expansion['starters'].keys()
+            sinks = self.checkpoints
+        else: # Single direction expansion, both stored in rw synth dir
+            sources = half_expansion['starters'].keys()
+            sinks = half_expansion['targets'].keys()
+
+        # Faster to search from few to many
+        if len(sources) > len(sinks):
+            tmp = sources
+            sources = sinks
+            sinks = tmp
+            flip = True
+        else:
+            flip = False
+
+        sinks = list(sinks - sources) # all_simple_paths returns empty generator if source in sink
+
+        DG = self.construct_network(half_expansion)
+
+        if flip:
+            DG = DG.reverse(copy=False)
+
+        paths = []
+        for sr in sources:
+            paths += list(nx.all_simple_paths(DG, source=sr, target=sinks, cutoff=half_expansion['generations'] * 2)) # Search up to gens x 2 (bc bipartite)
+
+        return [elt[::-1] for elt in paths] if flip else paths
+    
+    def construct_network(self, half_expansion: dict):
+        '''
+        Constructs bipartite (compounds and reactions) directed graph
+        in the order of real-world synthesis
+
+        Args
+        ----
+        half_expansion
+        flip
+            Flips orientation of the edges (direction of the reactions)
+        '''
         cpd_node_list = []
         rxn_node_list = []
         edge_list = []
 
-        starting_nodes = []
-        smiles_to_cid = {}
-
         # Get compound information
-        for i, cpd in self.compounds.items(): 
+        for i, cpd in half_expansion['compounds'].items():
+
+            if i[0] == "X": # Skip coreactants
+                 continue
+
             cpd_node_list.append(
                 (
                     i,
@@ -174,46 +346,42 @@ class Expansion:
                         "SMILES": cpd["SMILES"],
                         "InChIKey": cpd["InChI_key"],
                         "Type": cpd["Type"],
-                        "Generation": cpd["Generation"],
-                        "_id": cpd["_id"]
                     }
                 )
             )
 
-            if cpd["Type"] == "Starting Compound":
-                starting_nodes.append(i)
-            
-            smiles_to_cid[cpd["SMILES"]] = i
-
         # Get reaction information
-        for i, rxn in self.reactions.items():
-            stoich = get_stoich_pk(rxn["SMILES_rxn"])
+        for i, rxn in half_expansion['reactions'].items():
+
             rxn_node_list.append(
                 (
                     i,
                     {
                         "Rule": rxn["Operators"],
-                        "Stoich": stoich,
                         "Type": "Reaction",
-                        "feasible": None,
-                        "Reactants": rxn["Reactants"],
-                        "Products": rxn["Products"]
                     }
                 )
             )
-            
-            for _, c_id in rxn["Reactants"]:
-                edge_list.append((c_id, i))
+
+            # cpd_node_i => rxn_node_j only when cpd_node_i is only requirement beyond asssumed sources
+            non_co_reactants = [c_id for _, c_id in rxn["Reactants"] if c_id[0] != 'X'] # Each entry in Reactants a unique molecule so list is ok
+            if len(non_co_reactants) == 1:
+                edge_list.append((non_co_reactants[0], i))
+
             for _, c_id in rxn["Products"]:
+
+                if c_id[0] == 'X': # Don't bother w/ 'X' co-products
+                     continue
+                
                 edge_list.append((i, c_id))
         
         # Create Graph
-        DG = nx.DiGraph(smiles_to_cid=smiles_to_cid)  
+        DG = nx.DiGraph()  
         DG.add_nodes_from(cpd_node_list, bipartite=0)
         DG.add_nodes_from(rxn_node_list, bipartite=1)
         DG.add_edges_from(edge_list)
         
-        return DG, rxn_node_list, edge_list
+        return DG
     
     def prune(self, paths: dict[tuple, tuple]):
         '''
@@ -231,64 +399,9 @@ class Expansion:
                     for _, cid in rxn['Reactants'] + rxn['Products']:
                         pruned_cpds[cid] = self.compounds[cid]
         
-        setattr(self, 'reactions', pruned_rxns)
-        setattr(self, 'compounds', pruned_cpds)
+        self.reactions = pruned_rxns
+        self.compounds = pruned_cpds
     
-def find_paths_single_target(DG, starters, target, n_gen):
-    """
-    Get the pathways from starter to target compounds.
-
-    Parameters
-    ----------
-    DG:nx.DiGraph
-
-    starters : List[str]
-        A list of pickaxe cids for the desired end nodes
-    target : str
-        The pickaxe cid of the beginning node
-    n_gen : int
-        Number of generations.
-    """
-    max_depth = n_gen * 2 # Bipartite mol -> rxn -> mol graph
-    
-    def depth_first_reversed(G, current_node, target_nodes, visited, depth):
-        # Are we too deep?
-        if max_depth <= depth:
-            return
-
-        # Record current positon and decide if we should go further
-        visited.append(current_node)
-        for in_edge in G.in_edges(current_node):
-            # Have we reached our target?
-            if in_edge[0] in target_nodes:
-                visited.append(in_edge[0])
-                found_paths.append(visited)
-                return
-
-            # Is the connection a cofactor? If so, terminate here
-            elif G.nodes()[in_edge[0]]["Type"] == "Coreactant":
-                continue
-            # If not, have we seen this node before?
-            elif in_edge[0] in visited:
-                return
-            # Can also add in more constraints here, e.g. thermo, Type, etc.
-            # Finally continue traversal
-            else:
-                depth_first_reversed(G, in_edge[0], target_nodes, visited.copy(), depth+1)
-
-    found_paths = []
-    depth_first_reversed(DG, target, starters, [], 0)
-
-    # Reverse paths, extract starting compound id and reaction ids
-    if found_paths:
-        found_paths = list(
-            set(
-                [tuple([path[0]] + path[1::2]) for path in [[*reversed(ind_path)] for ind_path in found_paths]]
-            )
-        )
-    
-    return found_paths
-
 def get_stoich_pk(smiles_rxn):
     lhs, rhs = [r for r in smiles_rxn.split("=>")]
     lhs, rhs = [[rct.strip(" ") for rct in side.split(" + ")] for side in [lhs, rhs]]
@@ -787,5 +900,13 @@ if __name__ == '__main__':
     # print('hold')
 
     from src.config import filepaths
-    forward = filepaths['raw_expansions'] / "alpha_ketoglutarate_to_hopa_gen_2_tan_sample_0_n_samples_1000.pk"
+    forward = filepaths['raw_expansions'] / "2_steps_pivalic_acid_to_bottle_targets_24_rules_JN3604IMT_rules_co_metacyc_coreactants_sampled_False_pruned_True.pk"
     expansion = Expansion(forward=forward)
+    paths = expansion.find_paths()
+
+    forward = filepaths['raw_expansions'] / "1_steps_alpha_ketoglutarate_to_None_rules_JN3604IMT_rules_carbonyl_free_co_metacyc_coreactants_carbonyl_free_sampled_False_pruned_False.pk"
+    reverse = filepaths['raw_expansions'] / "1_steps_hopa_to_None_rules_JN3604IMT_rules_carbonyl_free_co_metacyc_coreactants_carbonyl_free_sampled_False_pruned_False.pk"
+    imt_reverses = load_json(filepaths['rules'] / "jnimt_reverses.json")
+    expansion = Expansion(forward=forward, reverse=reverse, operator_reverses=imt_reverses)
+    paths = expansion.find_paths()
+    print()

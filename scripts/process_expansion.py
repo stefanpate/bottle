@@ -36,7 +36,7 @@ if __name__ == '__main__':
     parser.add_argument("stored_dir", help="Subdirectory of results/processed_expansions to read & write processed expansions")
     parser.add_argument("-f", "--forward", default=None, help='Filename of forward expansion (w/o extension)', type=str)
     parser.add_argument("-r", "--reverse", default=None, help='Filename of reverse expansion (w/o extension)', type=str)
-    parser.add_argument("--do_thermo", action="store_true", help="Does thermo calculations if provided")
+    parser.add_argument("--do-thermo", action="store_true", help="Does thermo calculations if provided")
     args = parser.parse_args()
 
     imt_reverses = load_json(filepaths['rules'] / "jnimt_reverses.json")
@@ -112,9 +112,9 @@ if __name__ == '__main__':
     new_known_reactions = {}
     unmapped = dict(new_predicted_reactions.items())
     for id, pr in tqdm(sorted(new_predicted_reactions.items())):
+        most_common_map = None
         analogues = {}
-        imt_that_mapped_krs = [elt for elt in pr.operators if elt in imt2ct] # Filter out those that don't map any known reactions TODO dont filter here
-        srt_imt = sorted(imt_that_mapped_krs, key= lambda x : imt2ct[x], reverse=True) # If multiple imt operators, start w/ most common
+        srt_imt = sorted(pr.operators, key= lambda x : imt2ct.get(x, 0), reverse=True) # If multiple imt operators, start w/ most common
         for imt in srt_imt:
             min = imt.split('_')[0] # Minify imt operator to get reaction center by protection-guess-and-check
 
@@ -126,6 +126,7 @@ if __name__ == '__main__':
                     print(f"Unable to standardize reaction: {pr.smarts}")
                     rxn = pr.smarts
 
+            # TODO things could get tricky here with combo expansions and multiple sets of coreactants...
             matched_idxs = realign_pred_rxn_to_rule(rxn, min_rules.loc[min, "Reactants"], pk.coreactants) # Align reactants to rule
                 
             # Map rule to reaction
@@ -136,46 +137,52 @@ if __name__ == '__main__':
                 did_map = False
 
             if did_map:
-                pr.smarts = aligned_smarts
-                pr.reaction_center = reaction_center
-                lhs_patts = extract_operator_patts(min_rules.loc[min, 'SMARTS'], side=0)
-                pr_rcts = pr.smarts.split(">>")[0].split('.')
-                pr_rcts_rc = [pr_rcts, pr.reaction_center]
-                unmapped.pop(id, None)
 
-                for krid in imt2krs[imt]: # Assign analogue to pr only on imt operator level
-                    if krid in stored_known_reactions: # Load from stored known reactions
-                        kr = KnownReaction.from_dict(stored_known_reactions[krid])
-                    else: # Create new known reaction from bank
-                        bank_kr = known_reaction_bank[krid]
-                        
-                        # Combine all known reaction operators
-                        combined_ops = []
-                        if bank_kr['min_rule']:
-                            combined_ops.append(bank_kr['min_rule'])
-                        if bank_kr['imt_rules']:
-                            combined_ops += bank_kr['imt_rules']
-                        
-                        # Create known reaction object
-                        kr = KnownReaction(
-                            id=krid,
-                            smarts=bank_kr['smarts'],
-                            operators=combined_ops,
-                            enzymes=[Enzyme.from_dict(e) for e in bank_kr['enzymes']],
-                            db_entries=[DatabaseEntry.from_dict({'name': 'rhea', 'id': rhea}) for rhea in bank_kr['rhea_ids']],
-                            reaction_center=bank_kr['reaction_center'],
-                        )
-                        new_known_reactions[krid] = kr # Store in dict of new krs
-                        
-                    # RCMCS
-                    kr_rcts_rc = [
-                        kr.smarts.split('>>')[0].split('.'), # Reactants
-                        kr.reaction_center, # Reaction center
-                    ]
-                    rcmcs = calc_lhs_rcmcs(pr_rcts_rc, kr_rcts_rc, patts=lhs_patts, norm='max')
-                    pr.rcmcs[krid] = rcmcs
+                if most_common_map is None: # First operator mapped is the most common
+                    pr.smarts = aligned_smarts
+                    pr.reaction_center = reaction_center
+                    lhs_patts = extract_operator_patts(min_rules.loc[min, 'SMARTS'], side=0)
+                    pr_rcts = pr.smarts.split(">>")[0].split('.')
+                    pr_rcts_rc = [pr_rcts, pr.reaction_center]
+                    unmapped.pop(id, None)
+                    most_common_map = imt
+                
+                # If this is the first op or subsequent but same underlying min rule
+                # and therefore reaction center, then you can assign analogues
+                if most_common_map.split('_')[0] == imt.split('_')[0]:
+                    for krid in imt2krs[imt]:
+                        if krid in stored_known_reactions: # Load from stored known reactions
+                            kr = KnownReaction.from_dict(stored_known_reactions[krid])
+                        else: # Create new known reaction from bank
+                            bank_kr = known_reaction_bank[krid]
+                            
+                            # Combine all known reaction operators
+                            combined_ops = []
+                            if bank_kr['min_rule']:
+                                combined_ops.append(bank_kr['min_rule'])
+                            if bank_kr['imt_rules']:
+                                combined_ops += bank_kr['imt_rules']
+                            
+                            # Create known reaction object
+                            kr = KnownReaction(
+                                id=krid,
+                                smarts=bank_kr['smarts'],
+                                operators=combined_ops,
+                                enzymes=[Enzyme.from_dict(e) for e in bank_kr['enzymes']],
+                                db_entries=[DatabaseEntry.from_dict({'name': 'rhea', 'id': rhea}) for rhea in bank_kr['rhea_ids']],
+                                reaction_center=bank_kr['reaction_center'],
+                            )
+                            new_known_reactions[krid] = kr # Store in dict of new krs
+                            
+                        # RCMCS
+                        kr_rcts_rc = [
+                            kr.smarts.split('>>')[0].split('.'), # Reactants
+                            kr.reaction_center, # Reaction center
+                        ]
+                        rcmcs = calc_lhs_rcmcs(pr_rcts_rc, kr_rcts_rc, patts=lhs_patts, norm='max')
+                        pr.rcmcs[krid] = rcmcs
 
-                    analogues[krid] = kr # Append predicted reaction analogues
+                        analogues[krid] = kr # Append predicted reaction analogues
             else:
                 print(f"Minified operator failed to recapitulate reaction {imt} {id}")
 

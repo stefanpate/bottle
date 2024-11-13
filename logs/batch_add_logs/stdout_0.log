@@ -2,18 +2,34 @@ Starting Child Process 0 Timer, setting timer to 0
 Importing eQuilibrator
 Connecting 0 to postgresql DB and creating Local Compound Cache.
 
-<src.thermo.local_compound_cache.LocalCompoundCache object at 0x7f668d888ad0>
+<src.thermo.local_compound_cache.LocalCompoundCache object at 0x7fb876d7e390>
 ---------------
 Child Process 0 succesfully initialized
-Time for Child Process 0 Timer from start: 12.265271425247192
+Time for Child Process 0 Timer from start: 21.796463012695312
 ---------------
-Child Process 0 | Loop 1: Found Empty Queue after 
+---------------
+Child Process 0 | Loop 1: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00015044212341308594
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.0001685619354248047
+Child Process 0 | Loop 1: Trying to evaluate 50 compounds with timeout 6000
+Child Process 0 | Loop 1: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 4.816187620162964
+---------------
+Child Process 0 | Loop 2: Sucessfuly got new compound list.
+Time for Child Process 0 Timer from last checkpoint: 0.00026226043701171875
+---------------
+Time for Child Process 0 Timer from last checkpoint: 0.00027823448181152344
+Child Process 0 | Loop 2: Trying to evaluate 34 compounds with timeout 6000
+Child Process 0 | Loop 2: Succesfully added compounds.
+Time for Child Process 0 Timer from last checkpoint: 2.9583163261413574
+Child Process 0 | Loop 3: Found Empty Queue after 
 None
 ---------------
-Child Process 0 | Loop 1: Empty queue found, terminating.
-Time for Child Process 0 Timer from start: 14.26818037033081
+Child Process 0 | Loop 3: Empty queue found, terminating.
+Time for Child Process 0 Timer from start: 31.57872986793518
 ---------------
 ---------------
-Child Process 0 | Loop 1: Succesfully terminated.
-Time for Child Process 0 Timer from start: 14.292792081832886
+Child Process 0 | Loop 3: Succesfully terminated.
+Time for Child Process 0 Timer from start: 31.60859775543213
 ---------------

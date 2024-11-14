@@ -20,6 +20,7 @@ artifacts/processed_expansions/known_reactions.json
 
 # Configs
 config.yaml
+.env
 
 
 # typical dev stuff

@@ -1,0 +1,4 @@
+# Step 1: Set this to path of dir containing datafiles for to render in path viewer
+# i.e., found_paths, predicted_reactions, known_reactions & svgs/
+# Step 2: Save to .env in project root
+PROC_EXP=/path/to/datafiles

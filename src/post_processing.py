@@ -672,11 +672,18 @@ class PathWrangler:
     '''
     enzyme_existence = EnzymeExistence
     
-    def __init__(self, path_filepath:str, pr_filepath:str, kr_filepath:str) -> None:
-        self.known_reactions = load_json(kr_filepath)
-        self.predicted_reactions = load_json(pr_filepath)
-        self.paths = load_json(path_filepath)
+    def __init__(self, proc_exp: pathlib.Path, img_subdir: str) -> None:
+        img_prefix = proc_exp / img_subdir
+        self.known_reactions = self._prepend_images(load_json(proc_exp / "known_reactions.json"), img_prefix)
+        self.predicted_reactions = self._prepend_images(load_json(proc_exp / "predicted_reactions.json"), img_prefix)
+        self.paths = load_json(proc_exp / "found_paths.json")
         self.starter_targets = self._extract_starter_targets()
+
+    def _prepend_images(self, d: dict, prefix: pathlib.Path):
+        for v in d.values():
+            v['image'] = prefix / v['image']
+
+        return d
         
     def _extract_starter_targets(self):
         tmp = set()

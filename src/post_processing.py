@@ -596,11 +596,11 @@ class Path:
     starter:str
     target:str
     reactions:List[PredictedReaction]
-    mdf:float
     dG_opt:Dict[str, float]
     dG_err:Dict[str, float]
     sid:str # Starter hash
     tid:str # Target hash
+    mdf:float
 
     def to_dict(self):
         '''Returns dict representation w/ all fields
@@ -644,6 +644,17 @@ class Path:
     def mean_rcmcs(self):
         top_rcmcs = [r.top_rcmcs(k=1)[0] for r in self.reactions]
         return sum(top_rcmcs) / len(top_rcmcs)
+    
+    @property
+    def mdf(self):
+        if self._mdf is not None:
+            return self._mdf
+        else:
+            return -999.9
+        
+    @mdf.setter
+    def mdf(self, value):
+        self._mdf = value
     
     def aggregate_rcmcs(self, pr_agg:str, kr_agg:str, k:int):
         aggs = {

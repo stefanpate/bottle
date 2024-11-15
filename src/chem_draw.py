@@ -1,110 +1,96 @@
-from functools import partial
-from typing import Callable
 from rdkit import Chem
 from rdkit.Chem import Draw
 import svgutils.transform as st
-import svgutils.compose as sc
+from svgutils.compose import Unit
 from collections import Counter
-import numpy as np
-import os
 from src.config import filepaths
+import numpy as np
 
-def draw_rxn_svg(rxn_sma, rid, hilite_atoms=None):
-    fn = filepaths['artifacts'] / f"imgs/rxns/{rid}.svg"
-    if os.path.exists(fn):
-        pass
-    else:
-        reactants, products = [Counter(elt.split('.')) for elt in rxn_sma.split('>>')]
+plus = st.fromfile(filepaths['artifacts'] / 'plus.svg')
+arrow = st.fromfile(filepaths['artifacts'] / 'arrow.svg')
 
-        elements = []
-        movex = [0]
-        element_ctr = 0
-        elements, element_ctr, movex = draw_side(reactants, elements, element_ctr, movex, hilite_atoms=hilite_atoms)    
-        elements.append(sc.SVG(filepaths['artifacts'] / 'arrow.svg'))
-        movex.append(movex[element_ctr] + 40)
-        element_ctr += 1
-        elements, element_ctr, movex = draw_side(products, elements, element_ctr, movex, hilite_atoms=hilite_atoms)
+def draw_reaction(rxn_sma: str, plus: st.SVGFigure = plus, arrow: st.SVGFigure = arrow):
+ 
+    reactants, products = [Counter(elt.split('.')) for elt in rxn_sma.split('>>')]
 
-        for i, elt in enumerate(elements):
-            elt.moveto(movex[i], 0)
-
-        rxn = sc.Figure(movex[-1], 200, *elements)
-        rxn.save(fn)
-
-    return str(".." / fn.relative_to(filepaths['artifacts'].parent))
-
-def draw_side(smi_stoich, elements, element_ctr, movex, hilite_atoms=None):
-    mol_ctr = 0
-    plus_ctr = 0
-    for smi, stoich in smi_stoich.items():
-        if hilite_atoms:
-            fn = draw_mol_svg(smi, stoich, hilite_atoms[mol_ctr])
-        else:
-            fn = draw_mol_svg(smi, stoich)
-        
-        svg = sc.SVG(fn)
-        width = svg.width
-        elements.append(svg)
-        movex.append(movex[element_ctr] + width)
-        element_ctr +=1
-
-        if plus_ctr < len(smi_stoich.values()) - 1:
-            elements.append(sc.SVG(filepaths['artifacts'] / 'plus.svg'))
-            movex.append(movex[element_ctr] + 40)
-            element_ctr +=1
-
-        plus_ctr += 1
-        mol_ctr += 1
-
-    return elements, element_ctr, movex
-
-def draw_mol_svg(smiles, stoich, hilite_atoms=None):
-    fn = filepaths['artifacts'] / f"imgs/mols/{hash((smiles, stoich))}.svg"
-    if os.path.exists(fn):
-        pass
-    else:
-        mol = Chem.MolFromSmiles(smiles)
-        
-        if mol is None: # Catch MolFromSmiles troubles
-            mol = Chem.MolFromSmiles(smiles, sanitize=False)
-
-        nb = mol.GetNumAtoms()
-        width = int(np.log10(nb) * 200) + 25
-        d2d = Draw.MolDraw2DSVG(width, 200)
-
-        if (stoich > 1) & (hilite_atoms is None):
-            d2d.DrawMolecule(mol, legend=f"({stoich})", highlightAtoms=hilite_atoms)
-        elif stoich > 1:
-            d2d.DrawMolecule(mol, legend=f"({stoich})")
-        elif (stoich == 1) & (hilite_atoms is None):
-            d2d.DrawMolecule(mol)
-        else:
-            d2d.DrawMolecule(mol, highlightAtoms=hilite_atoms)
-        
-        d2d.FinishDrawing()
-        fig = st.fromstring(d2d.GetDrawingText())
-        fig.save(fn)
+    movex = 0
+    rxn_img = st.SVGFigure()
+    def _add_elt(elt, movex, rxn_img):
+        root = elt.getroot()
+        root.moveto(movex, 0)
+        rxn_img.append(root)
+        movex += int(elt.width.strip('px'))
+        return rxn_img, movex
     
-    return fn
+    for i, (smi, stoich) in enumerate(reactants.items()):
+        img = draw_molecule(smi, stoich)
+        elt = st.fromstring(img)
+        rxn_img, movex = _add_elt(elt, movex, rxn_img)
 
-# TODO PK added this code before discovering http://rdkit.org/docs/source/rdkit.Chem.PandasTools.html
-# remove if this truly becomes dead code - otherwise, a decent pattern
+        if i < len(reactants) - 1:
+            elt = plus
+            rxn_img, movex = _add_elt(elt, movex, rxn_img)
 
-DrawerProvider = Callable[[Chem.Mol], Draw.MolDraw2D]
+    elt = arrow
+    rxn_img, movex = _add_elt(elt, movex, rxn_img)
 
+    for i, (smi, stoich) in enumerate(products.items()):
+        img = draw_molecule(smi, stoich)
+        elt = st.fromstring(img)
+        rxn_img, movex = _add_elt(elt, movex, rxn_img)
 
-def make_svg_drawer_non_scaling(width: int, height: int) -> DrawerProvider:
-    def drawer_2d_non_scaling(_mol: Chem.Mol) -> Draw.MolDraw2D:
-        return Draw.MolDraw2DSVG(width, height)
-    return drawer_2d_non_scaling
+        if i < len(products) - 1:
+            elt = plus
+            rxn_img, movex = _add_elt(elt, movex, rxn_img)
 
+    height = float(elt.height.strip('px')) # Assumed same for all elements
+    rxn_img.width = Unit(movex)
+    rxn_img.height = Unit(height)
 
-def mol_to_svg(mol: Chem.Mol, drawer_provider: DrawerProvider) -> str:
-    mol = Draw.rdMolDraw2D.PrepareMolForDrawing(mol)
-    drawer = drawer_provider(mol)
-    drawer.DrawMolecule(mol)
+    rxn_img.save('test.svg')
+    return rxn_img.to_str()
+
+def draw_molecule(smiles: str, stoich : int = 1, size: tuple = (200, 200), hilite_atoms : tuple = tuple(), auto_scl: bool = False):
+    '''
+    Draw molecule.
+
+    Args
+    ----
+    mol:str
+        Molecule SMILES
+    stoich:int
+        Stoichiometric coefficient
+    size:tuple
+        (width, height)
+     hilite_atoms:tuple
+        Atom indices to highlight
+    '''
+    mol = Chem.MolFromSmiles(smiles)
+    
+    # Catch failed MolFromSmiles
+    if mol is None: 
+        mol = Chem.MolFromSmiles(smiles, sanitize=False)
+
+    if auto_scl:
+        na = mol.GetNumAtoms()
+        width = int(np.log10(na) * 200) + 25
+        size = (width, size[-1])
+
+    drawer = Draw.MolDraw2DSVG(*size)
+
+    if stoich == 1:
+        drawer.DrawMolecule(mol, highlightAtoms=hilite_atoms)
+    else:
+        drawer.DrawMolecule(mol, legend=f"({stoich})", highlightAtoms=hilite_atoms)
+    
     drawer.FinishDrawing()
-    return drawer.GetDrawingText()
+    img = drawer.GetDrawingText()
 
+    return img
 
-df_formatter_mol_svg = partial(mol_to_svg, drawer_provider=make_svg_drawer_non_scaling(width=300, height=100))
+if __name__ == '__main__':
+    smi = 'CC(=O)O'
+    mimg = draw_molecule(smi)
+
+    rxn_sma = 'CCC.CCC.CCO>>CCCCCCCCO'
+    fig = draw_reaction(rxn_sma, plus, arrow)

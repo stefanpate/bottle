@@ -19,7 +19,7 @@ from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
 from src.operator_mapping import map_rxn2rule
 from src.cheminfo_utils import standardize_smarts_rxn
 from src.utils import load_json, save_json
-from src.chem_draw import draw_rxn_svg
+from src.chem_draw import draw_reaction
 
 from src.thermo.batch_add_eq_compounds import add_compounds_to_eQ
 from equilibrator_assets.local_compound_cache import LocalCompoundCache
@@ -259,10 +259,10 @@ if __name__ == '__main__':
 
     # Generate rxn svgs
     for prid, pr in new_predicted_reactions.items():
-        pr.image = draw_rxn_svg(pr.smarts, pr.id)
+        pr.image = draw_reaction(pr.smarts, pr.id, auto_scl=True)
 
     for krid, kr in new_known_reactions.items():
-        kr.image = draw_rxn_svg(kr.smarts, kr.id)
+        kr.image = draw_reaction(kr.smarts, kr.id, auto_scl=True)
 
     # Add new to old
     new = [new_known_reactions, new_predicted_reactions, new_paths]

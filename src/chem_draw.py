@@ -30,6 +30,26 @@ def _draw_side(side: dict, movex: int, rxn_img: st.SVGFigure, plus: str, auto_sc
 
 
 def draw_reaction(rxn_sma: str, plus: str = plus, arrow: str = arrow, auto_scl: bool = False) -> st.SVGFigure:
+    '''
+    Draw reaction
+
+    Args
+    ----
+    rxn_sma:str
+        Reaciton SMARTS R1.R2...>>P1.P2...
+    plus:str
+        SVG string of plus sign
+    arrow:str
+        SVG string of rightward reaction arrow
+    auto_scl:bool
+        If True, scales molecule image width proportional
+        to log(# of atoms)
+
+    Returns
+    -------
+    rxn_img:st.SVGFigure
+        Which has save() and to_str() methods
+    '''
  
     reactants, products = [Counter(elt.split('.')) for elt in rxn_sma.split('>>')]
 
@@ -47,9 +67,9 @@ def draw_reaction(rxn_sma: str, plus: str = plus, arrow: str = arrow, auto_scl: 
 
     return rxn_img
 
-def draw_molecule(smiles: str, stoich : int = 1, size: tuple = (200, 200), hilite_atoms : tuple = tuple(), auto_scl: bool = False):
+def draw_molecule(smiles: str, stoich : int = 1, size: tuple = (200, 200), hilite_atoms : tuple = tuple(), auto_scl: bool = False) -> str:
     '''
-    Draw molecule.
+    Draw molecule to svg string
 
     Args
     ----
@@ -59,8 +79,11 @@ def draw_molecule(smiles: str, stoich : int = 1, size: tuple = (200, 200), hilit
         Stoichiometric coefficient
     size:tuple
         (width, height)
-     hilite_atoms:tuple
+    hilite_atoms:tuple
         Atom indices to highlight
+    auto_scl:bool
+        If True, scales molecule image width proportional
+        to log(# of atoms)
     '''
     mol = Chem.MolFromSmiles(smiles)
     

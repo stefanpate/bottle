@@ -1,11 +1,11 @@
 id,smiles
 alanine,CC(N)C(=O)O
-arganine,NC(N)=NCCCC(N)C(=O)O
+arginine,NC(N)=NCCCC(N)C(=O)O
 asparagine,NC(=O)CC(N)C(=O)O
 aspartic_acid,NC(CC(=O)O)C(=O)O
 cysteine,NC(CS)C(=O)O
 glutamine,NC(=O)CCC(N)C(=O)O
-glysine,NCC(=O)O
+glycine,NCC(=O)O
 histidine,NC(Cc1cnc[nH]1)C(=O)O
 isoleucine,CCC(C)C(N)C(=O)O
 leucine,CC(C)CC(N)C(=O)O
@@ -16,3 +16,6 @@ threonine,CC(O)C(N)C(=O)O
 tryptophan,NC(Cc1c[nH]c2ccccc12)C(=O)O
 tyrosine,NC(Cc1ccc(O)cc1)C(=O)O
 valine,CC(C)C(N)C(=O)O
+proline,C1CC(NC1)C(=O)O
+lysine,C(CCN)CC(C(=O)O)N
+glutamic_acid,C(CC(=O)O)C(C(=O)O)N

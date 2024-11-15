@@ -5,50 +5,47 @@ from svgutils.compose import Unit
 from collections import Counter
 from src.config import filepaths
 import numpy as np
+from copy import copy
 
-plus = st.fromfile(filepaths['artifacts'] / 'plus.svg')
-arrow = st.fromfile(filepaths['artifacts'] / 'arrow.svg')
+plus = st.fromfile(filepaths['artifacts'] / 'plus.svg').to_str().decode()
+arrow = st.fromfile(filepaths['artifacts'] / 'arrow.svg').to_str().decode()
 
-def draw_reaction(rxn_sma: str, plus: st.SVGFigure = plus, arrow: st.SVGFigure = arrow):
- 
-    reactants, products = [Counter(elt.split('.')) for elt in rxn_sma.split('>>')]
-
-    movex = 0
-    rxn_img = st.SVGFigure()
-    def _add_elt(elt, movex, rxn_img):
+def _add_elt(img: str, movex: int, rxn_img: st.SVGFigure):
+        elt = st.fromstring(img)
         root = elt.getroot()
         root.moveto(movex, 0)
         rxn_img.append(root)
         movex += int(elt.width.strip('px'))
         return rxn_img, movex
+
+def _draw_side(side: dict, movex: int, rxn_img: st.SVGFigure, plus: str, auto_scl: bool):
+    for i, (smi, stoich) in enumerate(side.items()):
+        img = draw_molecule(smi, stoich, auto_scl=auto_scl)
+        rxn_img, movex = _add_elt(img, movex, rxn_img)
+
+        if i < len(side) - 1:
+            rxn_img, movex = _add_elt(plus, movex, rxn_img)
+
+    return rxn_img, movex
+
+
+def draw_reaction(rxn_sma: str, plus: str = plus, arrow: str = arrow, auto_scl: bool = False) -> st.SVGFigure:
+ 
+    reactants, products = [Counter(elt.split('.')) for elt in rxn_sma.split('>>')]
+
+    movex = 0
+    rxn_img = st.SVGFigure()
     
-    for i, (smi, stoich) in enumerate(reactants.items()):
-        img = draw_molecule(smi, stoich)
-        elt = st.fromstring(img)
-        rxn_img, movex = _add_elt(elt, movex, rxn_img)
-
-        if i < len(reactants) - 1:
-            elt = plus
-            rxn_img, movex = _add_elt(elt, movex, rxn_img)
-
-    elt = arrow
-    rxn_img, movex = _add_elt(elt, movex, rxn_img)
-
-    for i, (smi, stoich) in enumerate(products.items()):
-        img = draw_molecule(smi, stoich)
-        elt = st.fromstring(img)
-        rxn_img, movex = _add_elt(elt, movex, rxn_img)
-
-        if i < len(products) - 1:
-            elt = plus
-            rxn_img, movex = _add_elt(elt, movex, rxn_img)
-
+    rxn_img, movex = _draw_side(reactants, movex, rxn_img, plus, auto_scl)
+    rxn_img, movex = _add_elt(arrow, movex, rxn_img)
+    rxn_img, movex = _draw_side(products, movex, rxn_img, plus, auto_scl)
+    
+    elt = st.fromstring(arrow)
     height = float(elt.height.strip('px')) # Assumed same for all elements
     rxn_img.width = Unit(movex)
     rxn_img.height = Unit(height)
 
-    rxn_img.save('test.svg')
-    return rxn_img.to_str()
+    return rxn_img
 
 def draw_molecule(smiles: str, stoich : int = 1, size: tuple = (200, 200), hilite_atoms : tuple = tuple(), auto_scl: bool = False):
     '''

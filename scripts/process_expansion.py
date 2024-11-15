@@ -257,6 +257,7 @@ if __name__ == '__main__':
                 stored_paths[pid]['dG_opt'] = dG_opt
                 stored_paths[pid]['dG_err'] = dG_err
 
+    # TODO: Align w/ new chem_draw api
     # Generate rxn svgs
     for prid, pr in new_predicted_reactions.items():
         pr.image = draw_reaction(pr.smarts, pr.id, auto_scl=True)

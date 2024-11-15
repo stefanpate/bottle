@@ -1,3 +1,4 @@
+import pathlib
 import pandas as pd
 from collections import defaultdict
 from argparse import ArgumentParser
@@ -26,6 +27,13 @@ from equilibrator_assets.local_compound_cache import LocalCompoundCache
 from equilibrator_cache.compound_cache import CompoundCache
 import sqlalchemy
 from src.thermo.pickaxe_thermodynamics import PickaxeThermodynamics
+
+def write_reaction_images(d: dict, svg_dir: pathlib.Path):
+    for elt in d.values():
+        sma = elt.smarts
+        id = elt.id
+        rxn = draw_reaction(sma, auto_scl=True)
+        rxn.save(svg_dir / f"{id}.svg")
 
 if __name__ == '__main__':
     parser = ArgumentParser(
@@ -257,13 +265,14 @@ if __name__ == '__main__':
                 stored_paths[pid]['dG_opt'] = dG_opt
                 stored_paths[pid]['dG_err'] = dG_err
 
-    # TODO: Align w/ new chem_draw api
     # Generate rxn svgs
-    for prid, pr in new_predicted_reactions.items():
-        pr.image = draw_reaction(pr.smarts, pr.id, auto_scl=True)
+    svg_dir = stored_fp / 'svgs'
+    
+    if not svg_dir.exists():
+        svg_dir.mkdir()
 
-    for krid, kr in new_known_reactions.items():
-        kr.image = draw_reaction(kr.smarts, kr.id, auto_scl=True)
+    write_reaction_images(new_predicted_reactions, svg_dir)
+    write_reaction_images(new_known_reactions, svg_dir)
 
     # Add new to old
     new = [new_known_reactions, new_predicted_reactions, new_paths]

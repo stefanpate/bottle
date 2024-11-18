@@ -55,6 +55,8 @@ ENV VIRTUAL_ENV=/app/.venv \
     NB_UID=${NB_UID} \
     HOME=/home/${NB_USER}
 
+ENV BOTTLE_EXPANSION_ASSETS=${HOME}/assets
+
 RUN adduser --disabled-password \
     --gecos "Default user" \
     --uid ${NB_UID} \
@@ -62,18 +64,30 @@ RUN adduser --disabled-password \
 
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
+
+# copy project assets
+WORKDIR ${BOTTLE_EXPANSION_ASSETS}
+COPY --from=assets ./found_paths.json .
+COPY --from=assets ./known_reactions.json .
+COPY --from=assets ./predicted_reactions.json .
+COPY --from=assets ./svgs ./svgs
+
+# copy project source code
 WORKDIR ${HOME}
+COPY notebooks/ ${HOME}/notebooks
+COPY voila.json ${HOME}/voila.json
 
-# copy contents and change their ownership
-COPY artifacts/ ./artifacts
-COPY notebooks/ ./notebooks
-COPY voila.json ./voila.json
-
-USER root
+# change ownership of project files to root
 RUN chown -R ${NB_UID} ${HOME}
-
+# set the user the default for runtime
 USER ${NB_USER}
 
-RUN jupyter trust notebooks/interactive_deliverable.ipynb
+ENV IPYNB_PATH_VIEWER=notebooks/path_viewer.ipynb
+RUN jupyter trust ${IPYNB_PATH_VIEWER}
 
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--no-browser"]
+# run the voila server with the TOKEN set and open to path_viewer
+CMD ["sh", "-c", "voila $IPYNB_PATH_VIEWER --port=8888 --Voila.ip=0.0.0.0 --token --no-browser"]
+
+# Jupyter testing
+#ENV JUPYTER_TOKEN=dolalay
+#CMD ["jupyter", "lab", "--ip=0.0.0.0", "--no-browser"]

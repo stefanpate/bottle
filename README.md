@@ -75,3 +75,36 @@ poe test
 ```shell
 bottle filter-smiles --mol-smarts=C4_FG123 ~/Downloads/known_compounds_240310_v2.txt -
 ```
+
+## Building the docker of viola PathViewer to Railway
+
+### Pre-requisites
+- Docker installed and running on your machine
+- Basic knowledge of Docker
+  - https://docs.docker.com/get-started/
+  - https://docs.docker.com/get-started/docker-overview/
+- poetry installed
+  - https://python-poetry.org/docs/
+- poe-the-poet plugin for poetry installed
+  - e.g. `poetry self add 'poethepoet[poetry_plugin]'`
+- Familiarity with environment variables
+  - `BOTTLE_EXPANSION_ASSETS` set and pointing to the directory containing the expansion files
+    - e.g. `export BOTTLE_EXPANSION_ASSETS=/path/to/expansion/assets/2024/11/15`
+    - or defined and activated in your `.env` file (but that's just your convenience)
+
+```shell
+poetry poe build-image
+```
+if want to pass an assets directory bespoke to this particular build, use this:
+```shell
+BOTTLE_EXPANSION_ASSETS=/path/to/expansion/assets/2024/11/15 poetry poe build-image
+```
+## Deploying the docker image to Docker Hub
+
+### Pre-requisites
+- Login to Docker Hub (https://hub.docker.com/u/synbiorox) ( you can guess the password - ask anyone at TyoLab)
+- Poetry, poe (see Docker Build Above)
+
+```shell
+poetry poe push-image
+```

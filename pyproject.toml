@@ -19,7 +19,7 @@ requests = "^2.32.3"
 cvxpy = "^1.5.2"
 sqlalchemy = "^2.0.31"
 equilibrator-api = "^0.6.0"
-minedatabase = {git = "https://github.com/stefanpate/pickaxe", branch = "master"}
+minedatabase = { git = "https://github.com/stefanpate/pickaxe", branch = "master" }
 lxml = "^5.2.2"
 setuptools = "^70.1.1"
 more-itertools = "^10.3.0"
@@ -57,7 +57,11 @@ bottle = "src.__main__:main"
 
 [tool.poe.tasks]
 test = "pytest --cov=src"
-build-image.shell = "docker build -t synbiorox/bottle:$(poetry version --short) . --platform=linux/amd64"
+build-image.shell = """
+    docker build -t synbiorox/bottle:$(poetry version --short) . \
+        --build-context assets=${BOTTLE_EXPANSION_ASSETS} \
+        --platform=linux/amd64
+"""
 build-image-arm.shell = "docker build -t synbiorox/bottle.arm64:$(poetry version --short) . --platform=linux/arm64"
 push-image.shell = "docker push synbiorox/bottle:$(poetry version --short)"
 

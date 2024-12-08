@@ -14,7 +14,7 @@
 
 # Args
 scripts_dir=/home/spn1560/bottle/scripts
-starters=bottle_targets_24
+starters=amino_acids
 generations=2
 processes=50
 rules=JN3604IMT_rules_carbonyl_free

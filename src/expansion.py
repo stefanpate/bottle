@@ -27,6 +27,11 @@ def generate_multisubstrate_rules(
         Known reactions mapped to rules with SMARTS aligned
         to rule template. If provided, cross-references multisubstrate
         rules against known reactions
+
+    Returns
+    -------
+    rules:pd.DataFrame
+    coreactants:pd.DataFrame
     '''
 
     if known_reactions:

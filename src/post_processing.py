@@ -14,7 +14,7 @@ from itertools import permutations, product
 import networkx as nx
 import re
 
-# TODO: modify pickaxe so that we don't have to do this downstream
+# NOTE: modified pickaxe to do this upstream so this is technically dead but should keep around for a sec?
 def realign_pred_rxn_to_rule(rxn_smarts: str, rule_template: str, coreactants: dict[str, str]) -> list[tuple[int]]:
     '''
     Returns permutations of reaction's reactant indices that match rule template
@@ -220,8 +220,7 @@ class Expansion:
 
     def _flip_reaction(self, rxn: dict, operator_reverses: dict):
         flipped_rxn = {}
-        flipped_rxn['_id'] = get_reaction_hash(rxn['Products'], rxn['Reactants']) # TODO go with this when ready
-        # flipped_rxn['_id'] = rxn['_id'] + '_reverse'
+        flipped_rxn['_id'] = get_reaction_hash(rxn['Products'], rxn['Reactants'])
         flipped_rxn['Reactants'] = rxn['Products']
         flipped_rxn['Products'] = rxn['Reactants']
         flipped_operators = set()
@@ -284,7 +283,7 @@ class Expansion:
         
         Args
         ----
-        retro
+        retro:bool
             is retro expansion
         
         '''
@@ -364,15 +363,41 @@ class Expansion:
                     }
                 )
             )
+            
+            # Two types of "sources"
+            # 1. Mass sources
+            #     Type = "Starting Compound"
+            #     Hash prefix: 'C'
+            # 2. Non-mass sources
+            #     Type = "Coreactant"
+            #     Hash prefix: 'X'
 
-            # cpd_node_i => rxn_node_j only when cpd_node_i is only requirement beyond asssumed sources
-            non_co_reactants = [c_id for _, c_id in rxn["Reactants"] if c_id[0] != 'X'] # Each entry in Reactants a unique molecule so list is ok
-            if len(non_co_reactants) == 1:
-                edge_list.append((non_co_reactants[0], i))
+            # All other compounds are not sources; not assumed as inputs to synthesis
+            #     Type = "Predicted"
+            #     Hash prefix: 'C'
+            non_sources = [
+                c_id for _, c_id in rxn["Reactants"]
+                if half_expansion["compounds"][c_id]["Type"] == 'Predicted'
+            ]
+            mass_sources = [
+                c_id for _, c_id in rxn["Reactants"]
+                if half_expansion["compounds"][c_id]["Type"] == "Starting Compound"
+            ]
+
+            if len(non_sources) == 1: # Other requirements for reaction are all sources
+                edge_list.append((non_sources[0], i))
+            elif len(non_sources) == 0: # Only sources required for reaction
+                for ms in mass_sources:
+                    edge_list.append((ms, i))
+            else: # Currently don't support "extended branching" in synthesis paths
+                pass
 
             for _, c_id in rxn["Products"]:
 
-                if c_id[0] == 'X': # Don't bother w/ 'X' co-products
+                # Don't outlink to non-mass-carrying coproducts
+                # in order to approximately conserve mass along
+                # synthesis paths
+                if c_id[0] == 'X':
                      continue
                 
                 edge_list.append((i, c_id))
@@ -553,7 +578,7 @@ class PredictedReaction:
     
     @classmethod
     def from_pickaxe(cls, pk, id):
-        smarts = pk_rhash_to_smarts(id, pk)
+        smarts = pk.reactions[id]["Operator_aligned_smarts"]
         operators = list(pk.reactions[id]["Operators"])
         return cls(id, smarts, operators)
     
@@ -825,6 +850,7 @@ class PathWrangler:
             if type(sort_by[k]) is not t:
                 raise ValueError(f"Invalid type {sort_by[k]} for argument {k}. Must be {t}")
             
+# TODO: this may be dead now
 def pk_rhash_to_smarts(rhash: str, pk: Expansion):
     '''
     Make reaction smarts string for

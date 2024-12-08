@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from src.config import filepaths
+from src.utils import load_json
 from minedatabase.pickaxe import Pickaxe
 from minedatabase.filters import SimilaritySamplingFilter
 
@@ -14,6 +15,11 @@ def main(args):
 
     pk.load_compound_set(compound_file=filepaths['starters_targets'] / f"{args.starters}.csv")
 
+    if args.a_plus_b:
+        known_reactions = load_json(filepaths['data'] / "sprhea" / "sprhea_240310_v3_mapped_no_subunits.json")
+        known_reactions = [{'smarts': v['smarts'], 'rules': v['imt_rules'] if v['imt_rules'] else []} for v in known_reactions.values()]
+        pk.set_starters_as_coreactants(known_reactions=known_reactions)
+
     if args.targets:
         pk.load_targets(filepaths['starters_targets'] / f"{args.targets}.csv")
 
@@ -27,7 +33,7 @@ def main(args):
         pk.prune_network_to_targets()
 
     fn = (f"{args.generations}_steps_{args.starters}_to_{args.targets}_rules_{args.rules}"
-          f"_co_{args.coreactants}_sampled_{args.tani_sample}_pruned_{args.prune_to_targets}")
+          f"_co_{args.coreactants}_sampled_{args.tani_sample}_pruned_{args.prune_to_targets}_aplusb_{args.a_plus_b}")
     
     pk.pickle_pickaxe(filepaths['raw_expansions'] / f"{fn}.pk") # Save results
 
@@ -42,6 +48,7 @@ parser.add_argument("-s", "--sample-size", type=int, default=1000, help="Number 
 parser.add_argument("-w", "--weight", type=int, default=None, help="Sampling distribution parameter")
 parser.add_argument("--prune-to-targets", action="store_true", help="Keep only compounds that lead to target")
 parser.add_argument("--tani-sample", action="store_true", help="Sample compounds as fcn of tanimoto sim to targets")
+parser.add_argument("--a-plus-b", action='store_true', help="Allow use of starters as coreactants in multisubstrate reactions")
 
 if __name__ == '__main__':
     args = parser.parse_args()

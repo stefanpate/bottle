@@ -33,7 +33,7 @@ def main(args):
         pk.prune_network_to_targets()
 
     fn = (f"{args.generations}_steps_{args.starters}_to_{args.targets}_rules_{args.rules}"
-          f"_co_{args.coreactants}_sampled_{args.tani_sample}_pruned_{args.prune_to_targets}")
+          f"_co_{args.coreactants}_sampled_{args.tani_sample}_pruned_{args.prune_to_targets}_aplusb_{args.a_plus_b}")
     
     pk.pickle_pickaxe(filepaths['raw_expansions'] / f"{fn}.pk") # Save results
 

@@ -1,3 +1,4 @@
+import pathlib
 import pandas as pd
 from collections import defaultdict
 from argparse import ArgumentParser
@@ -19,13 +20,20 @@ from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
 from src.operator_mapping import map_rxn2rule
 from src.cheminfo_utils import standardize_smarts_rxn
 from src.utils import load_json, save_json
-from src.chem_draw import draw_rxn_svg
+from src.chem_draw import draw_reaction
 
 from src.thermo.batch_add_eq_compounds import add_compounds_to_eQ
 from equilibrator_assets.local_compound_cache import LocalCompoundCache
 from equilibrator_cache.compound_cache import CompoundCache
 import sqlalchemy
 from src.thermo.pickaxe_thermodynamics import PickaxeThermodynamics
+
+def write_reaction_images(d: dict, svg_dir: pathlib.Path):
+    for elt in d.values():
+        sma = elt.smarts
+        id = elt.id
+        rxn = draw_reaction(sma, auto_scl=True)
+        rxn.save(svg_dir / f"{id}.svg")
 
 if __name__ == '__main__':
     parser = ArgumentParser(
@@ -258,11 +266,13 @@ if __name__ == '__main__':
                 stored_paths[pid]['dG_err'] = dG_err
 
     # Generate rxn svgs
-    for prid, pr in new_predicted_reactions.items():
-        pr.image = draw_rxn_svg(pr.smarts, pr.id)
+    svg_dir = stored_fp / 'svgs'
+    
+    if not svg_dir.exists():
+        svg_dir.mkdir()
 
-    for krid, kr in new_known_reactions.items():
-        kr.image = draw_rxn_svg(kr.smarts, kr.id)
+    write_reaction_images(new_predicted_reactions, svg_dir)
+    write_reaction_images(new_known_reactions, svg_dir)
 
     # Add new to old
     new = [new_known_reactions, new_predicted_reactions, new_paths]

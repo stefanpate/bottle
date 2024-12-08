@@ -84,16 +84,22 @@ class Expansion:
         else:
             self.checkpoints = None
 
-        self._reactions = None
         self._compounds = None
+        self._reactions = None
+        self._coreactants = None
+
+        if self.forward and self.reverse:
+            self._compounds = {**self.forward['compounds'], **self.reverse['compounds']}
+            self._reactions = {**self.forward['reactions'], **self.reverse['reactions']}
+            self._coreactants = {**self.forward['coreactants'], **self.reverse['coreactants']}
 
     @property
     def coreactants(self):
-        if self.forward and self.reverse:
-            return {**self.forward['coreactants'], **self.reverse['coreactants']}
-        elif self.forward:
+        if self._coreactants:
+            return self._coreactants
+        elif not self.reverse:
             return self.forward['coreactants']
-        elif self.reverse:
+        else:
             return self.reverse['coreactants']
     
     @property
@@ -102,10 +108,8 @@ class Expansion:
             return self._compounds
         elif not self.reverse:
             return self.forward['compounds']
-        elif not self.forward:
-            return self.reverse['compounds']
         else:
-            return {**self.forward['compounds'], **self.reverse['compounds']}
+            return self.reverse['compounds']
         
     @compounds.setter
     def compounds(self, value: dict):
@@ -131,10 +135,8 @@ class Expansion:
             return self._reactions
         elif not self.reverse:
             return self.forward['reactions']
-        elif not self.forward:
-            return self.reverse['reactions']
         else:
-            return {**self.forward['reactions'], **self.reverse['reactions']}
+            return self.reverse['reactions']
         
     @reactions.setter
     def reactions(self, value: dict):
@@ -594,11 +596,11 @@ class Path:
     starter:str
     target:str
     reactions:List[PredictedReaction]
-    mdf:float
     dG_opt:Dict[str, float]
     dG_err:Dict[str, float]
     sid:str # Starter hash
     tid:str # Target hash
+    mdf:float
 
     def to_dict(self):
         '''Returns dict representation w/ all fields
@@ -643,6 +645,17 @@ class Path:
         top_rcmcs = [r.top_rcmcs(k=1)[0] for r in self.reactions]
         return sum(top_rcmcs) / len(top_rcmcs)
     
+    @property
+    def mdf(self):
+        if self._mdf is not None:
+            return self._mdf
+        else:
+            return -999.9
+        
+    @mdf.setter
+    def mdf(self, value):
+        self._mdf = value
+    
     def aggregate_rcmcs(self, pr_agg:str, kr_agg:str, k:int):
         aggs = {
             'min': lambda x : min(x),
@@ -672,11 +685,18 @@ class PathWrangler:
     '''
     enzyme_existence = EnzymeExistence
     
-    def __init__(self, path_filepath:str, pr_filepath:str, kr_filepath:str) -> None:
-        self.known_reactions = load_json(kr_filepath)
-        self.predicted_reactions = load_json(pr_filepath)
-        self.paths = load_json(path_filepath)
+    def __init__(self, proc_exp: pathlib.Path, img_subdir: str) -> None:
+        img_prefix = proc_exp / img_subdir
+        self.known_reactions = self._prepend_images(load_json(proc_exp / "known_reactions.json"), img_prefix)
+        self.predicted_reactions = self._prepend_images(load_json(proc_exp / "predicted_reactions.json"), img_prefix)
+        self.paths = load_json(proc_exp / "found_paths.json")
         self.starter_targets = self._extract_starter_targets()
+
+    def _prepend_images(self, d: dict, prefix: pathlib.Path):
+        for v in d.values():
+            v['image'] = prefix / v['image']
+
+        return d
         
     def _extract_starter_targets(self):
         tmp = set()

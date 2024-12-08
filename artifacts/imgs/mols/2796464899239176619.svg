@@ -1,8 +1,0 @@
-<?xml version='1.0' encoding='ASCII' standalone='yes'?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:rdkit="http://www.rdkit.org/xml" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" baseProfile="full" xml:space="preserve" width="25px" height="200px" viewBox="0 0 25 200">
-<!-- END OF HEADER -->
-<rect style="opacity:1.0;fill:#FFFFFF;stroke:none" width="25.0" height="200.0" x="0.0" y="0.0"> </rect>
-<path class="atom-0" d="M 1.3 94.8 L 2.8 94.8 L 2.8 99.5 L 8.5 99.5 L 8.5 94.8 L 10.0 94.8 L 10.0 105.9 L 8.5 105.9 L 8.5 100.8 L 2.8 100.8 L 2.8 105.9 L 1.3 105.9 L 1.3 94.8 " fill="#00CC00"/>
-<path class="atom-0" d="M 11.9 100.3 Q 11.9 97.5, 13.2 96.1 Q 14.5 94.6, 17.0 94.6 Q 19.3 94.6, 20.5 96.3 L 19.5 97.1 Q 18.6 95.9, 17.0 95.9 Q 15.3 95.9, 14.4 97.1 Q 13.5 98.2, 13.5 100.3 Q 13.5 102.5, 14.5 103.7 Q 15.4 104.8, 17.2 104.8 Q 18.4 104.8, 19.9 104.0 L 20.3 105.2 Q 19.7 105.6, 18.8 105.8 Q 17.9 106.0, 17.0 106.0 Q 14.5 106.0, 13.2 104.6 Q 11.9 103.1, 11.9 100.3 " fill="#00CC00"/>
-<path class="atom-0" d="M 21.8 94.0 L 23.3 94.0 L 23.3 105.9 L 21.8 105.9 L 21.8 94.0 " fill="#00CC00"/>
-</svg>

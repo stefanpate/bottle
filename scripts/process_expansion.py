@@ -14,7 +14,6 @@ from src.post_processing import (
     Enzyme,
     DatabaseEntry,
     get_path_id,
-    realign_pred_rxn_to_rule
 ) 
 from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
 from src.operator_mapping import map_rxn2rule
@@ -134,15 +133,11 @@ if __name__ == '__main__':
                     print(f"Unable to standardize reaction: {pr.smarts}")
                     rxn = pr.smarts
 
-            # TODO things could get tricky here with combo expansions and multiple sets of coreactants...
-            matched_idxs = realign_pred_rxn_to_rule(rxn, min_rules.loc[min, "Reactants"], pk.coreactants) # Align reactants to rule
-                
-            # Map rule to reaction
-            if matched_idxs:
-                res = map_rxn2rule(rxn, min_rules.loc[min, "SMARTS"], return_rc=True, matched_idxs=matched_idxs)
-                did_map, aligned_smarts, reaction_center = res['did_map'], res['aligned_smarts'], res['reaction_center']
-            else:
-                did_map = False
+            # Get reaction center
+            n_rcts = len(rxn.split('>>')[0].split('.'))
+            matched_idxs = tuple([i for i in range(n_rcts)])
+            res = map_rxn2rule(rxn, min_rules.loc[min, "SMARTS"], return_rc=True, matched_idxs=matched_idxs)
+            did_map, aligned_smarts, reaction_center = res['did_map'], res['aligned_smarts'], res['reaction_center']
 
             if did_map:
 

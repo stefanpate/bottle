@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH -A b1039
-#SBATCH -p b1039
+#SBATCH -A p30041
+#SBATCH -p normal
 #SBATCH -N 1
-#SBATCH -n 50
+#SBATCH -n 40
 #SBATCH --mem=0
-#SBATCH -t 01:00:00
+#SBATCH -t 03:00:00
 #SBATCH --job-name="exp"
 #SBATCH --output=/home/spn1560/bottle/logs/expand/out/%A
 #SBATCH --error=/home/spn1560/bottle/logs/expand/error/%A
@@ -14,11 +14,9 @@
 
 # Args
 scripts_dir=/home/spn1560/bottle/scripts
-starters=amino_acids
+starters=bottle_targets_24
 generations=2
-processes=50
-rules=JN3604IMT_rules_carbonyl_free
-coreactants=metacyc_coreactants_carbonyl_free
+processes=40
 
 # Commands
 ulimit -c 0

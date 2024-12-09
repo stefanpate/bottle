@@ -14,7 +14,7 @@
 
 # Args
 scripts_dir=/home/spn1560/bottle/scripts
-starters=bottle_targets_24
+starters=ccm_aa
 generations=2
 processes=40
 
@@ -22,4 +22,4 @@ processes=40
 ulimit -c 0
 module purge
 source /home/spn1560/.cache/pypoetry/virtualenvs/bottle-OcfYl-TY-py3.12/bin/activate
-python $scripts_dir/run_pickaxe.py $starters $generations -p $processes
+python $scripts_dir/run_pickaxe.py $starters $generations -p $processes --a-plus-b

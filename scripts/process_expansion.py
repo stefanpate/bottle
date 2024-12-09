@@ -31,6 +31,7 @@ def write_reaction_images(d: dict, svg_dir: pathlib.Path):
     for elt in d.values():
         sma = elt.smarts
         id = elt.id
+        elt.image = id
         rxn = draw_reaction(sma, auto_scl=True)
         rxn.save(svg_dir / f"{id}.svg")
 
@@ -58,7 +59,7 @@ if __name__ == '__main__':
     tic = perf_counter()
     paths = pk.find_paths()
     toc = perf_counter()
-    print(f"Path finding took: {toc - tic : .2f} seconds")
+    print(f"Found {sum([len(v) for v in paths.values()])} paths in  {toc - tic : .2f} seconds")
     pk.prune(paths)
     print(f"Pruned expansion to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
 
@@ -90,14 +91,15 @@ if __name__ == '__main__':
     # Read in known reactions
     # NOTE: Minified IMT operator must match MIN operator of a known reaction to be counted
     known_reaction_bank = load_json(filepaths['data'] / "sprhea/sprhea_240310_v3_mapped_no_subunits.json")
-    imt2krs = defaultdict(list)
+    rule2krs = defaultdict(list)
     for k, v in known_reaction_bank.items():
         if v['imt_rules'] and v['min_rule']:
             for imt in v['imt_rules']:
-                if imt.split('_')[0] == v['min_rule']:
-                    imt2krs[imt].append(k)
+                imt_minified = imt.split('_')[0] 
+                if imt_minified == v['min_rule']:
+                    rule2krs[imt_minified].append(k)
 
-    imt2ct = {k : len(v) for k, v in imt2krs.items()}
+    rule2ct = {k : len(v) for k, v in rule2krs.items()}
 
     if args.do_thermo:
         print("Adding compounds to equilibrator")
@@ -121,9 +123,9 @@ if __name__ == '__main__':
     for id, pr in tqdm(sorted(new_predicted_reactions.items())):
         most_common_map = None
         analogues = {}
-        srt_imt = sorted(pr.operators, key= lambda x : imt2ct.get(x, 0), reverse=True) # If multiple imt operators, start w/ most common
-        for imt in srt_imt:
-            min = imt.split('_')[0] # Minify imt operator to get reaction center by protection-guess-and-check
+        minified_rules = [imt.split('_')[0] for imt in pr.operators] # Minify rules
+        srt_rules = sorted(minified_rules, key= lambda x : rule2ct.get(x, 0), reverse=True) # If multiple operators, start w/ most common
+        for min in srt_rules:
 
             # Standardize smarts
             if not pre_standardized:
@@ -135,7 +137,7 @@ if __name__ == '__main__':
 
             # Get reaction center
             n_rcts = len(rxn.split('>>')[0].split('.'))
-            matched_idxs = tuple([i for i in range(n_rcts)])
+            matched_idxs = ([i for i in range(n_rcts)], )
             res = map_rxn2rule(rxn, min_rules.loc[min, "SMARTS"], return_rc=True, matched_idxs=matched_idxs)
             did_map, aligned_smarts, reaction_center = res['did_map'], res['aligned_smarts'], res['reaction_center']
 
@@ -148,12 +150,12 @@ if __name__ == '__main__':
                     pr_rcts = pr.smarts.split(">>")[0].split('.')
                     pr_rcts_rc = [pr_rcts, pr.reaction_center]
                     unmapped.pop(id, None)
-                    most_common_map = imt
+                    most_common_map = min
                 
                 # If this is the first op or subsequent but same underlying min rule
                 # and therefore reaction center, then you can assign analogues
-                if most_common_map.split('_')[0] == imt.split('_')[0]:
-                    for krid in imt2krs[imt]:
+                if most_common_map == min:
+                    for krid in rule2krs[min]:
                         if krid in stored_known_reactions: # Load from stored known reactions
                             kr = KnownReaction.from_dict(stored_known_reactions[krid])
                         else: # Create new known reaction from bank
@@ -187,7 +189,7 @@ if __name__ == '__main__':
 
                         analogues[krid] = kr # Append predicted reaction analogues
             else:
-                print(f"Minified operator failed to recapitulate reaction {imt} {id}")
+                print(f"Minified operator failed to recapitulate reaction {min} {id}")
 
             pr.analogues = analogues # Add analogues to predicted reaction
 

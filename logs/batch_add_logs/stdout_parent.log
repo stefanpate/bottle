@@ -4,127 +4,37 @@ chunk_size: 50
 return_unadded_only: True
 ignore_asterisk: True
 max_entries: None
-1621
+38
 
 Loaded Pickaxe, beginning eQuilibrator compound generation.
 Beginning get Reactions
 Populating Input Queue.
 Connecting Parent to postgresql DB and creating Local Compound Cache to see which compounds already exist.
 
-Found 185 compounds already added to eQuilibrator.
-	Populated Input Queue with 1432 compounds in 29 chunks.
+Found 37 compounds already added to eQuilibrator.
+	Populated Input Queue with 1 compounds in 1 chunks.
 Starting Processes from Parent.
 	Starting Process, 0
 ---------------
 Parent process succesfully spawned children.
-Time for Parent Process from start: 0.004103183746337891
+Time for Parent Process from start: 0.0030984878540039062
 ---------------
 Joining and Starting
 ---------------
 Parent Process Checkpoint Update.
 	Progress:
-		Chunks: 0 of 29
-		Compounds Total: 0 of 1432
+		Chunks: 0 of 1
+		Compounds Total: 0 of 1
 			Good: 0
 			Bad: 0
-Time for Parent Process from last checkpoint: 30.041396379470825
-Time for Parent Process from start: 30.045560836791992
----------------
----------------
-Parent Process Checkpoint Update.
-	Progress:
-		Chunks: 8 of 29
-		Compounds Total: 400 of 1432
-			Good: 400
-			Bad: 0
-Time for Parent Process from last checkpoint: 30.055710077285767
-Time for Parent Process from start: 60.1012806892395
----------------
----------------
-Parent Process Checkpoint Update.
-	Progress:
-		Chunks: 14 of 29
-		Compounds Total: 700 of 1432
-			Good: 700
-			Bad: 0
-Time for Parent Process from last checkpoint: 30.040127992630005
-Time for Parent Process from start: 90.14142799377441
----------------
----------------
-Parent Process Checkpoint Update.
-	Progress:
-		Chunks: 19 of 29
-		Compounds Total: 950 of 1432
-			Good: 950
-			Bad: 0
-Time for Parent Process from last checkpoint: 30.100055694580078
-Time for Parent Process from start: 120.24150371551514
----------------
----------------
-Parent Process Checkpoint Update.
-	Progress:
-		Chunks: 21 of 29
-		Compounds Total: 1050 of 1432
-			Good: 1050
-			Bad: 0
-Time for Parent Process from last checkpoint: 30.08242678642273
-Time for Parent Process from start: 150.3239550590515
----------------
----------------
-Parent Process Checkpoint Update.
-	Progress:
-		Chunks: 22 of 29
-		Compounds Total: 1100 of 1432
-			Good: 1100
-			Bad: 0
-Time for Parent Process from last checkpoint: 30.080968618392944
-Time for Parent Process from start: 180.40494775772095
----------------
----------------
-Parent Process Checkpoint Update.
-	Progress:
-		Chunks: 23 of 29
-		Compounds Total: 1150 of 1432
-			Good: 1150
-			Bad: 0
-Time for Parent Process from last checkpoint: 30.091627836227417
-Time for Parent Process from start: 210.49660897254944
----------------
----------------
-Parent Process Checkpoint Update.
-	Progress:
-		Chunks: 24 of 29
-		Compounds Total: 1200 of 1432
-			Good: 1200
-			Bad: 0
-Time for Parent Process from last checkpoint: 30.00851035118103
-Time for Parent Process from start: 240.50514960289001
----------------
----------------
-Parent Process Checkpoint Update.
-	Progress:
-		Chunks: 25 of 29
-		Compounds Total: 1250 of 1432
-			Good: 1250
-			Bad: 0
-Time for Parent Process from last checkpoint: 30.05268955230713
-Time for Parent Process from start: 270.55787467956543
----------------
----------------
-Parent Process Checkpoint Update.
-	Progress:
-		Chunks: 27 of 29
-		Compounds Total: 1350 of 1432
-			Good: 1350
-			Bad: 0
-Time for Parent Process from last checkpoint: 30.059436321258545
-Time for Parent Process from start: 300.61733746528625
+Time for Parent Process from last checkpoint: 30.026646614074707
+Time for Parent Process from start: 30.02982497215271
 ---------------
 ---------------
 Parent Process Completed.
-	Good: 1432
+	Good: 1
 	Bad: 0
-Time for Parent Process from start: 312.21410393714905
+Time for Parent Process from start: 33.331753969192505
 ---------------
 Child is alive: False
 Saving Bad compounds

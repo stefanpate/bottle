@@ -81,6 +81,8 @@ class Expansion:
         
         if self.forward and self.reverse:
             self.checkpoints = {k for k in self.forward['compounds'] if k[0] != 'X'} & {k for k in self.reverse['compounds'] if k[0] != 'X'}
+            self.forward['targets'] = self.checkpoints
+            self.reverse['starters'] = self.checkpoints
         else:
             self.checkpoints = None
 
@@ -203,7 +205,7 @@ class Expansion:
                     targets[target_cid] = target_name
 
             elif flip and k == 'reactions':
-                reversed_reactions = dict([self._flip_reaction(rxn, self.operator_reverses) for rxn in contents[k].values()])
+                reversed_reactions = dict([self._flip_reaction(rxn) for rxn in contents[k].values()])
                 half_expansion[k] = reversed_reactions
             
             else:
@@ -218,18 +220,19 @@ class Expansion:
 
         return half_expansion
 
-    def _flip_reaction(self, rxn: dict, operator_reverses: dict):
+    def _flip_reaction(self, rxn: dict):
         flipped_rxn = {}
         flipped_rxn['_id'] = get_reaction_hash(rxn['Products'], rxn['Reactants'])
         flipped_rxn['Reactants'] = rxn['Products']
         flipped_rxn['Products'] = rxn['Reactants']
         flipped_operators = set()
         for o in rxn['Operators']:
-            if o in operator_reverses:
-                for fo in operator_reverses[o]:
+            if o in self.operator_reverses:
+                for fo in self.operator_reverses[o]:
                     flipped_operators.add(fo)
         flipped_rxn['Operators'] = flipped_operators
         flipped_rxn['SMILES_rxn'] = ' => '.join(rxn['SMILES_rxn'].split(' => ')[::-1])
+        flipped_rxn['Operator_aligned_smarts'] = '>>'.join(rxn['Operator_aligned_smarts'].split('>>')[::-1])
         return flipped_rxn['_id'], flipped_rxn
     
     def find_paths(self):
@@ -364,24 +367,15 @@ class Expansion:
                 )
             )
             
-            # Two types of "sources"
-            # 1. Mass sources
-            #     Type = "Starting Compound"
-            #     Hash prefix: 'C'
-            # 2. Non-mass sources
-            #     Type = "Coreactant"
-            #     Hash prefix: 'X'
-
-            # All other compounds are not sources; not assumed as inputs to synthesis
-            #     Type = "Predicted"
-            #     Hash prefix: 'C'
+            # Neither starter, (mass source) nor X coreactant (non-mass-contributing source)
             non_sources = [
                 c_id for _, c_id in rxn["Reactants"]
-                if half_expansion["compounds"][c_id]["Type"] == 'Predicted'
+                if c_id[0] == 'C' and c_id not in half_expansion['starters']
             ]
+
             mass_sources = [
                 c_id for _, c_id in rxn["Reactants"]
-                if half_expansion["compounds"][c_id]["Type"] == "Starting Compound"
+                if c_id in half_expansion['starters']
             ]
 
             if len(non_sources) == 1: # Other requirements for reaction are all sources
@@ -719,7 +713,7 @@ class PathWrangler:
 
     def _prepend_images(self, d: dict, prefix: pathlib.Path):
         for v in d.values():
-            v['image'] = prefix / v['image']
+            v['image'] = prefix / f"{v['image']}.svg"
 
         return d
         

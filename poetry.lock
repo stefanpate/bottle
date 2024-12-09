@@ -2801,7 +2801,7 @@ test = ["pytest"]
 type = "git"
 url = "https://github.com/stefanpate/pickaxe"
 reference = "master"
-resolved_reference = "2a1237c3cdd5790f8bfbc92f047dbdf6aef7d6f3"
+resolved_reference = "32c3967a68bb7c9fd72efc4717d2ab1cdf0044a6"
 
 [[package]]
 name = "mistune"

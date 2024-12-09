@@ -118,12 +118,12 @@ if __name__ == '__main__':
     known_reactions = load_json(filepaths['data'] / 'sprhea' / 'sprhea_240310_v3_mapped_no_subunits.json')
 
 
-    generate_multisubstrate_rules(
-        helper_molecules=helper_molecules,
-        rules=rules,
-        coreactants=coreactants,
-        known_reactions=known_reactions
-    )
+    # generate_multisubstrate_rules(
+    #     helper_molecules=helper_molecules,
+    #     rules=rules,
+    #     coreactants=coreactants,
+    #     known_reactions=known_reactions
+    # )
 
     foo = {
         k: v 

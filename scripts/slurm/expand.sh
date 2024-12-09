@@ -4,7 +4,7 @@
 #SBATCH -N 1
 #SBATCH -n 40
 #SBATCH --mem=0
-#SBATCH -t 03:00:00
+#SBATCH -t 05:00:00
 #SBATCH --job-name="exp"
 #SBATCH --output=/home/spn1560/bottle/logs/expand/out/%A
 #SBATCH --error=/home/spn1560/bottle/logs/expand/error/%A

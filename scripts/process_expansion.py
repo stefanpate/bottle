@@ -135,7 +135,7 @@ if __name__ == '__main__':
                     rxn = standardize_smarts_rxn(pr.smarts, quiet=True)
                 except:
                     print(f"Unable to standardize reaction: {pr.smarts}")
-                    rxn = pr.smarts
+                    continue
 
             # Get reaction center
             n_rcts = len(rxn.split('>>')[0].split('.'))

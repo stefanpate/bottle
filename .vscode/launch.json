@@ -14,7 +14,7 @@
             "justMyCode": false
         },
         {
-            "name": "process_expansion",
+            "name": "run_pickaxe",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
@@ -22,8 +22,8 @@
             "cwd": "${fileDirname}",
             "justMyCode": false,
             "args": [
-                "alpha_ketoglutarate_to_hopa_gen_2_tan_sample_0_n_samples_1000",
-                "2",
+                "alpha_ketoglutarate",
+                "1",
             ]
         },
         {

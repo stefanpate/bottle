@@ -320,7 +320,10 @@ class Expansion:
         for sr in sources:
             paths += list(nx.all_simple_paths(DG, source=sr, target=sinks, cutoff=half_expansion['generations'] * 2)) # Search up to gens x 2 (bc bipartite)
 
-        return [elt[::-1] for elt in paths] if flip else paths
+        if flip:
+            paths = [elt[::-1] for elt in paths]
+
+        return paths
     
     def construct_network(self, half_expansion: dict):
         '''
@@ -370,12 +373,12 @@ class Expansion:
             # Neither starter, (mass source) nor X coreactant (non-mass-contributing source)
             non_sources = [
                 c_id for _, c_id in rxn["Reactants"]
-                if c_id[0] == 'C' and c_id not in half_expansion['starters']
+                if c_id[0] == 'C' and c_id not in self.starters
             ]
 
             mass_sources = [
                 c_id for _, c_id in rxn["Reactants"]
-                if c_id in half_expansion['starters']
+                if c_id in self.starters
             ]
 
             if len(non_sources) == 1: # Other requirements for reaction are all sources

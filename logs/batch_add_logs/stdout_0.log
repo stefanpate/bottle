@@ -2,26 +2,18 @@ Starting Child Process 0 Timer, setting timer to 0
 Importing eQuilibrator
 Connecting 0 to postgresql DB and creating Local Compound Cache.
 
-<src.thermo.local_compound_cache.LocalCompoundCache object at 0x7f67f6c150d0>
+<src.thermo.local_compound_cache.LocalCompoundCache object at 0x7f4460ab9c70>
 ---------------
 Child Process 0 succesfully initialized
-Time for Child Process 0 Timer from start: 15.71728801727295
+Time for Child Process 0 Timer from start: 11.852884769439697
 ---------------
----------------
-Child Process 0 | Loop 1: Sucessfuly got new compound list.
-Time for Child Process 0 Timer from last checkpoint: 0.0003132820129394531
----------------
-Time for Child Process 0 Timer from last checkpoint: 0.0003323554992675781
-Child Process 0 | Loop 1: Trying to evaluate 1 compounds with timeout 6000
-Child Process 0 | Loop 1: Succesfully added compounds.
-Time for Child Process 0 Timer from last checkpoint: 0.9813418388366699
-Child Process 0 | Loop 2: Found Empty Queue after 
+Child Process 0 | Loop 1: Found Empty Queue after 
 None
 ---------------
-Child Process 0 | Loop 2: Empty queue found, terminating.
-Time for Child Process 0 Timer from start: 18.8422749042511
+Child Process 0 | Loop 1: Empty queue found, terminating.
+Time for Child Process 0 Timer from start: 13.8716561794281
 ---------------
 ---------------
-Child Process 0 | Loop 2: Succesfully terminated.
-Time for Child Process 0 Timer from start: 18.86889410018921
+Child Process 0 | Loop 1: Succesfully terminated.
+Time for Child Process 0 Timer from start: 13.900209903717041
 ---------------

@@ -90,7 +90,7 @@ if __name__ == '__main__':
 
     # Read in known reactions
     # NOTE: Minified IMT operator must match MIN operator of a known reaction to be counted
-    known_reaction_bank = load_json(filepaths['data'] / "sprhea/sprhea_240310_v3_mapped_no_subunits.json")
+    known_reaction_bank = load_json(filepaths['data'] / "sprhea" / "sprhea_240310_v3_mapped_no_subunits.json")
     rule2krs = defaultdict(list)
     for k, v in known_reaction_bank.items():
         if v['imt_rules'] and v['min_rule']:
@@ -128,7 +128,9 @@ if __name__ == '__main__':
         for min in srt_rules:
 
             # Standardize smarts
-            if not pre_standardized:
+            if pre_standardized:
+                rxn = pr.smarts
+            else:
                 try:
                     rxn = standardize_smarts_rxn(pr.smarts, quiet=True)
                 except:

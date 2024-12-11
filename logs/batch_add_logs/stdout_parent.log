@@ -11,30 +11,30 @@ Beginning get Reactions
 Populating Input Queue.
 Connecting Parent to postgresql DB and creating Local Compound Cache to see which compounds already exist.
 
-Found 853 compounds already added to eQuilibrator.
-	Populated Input Queue with 48 compounds in 1 chunks.
+Found 900 compounds already added to eQuilibrator.
+	Populated Input Queue with 1 compounds in 1 chunks.
 Starting Processes from Parent.
 	Starting Process, 0
 ---------------
 Parent process succesfully spawned children.
-Time for Parent Process from start: 0.007127523422241211
+Time for Parent Process from start: 0.002335786819458008
 ---------------
 Joining and Starting
 ---------------
 Parent Process Checkpoint Update.
 	Progress:
-		Chunks: 0 of 1
-		Compounds Total: 0 of 48
-			Good: 0
+		Chunks: 1 of 1
+		Compounds Total: 1 of 1
+			Good: 1
 			Bad: 0
-Time for Parent Process from last checkpoint: 30.09492826461792
-Time for Parent Process from start: 30.102145195007324
+Time for Parent Process from last checkpoint: 30.05705738067627
+Time for Parent Process from start: 30.05950427055359
 ---------------
 ---------------
 Parent Process Completed.
-	Good: 48
+	Good: 1
 	Bad: 0
-Time for Parent Process from start: 42.01042199134827
+Time for Parent Process from start: 33.05935001373291
 ---------------
 Child is alive: False
 Saving Bad compounds

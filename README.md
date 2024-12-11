@@ -103,6 +103,10 @@ BOTTLE_EXPANSION_ASSETS=/path/to/expansion/assets/2024/11/15 poetry poe build-im
 
 ### Pre-requisites
 - Login to Docker Hub (https://hub.docker.com/u/synbiorox) ( you can guess the password - ask anyone at TyoLab)
+```shell
+docker login -u synbiorox -p <password>
+```
+
 - Poetry, poe (see Docker Build Above)
 
 ```shell

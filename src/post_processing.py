@@ -716,7 +716,10 @@ class PathWrangler:
 
     def _prepend_images(self, d: dict, prefix: pathlib.Path):
         for v in d.values():
-            v['image'] = prefix / f"{v['image']}.svg"
+            if v['image'].endswith('.svg'):
+                v['image'] = prefix / v['image']
+            else:
+                v['image'] = prefix / f"{v['image']}.svg"
 
         return d
         

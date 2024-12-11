@@ -1,0 +1,31 @@
+----------------------------------------
+Intializing pickaxe object
+
+Done intializing pickaxe object
+----------------------------------------
+
+29 compounds loaded...
+(29 after removing stereochemistry)
+----------------------------------------
+Expanding Generation 1
+
+Generation 1: 0 percent complete
+Generation 1: 10 percent complete
+Generation 1: 21 percent complete
+Generation 1: 31 percent complete
+Generation 1: 41 percent complete
+Generation 1: 52 percent complete
+Generation 1: 62 percent complete
+Generation 1: 72 percent complete
+Generation 1: 83 percent complete
+Generation 1: 93 percent complete
+Generation 1 finished in 45.94309687614441 s and contains:
+		3683 new compounds
+		4891 new reactions
+
+Done expanding Generation: 1.
+----------------------------------------
+
+----------------------------------------
+Expanding Generation 2
+

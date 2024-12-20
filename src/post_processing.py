@@ -251,7 +251,6 @@ class Expansion:
             paths = self._find_paths(self.forward, retro=False)
         elif self.reverse and not self.forward:
             paths = self._find_paths(self.reverse, retro=True)
-
         else: # Combo expansions
             forward_paths = self._find_paths(self.forward, retro=False)
             retro_paths = self._find_paths(self.reverse, retro=True)
@@ -946,12 +945,12 @@ if __name__ == '__main__':
     # print('hold')
 
     from src.config import filepaths
-    forward = filepaths['raw_expansions'] / "2_steps_pivalic_acid_to_bottle_targets_24_rules_JN3604IMT_rules_co_metacyc_coreactants_sampled_False_pruned_True.pk"
-    expansion = Expansion(forward=forward)
-    paths = expansion.find_paths()
+    # forward = filepaths['raw_expansions'] / "2_steps_pivalic_acid_to_bottle_targets_24_rules_JN3604IMT_rules_co_metacyc_coreactants_sampled_False_pruned_True.pk"
+    # expansion = Expansion(forward=forward)
+    # paths = expansion.find_paths()
 
-    forward = filepaths['raw_expansions'] / "1_steps_alpha_ketoglutarate_to_None_rules_JN3604IMT_rules_carbonyl_free_co_metacyc_coreactants_carbonyl_free_sampled_False_pruned_False.pk"
-    reverse = filepaths['raw_expansions'] / "1_steps_hopa_to_None_rules_JN3604IMT_rules_carbonyl_free_co_metacyc_coreactants_carbonyl_free_sampled_False_pruned_False.pk"
+    forward = filepaths['raw_expansions'] / "2_steps_ccm_aa_to_None_rules_JN3604IMT_rules_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk"
+    reverse = filepaths['raw_expansions'] / "2_steps_bottle_targets_24_to_None_rules_JN3604IMT_rules_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_False.pk"
     imt_reverses = load_json(filepaths['rules'] / "jnimt_reverses.json")
     expansion = Expansion(forward=forward, reverse=reverse, operator_reverses=imt_reverses)
     paths = expansion.find_paths()

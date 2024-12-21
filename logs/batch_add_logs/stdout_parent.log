@@ -4,37 +4,37 @@ chunk_size: 50
 return_unadded_only: True
 ignore_asterisk: True
 max_entries: None
-905
+65
 
 Loaded Pickaxe, beginning eQuilibrator compound generation.
 Beginning get Reactions
 Populating Input Queue.
 Connecting Parent to postgresql DB and creating Local Compound Cache to see which compounds already exist.
 
-Found 900 compounds already added to eQuilibrator.
-	Populated Input Queue with 1 compounds in 1 chunks.
+Found 9 compounds already added to eQuilibrator.
+	Populated Input Queue with 54 compounds in 2 chunks.
 Starting Processes from Parent.
 	Starting Process, 0
 ---------------
 Parent process succesfully spawned children.
-Time for Parent Process from start: 0.002335786819458008
+Time for Parent Process from start: 0.0035181045532226562
 ---------------
 Joining and Starting
 ---------------
 Parent Process Checkpoint Update.
 	Progress:
-		Chunks: 1 of 1
-		Compounds Total: 1 of 1
-			Good: 1
+		Chunks: 0 of 2
+		Compounds Total: 0 of 54
+			Good: 0
 			Bad: 0
-Time for Parent Process from last checkpoint: 30.05705738067627
-Time for Parent Process from start: 30.05950427055359
+Time for Parent Process from last checkpoint: 30.003948211669922
+Time for Parent Process from start: 30.007505655288696
 ---------------
 ---------------
 Parent Process Completed.
-	Good: 1
+	Good: 54
 	Bad: 0
-Time for Parent Process from start: 33.05935001373291
+Time for Parent Process from start: 33.74965739250183
 ---------------
 Child is alive: False
 Saving Bad compounds

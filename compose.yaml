@@ -11,3 +11,10 @@ services:
     build: .
     ports:
       - "8888:8888"
+
+  temurin:
+    image: eclipse-temurin:17-jre
+    command: bash
+    volumes:
+      - ./marvinws_linux_24.3.126.deb:/opt/marvin.deb
+      - ./jchem_linux_24.3.2.deb:/opt/jchem.deb

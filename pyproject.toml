@@ -19,6 +19,7 @@ requests = "^2.32.3"
 cvxpy = "^1.5.2"
 sqlalchemy = "^2.0.31"
 equilibrator-api = "^0.6.0"
+equilibrator-assets = "^0.6.0"
 minedatabase = { git = "https://github.com/stefanpate/pickaxe", branch = "master" }
 lxml = "^5.2.2"
 setuptools = "^70.1.1"
@@ -36,7 +37,6 @@ ipysheet = "^0.7.0"
 orjson = "^3.10.7"
 ipydatagrid = "^1.3.2"
 ipyaggrid = "^0.5.4"
-equilibrator-assets = "^0.6.0"
 pint = "0.24.4"
 psycopg2-binary = "^2.9.10"
 
@@ -55,6 +55,9 @@ ipywidgets = "^8.1.5"
 [tool.poetry.scripts]
 bottle = "src.__main__:main"
 
+[tool.poe]
+envfile = ".env"
+
 [tool.poe.tasks]
 test = "pytest --cov=src"
 build-image.shell = """
@@ -64,6 +67,7 @@ build-image.shell = """
 """
 build-image-arm.shell = "docker build -t synbiorox/bottle.arm64:$(poetry version --short) . --platform=linux/arm64"
 push-image.shell = "docker push synbiorox/bottle:$(poetry version --short)"
+run-docker.shell = "docker run --rm -it -e JUPYTER_TOKEN=${JUPYTER_TOKEN} -p 8888:8888 synbiorox/bottle:$(poetry version --short)"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

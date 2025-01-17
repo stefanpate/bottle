@@ -1,17 +1,14 @@
 #
 # --- python build layer
 #
-FROM synbiorox/base AS builder
+FROM synbiorox/base:0.1.0 AS builder
 
 # TODO look into removing this dep
 RUN apt-get update && apt-get install -y \
     libhdf5-dev \
     libopenblas-dev \
     libxrender-dev \
-    libxext-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*;
-
+    libxext-dev
 
 ARG POETRY_VERSION=1.8
 
@@ -39,7 +36,7 @@ RUN poetry bundle venv $VIRTUAL_ENV \
 #
 # --- runtime layer
 #
-FROM synbiorox AS runtime
+FROM synbiorox/base:0.1.0 AS runtime
 
 
 # FIXME using pixi with conda bin deps would simplify
@@ -66,7 +63,6 @@ ENV VIRTUAL_ENV=/app/.venv \
 ENV BOTTLE_EXPANSION_ASSETS=${HOME}/assets \
     PATH="${JAVA_HOME}/bin:${PATH}"
 
-
 RUN groupadd -g ${NB_GID} ${NB_GROUP} \
     && adduser --disabled-password \
     --gecos "Default user" \
@@ -76,7 +72,6 @@ RUN groupadd -g ${NB_GID} ${NB_GROUP} \
 
 # copy python virualenv from the build layer
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
-
 
 # FIXME this is a rather clunky way of doing this
 # copy project assets (provided from host)

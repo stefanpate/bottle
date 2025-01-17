@@ -7,11 +7,11 @@
 
 MP_INSTANCE_NAME := singer
 
-DOCKER_IMAGE_HOST := /Users/pasha/var/docker_images/base.tar
-LICENSE_HOST := /Users/pasha/licenses/chemaxon/license.cxl
+DOCKER_IMAGE_HOST := $(HOME)/var/docker_images/base.tar
+LICENSE_HOST := $(HOME)/licenses/chemaxon/license.cxl
 
-DOCKER_IMAGE_MP = /home/ubuntu/base.docker.img.tar
-LICENSE_MP = /home/ubuntu/license.cxl
+DOCKER_IMAGE_MP = $(HOME)/base.docker.img.tar
+LICENSE_MP = $(HOME)/license.cxl
 
 
 mp_launch: vm_spec.yaml
@@ -47,12 +47,14 @@ DOCKER_IMAGE_NAME := synbiorox/base
 DOCKER_IMAGE_VERSION := 0.1.0
 DOCKER_IMAGE_TAG = $(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_VERSION)
 
-docker_build:
-	docker build . -t $(DOCKER_IMAGE_TAG)
+platform_amd64 = --platform=linux/amd64
+
+docker_build.amd64:
+	docker build . -t $(DOCKER_IMAGE_TAG) $(platform_amd64)
 
 
-docker_push:
-	docker push $(DOCKER_IMAGE_TAG)
+docker_push.amd64:
+	docker push $(DOCKER_IMAGE_TAG) $(platform_amd64)
 
 
 $(HOST_DOCKER_IMAGES)/%.tar:
@@ -70,20 +72,30 @@ docker_run:
 # singularity convenience (the main thing we are trying to develop and test)
 #   -- meant to be used from inside the multipass vm or from quest
 
-.PHONY: singularity_build singularity_test_cxcalc
+.PHONY: singularity_build singularity_pull singularity_test_cxcalc
 
-IMAGE_SINGULARITY = /home/ubuntu/base.sif
-LICENSE_SINGULARITY = /home/ubuntu/license.cxl
+IMAGE_SINGULARITY = $(HOME)/bottle_0.1.0.sif
+
+license_singularity = /home/bottler/license.cxl
+audit_dir_host = $(HOME)/var/chemaxon/audit
 
 %.sif:
 	singularity build $@ docker-archive://$(DOCKER_IMAGE_MP)
 
 singularity_build: $(IMAGE_SINGULARITY)
 
-singularity_test_cxcalc: $(IMAGE_SINGULARITY)
+# -- quest main
+
+singularity_pull:
+	singularity pull docker://$(DOCKER_IMAGE_TAG)
+
+$(audit_dir_host):
+	mkdir -p $@
+
+singularity_test_cxcalc: $(IMAGE_SINGULARITY) $(audit_dir_host)
 	singularity run \
-		--env CHEMAXON_LICENSE_URL=$(LICENSE_SINGULARITY) \
-		--bind $(LICENSE_MP):$(LICENSE_SINGULARITY):ro \
-		--bind /home/ubuntu/audit:/opt/chemaxon/jchemsuite/audit:rw \
+		--env CHEMAXON_LICENSE_URL=$(license_singularity) \
+		--bind $(LICENSE_MP):$(license_singularity):ro \
+		--bind $(audit_dir_host):/opt/chemaxon/jchemsuite/audit:rw \
 		$< \
 		cxcalc pKa "Cn1cnc2c1c(=O)n(C)c(=O)n2C"

@@ -1,0 +1,15 @@
+#cloud-config
+
+groups:
+  - docker
+
+system_info:
+  default_user:
+    groups: [docker]
+
+packages:
+  - make
+  - singularity-container
+
+runcmd:
+  - snap install docker

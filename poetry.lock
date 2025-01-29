@@ -1031,6 +1031,28 @@ files = [
 ]
 
 [[package]]
+name = "dora-xgb"
+version = "1.10"
+description = "Gradient-booseted classifiers to predict the feasibility of enzymatic reactions"
+optional = false
+python-versions = "*"
+files = [
+    {file = "DORA_XGB-1.10-py3-none-any.whl", hash = "sha256:de6be362646f2ac3b167d1e129de0e8fa2d748665c05120a3b5aaadf73bf6cdf"},
+    {file = "dora_xgb-1.10.tar.gz", hash = "sha256:13de789817f03c685a978392998ceaa23b436d5ed8b1905f6b721e11b3baa0ef"},
+]
+
+[package.dependencies]
+mhfp = "*"
+mordred = "*"
+networkx = ">=2.2"
+numpy = "*"
+pandas = "*"
+rdkit = "*"
+scikit-learn = "*"
+setuptools = "*"
+xgboost = "1.6.2"
+
+[[package]]
 name = "dulwich"
 version = "0.21.7"
 description = "Python Git Library"
@@ -2773,6 +2795,20 @@ files = [
 
 [package.dependencies]
 psutil = "*"
+
+[[package]]
+name = "mhfp"
+version = "1.9.6"
+description = "Molecular MHFP fingerprints for cheminformatics applications"
+optional = false
+python-versions = "*"
+files = [
+    {file = "mhfp-1.9.6-py3-none-any.whl", hash = "sha256:164793a1c66b1b40a075accb62fb569fe8be2ee1b8146fac7e4fe087001897a8"},
+    {file = "mhfp-1.9.6.tar.gz", hash = "sha256:646909a166d3b0e375c4497f653be45fe6e086ae9214e251b4a85c5ca9b6ad42"},
+]
+
+[package.extras]
+dev = ["pytest"]
 
 [[package]]
 name = "minedatabase"
@@ -5983,6 +6019,32 @@ cffi = ">=1.16.0"
 test = ["pytest"]
 
 [[package]]
+name = "xgboost"
+version = "1.6.2"
+description = "XGBoost Python Package"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "xgboost-1.6.2-py3-none-macosx_10_15_x86_64.macosx_11_0_x86_64.macosx_12_0_x86_64.whl", hash = "sha256:ddc5dc97ef604b61df6cae34a73ead880dfbc9008e291d98f19b08481c0549d7"},
+    {file = "xgboost-1.6.2-py3-none-macosx_12_0_arm64.whl", hash = "sha256:71dd3e27477bc84cc605219d95717fe872e4428a27d6d3dfd7acf0a7f8aa81f7"},
+    {file = "xgboost-1.6.2-py3-none-manylinux2014_aarch64.whl", hash = "sha256:64f5c7189ccea717c6ac2a10ddf1f825f2be0fb829ed96d9ec3a7588b04b7922"},
+    {file = "xgboost-1.6.2-py3-none-manylinux2014_x86_64.whl", hash = "sha256:ba0babafd72edcc12193f545331ce5ef8fbf0fd4f241fcd65e71aeb45b957fe6"},
+    {file = "xgboost-1.6.2-py3-none-win_amd64.whl", hash = "sha256:1ce15d3292d6ee75be4491ff6463c76ca548b7d77ca70f707cb23ea051e2faf7"},
+    {file = "xgboost-1.6.2.tar.gz", hash = "sha256:e1f5c91ba88cf8edb409d7fd2ca150dcd80b6f2115587d87365f0c10b2d4f009"},
+]
+
+[package.dependencies]
+numpy = "*"
+scipy = "*"
+
+[package.extras]
+dask = ["dask", "distributed", "pandas"]
+datatable = ["datatable"]
+pandas = ["pandas"]
+plotting = ["graphviz", "matplotlib"]
+scikit-learn = ["scikit-learn"]
+
+[[package]]
 name = "xlsxwriter"
 version = "3.2.0"
 description = "A Python module for creating Excel XLSX files."
@@ -5996,4 +6058,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.12"
-content-hash = "f9cf046176302760cf4aaaa432ca070e769a566de4c929aea46fcce43bbe6c2a"
+content-hash = "8a484f47167abaf753fde40f0bf6517d7619cdab4fb1b909ee676674330d7bc3"

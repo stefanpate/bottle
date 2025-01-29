@@ -541,6 +541,7 @@ class PredictedReaction:
     id:str
     smarts:str
     operators:List[str]
+    feasibility:float
     reaction_center:Iterable[Iterable] = field(default_factory=tuple)
     analogues:Dict[str, KnownReaction] = field(default_factory=dict)
     rcmcs:Dict[str, float] = field(default_factory=dict)
@@ -666,6 +667,14 @@ class Path:
         top_rcmcs = [r.top_rcmcs(k=1)[0] for r in self.reactions]
         return sum(top_rcmcs) / len(top_rcmcs)
     
+    @property
+    def feasibility(self):
+        feas = 1
+        for rxn in self.reactions:
+            feas *= rxn.feasibility
+
+        return feas
+
     @property
     def mdf(self):
         if self._mdf is not None:

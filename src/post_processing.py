@@ -13,6 +13,7 @@ from collections import defaultdict
 from itertools import permutations, product
 import networkx as nx
 import re
+from math import sqrt
 
 # NOTE: modified pickaxe to do this upstream so this is technically dead but should keep around for a sec?
 def realign_pred_rxn_to_rule(rxn_smarts: str, rule_template: str, coreactants: dict[str, str]) -> list[tuple[int]]:
@@ -673,7 +674,7 @@ class Path:
         for rxn in self.reactions:
             feas *= rxn.feasibility
 
-        return feas
+        return sqrt(feas)
 
     @property
     def mdf(self):

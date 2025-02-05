@@ -2,36 +2,26 @@ Starting Child Process 0 Timer, setting timer to 0
 Importing eQuilibrator
 Connecting 0 to postgresql DB and creating Local Compound Cache.
 
-<src.thermo.local_compound_cache.LocalCompoundCache object at 0x7fd5f79af470>
+<src.thermo.local_compound_cache.LocalCompoundCache object at 0x7fa7feaa1460>
 ---------------
 Child Process 0 succesfully initialized
-Time for Child Process 0 Timer from start: 14.58783483505249
+Time for Child Process 0 Timer from start: 19.858219146728516
 ---------------
 ---------------
 Child Process 0 | Loop 1: Sucessfuly got new compound list.
-Time for Child Process 0 Timer from last checkpoint: 0.00017523765563964844
+Time for Child Process 0 Timer from last checkpoint: 0.00022125244140625
 ---------------
-Time for Child Process 0 Timer from last checkpoint: 0.0001990795135498047
-Child Process 0 | Loop 1: Trying to evaluate 50 compounds with timeout 6000
+Time for Child Process 0 Timer from last checkpoint: 0.0002465248107910156
+Child Process 0 | Loop 1: Trying to evaluate 47 compounds with timeout 6000
 Child Process 0 | Loop 1: Succesfully added compounds.
-Time for Child Process 0 Timer from last checkpoint: 4.161724328994751
----------------
-Child Process 0 | Loop 2: Sucessfuly got new compound list.
-Time for Child Process 0 Timer from last checkpoint: 0.00023818016052246094
----------------
-Time for Child Process 0 Timer from last checkpoint: 0.00025725364685058594
-Child Process 0 | Loop 2: Trying to evaluate 4 compounds with timeout 6000
-in method 'OBConversion_ReadString', argument 3 of type 'std::string'
-in method 'OBConversion_ReadString', argument 3 of type 'std::string'
-Child Process 0 | Loop 2: Succesfully added compounds.
-Time for Child Process 0 Timer from last checkpoint: 2.168323516845703
-Child Process 0 | Loop 3: Found Empty Queue after 
+Time for Child Process 0 Timer from last checkpoint: 7.504075288772583
+Child Process 0 | Loop 2: Found Empty Queue after 
 None
 ---------------
-Child Process 0 | Loop 3: Empty queue found, terminating.
-Time for Child Process 0 Timer from start: 21.827149152755737
+Child Process 0 | Loop 2: Empty queue found, terminating.
+Time for Child Process 0 Timer from start: 29.39539670944214
 ---------------
 ---------------
-Child Process 0 | Loop 3: Succesfully terminated.
-Time for Child Process 0 Timer from start: 21.87086510658264
+Child Process 0 | Loop 2: Succesfully terminated.
+Time for Child Process 0 Timer from start: 29.441678524017334
 ---------------

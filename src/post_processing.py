@@ -13,7 +13,7 @@ from collections import defaultdict
 from itertools import permutations, product
 import networkx as nx
 import re
-from math import sqrt
+from statistics import geometric_mean
 
 # NOTE: modified pickaxe to do this upstream so this is technically dead but should keep around for a sec?
 def realign_pred_rxn_to_rule(rxn_smarts: str, rule_template: str, coreactants: dict[str, str]) -> list[tuple[int]]:
@@ -542,7 +542,7 @@ class PredictedReaction:
     id:str
     smarts:str
     operators:List[str]
-    feasibility:float
+    feasibility:float = -1.0
     reaction_center:Iterable[Iterable] = field(default_factory=tuple)
     analogues:Dict[str, KnownReaction] = field(default_factory=dict)
     rcmcs:Dict[str, float] = field(default_factory=dict)
@@ -670,11 +670,14 @@ class Path:
     
     @property
     def feasibility(self):
-        feas = 1
+        feasies = []
         for rxn in self.reactions:
-            feas *= rxn.feasibility
+            if rxn.feasibility == -1:
+                return -1
+            else:
+                feasies.append(rxn.feasibility)
 
-        return sqrt(feas)
+        return geometric_mean(feasies)
 
     @property
     def mdf(self):

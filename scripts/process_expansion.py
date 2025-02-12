@@ -6,6 +6,9 @@ from multiprocessing import set_start_method
 from time import perf_counter
 from tqdm import tqdm
 from src.config import filepaths
+
+from DORA_XGB import DORA_XGB
+
 from src.post_processing import (
     Expansion,
     Path,
@@ -14,7 +17,8 @@ from src.post_processing import (
     Enzyme,
     DatabaseEntry,
     get_path_id,
-) 
+)
+
 from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
 from src.operator_mapping import map_rxn2rule
 from src.cheminfo_utils import standardize_smarts_rxn
@@ -101,6 +105,8 @@ if __name__ == '__main__':
 
     rule2ct = {k : len(v) for k, v in rule2krs.items()}
 
+    dxgb = DORA_XGB.feasibility_classifier(cofactor_positioning='add_concat')
+
     if args.do_thermo:
         print("Adding compounds to equilibrator")
         add_compounds_to_eQ(pk)
@@ -113,6 +119,7 @@ if __name__ == '__main__':
             for rid in path:
                 if rid not in stored_predicted_reactions:
                     pr = PredictedReaction.from_pickaxe(pk, rid)
+                    pr.feasibility = float(dxgb.predict_proba(pr.smarts))
                     new_predicted_reactions[rid] = pr
 
     # Add KnownReactions to new PredictedReactions

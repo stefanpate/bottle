@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from src.config import filepaths
 from src.utils import load_json
+from src.feasfilter import DORAXGBFilter
 from minedatabase.pickaxe import Pickaxe
 from minedatabase.filters import SimilaritySamplingFilter
 
@@ -26,6 +27,10 @@ def main(args):
     if args.tani_sample:
         tsf = SimilaritySamplingFilter(sample_size=args.sample_size, weight=args.weight)
         pk.filters.append(tsf)
+
+     if feas_filter:
+        Feasibilityfilter = DORAXGBFilter(threshold = feas_threshold , generation_list= None, last_generation_only=False)
+        pk.filters.append(Feasibilityfilter)
 
     pk.transform_all(args.processes, args.generations) # Expand
 

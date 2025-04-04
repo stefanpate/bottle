@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from src.config import filepaths
 from src.utils import load_json
+from src.feasfilter import DORAXGBFilter
 from minedatabase.pickaxe import Pickaxe
 from minedatabase.filters import SimilaritySamplingFilter
 
@@ -27,6 +28,10 @@ def main(args):
         tsf = SimilaritySamplingFilter(sample_size=args.sample_size, weight=args.weight)
         pk.filters.append(tsf)
 
+    if args.feas_filter:  # Corrected the undefined variable
+        feasibility_filter = DORAXGBFilter(threshold=args.feas_threshold, generation_list=None, last_generation_only=False)
+        pk.filters.append(feasibility_filter)
+
     pk.transform_all(args.processes, args.generations) # Expand
 
     if args.prune_to_targets and args.targets:
@@ -49,6 +54,8 @@ parser.add_argument("-w", "--weight", type=int, default=None, help="Sampling dis
 parser.add_argument("--prune-to-targets", action="store_true", help="Keep only compounds that lead to target")
 parser.add_argument("--tani-sample", action="store_true", help="Sample compounds as fcn of tanimoto sim to targets")
 parser.add_argument("--a-plus-b", action='store_true', help="Allow use of starters as coreactants in multisubstrate reactions")
+parser.add_argument("--feas-filter", action="store_true", help="Apply feasibility filter")  # Added feasibility filter option
+parser.add_argument("--feas-threshold", type=float, default=0.5, help="Threshold for feasibility filtering")  # Added feasibility threshold
 
 if __name__ == '__main__':
     args = parser.parse_args()

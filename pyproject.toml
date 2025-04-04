@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "bottle"
+name = "bottle_feas"
 version = "0.1.0"
 description = ""
 authors = [

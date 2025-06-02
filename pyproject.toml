@@ -12,7 +12,7 @@ packages = [{ include = "src" }]
 [tool.poetry.dependencies]
 python = "~3.12"
 pandas = "^2.2.2"
-rdkit = "2024.3.2"
+rdkit = "2024.9.5"
 networkx = "^2.2"
 tqdm = "^4.66.4"
 requests = "^2.32.3"
@@ -20,7 +20,6 @@ cvxpy = "^1.5.2"
 sqlalchemy = "^2.0.31"
 equilibrator-api = "^0.6.0"
 equilibrator-assets = "^0.6.0"
-minedatabase = { git = "https://github.com/stefanpate/pickaxe", branch = "master" }
 lxml = "^5.2.2"
 setuptools = "^70.1.1"
 more-itertools = "^10.3.0"
@@ -40,6 +39,9 @@ ipyaggrid = "^0.5.4"
 pint = "0.24.4"
 psycopg2-binary = "^2.9.10"
 dora-xgb = "^1.10"
+ergochemics = {git = "https://github.com/stefanpate/ergochemics.git"}
+minedatabase = {git = "https://github.com/stefanpate/pickaxe", rev = "py_upgrade"}
+polars = "^1.30.0"
 
 [tool.poetry.group.dev.dependencies]
 findimports = "^2.5.0"

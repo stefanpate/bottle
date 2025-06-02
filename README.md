@@ -15,6 +15,15 @@ It's better to install `poetry` globally, using something like `brew` or `mise`.
 poetry install
 ```
 
+Installing poetry without admin priveleges. Assumes correct version of python install, e.g., 3.12
+
+```shell
+curl https://bootstrap.pypa.io/get-pip.py | python3.12
+python3.12 -m pip install --user pipx
+python3.12 -m pipx ensurepath
+pipx install --python /usr/bin/python3.12 poetry
+```
+
 ### Configure filepaths
 
 This script will create a yaml file with filepaths importable through src.config. Note: should either place data and results directories outside project directory or gitignore them to avoid issues with Github file size limit.

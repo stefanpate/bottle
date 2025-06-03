@@ -1,0 +1,35 @@
+defaults:
+  - filepaths: filepaths
+  - _self_
+
+dxgb:
+  _target_: DORA_XGB.DORA_XGB.feasibility_classifier
+  cofactor_positioning: add_concat
+
+mfper:
+  _target_: ergochemics.similarity.MorganFingerprinter
+  radius: 3
+  length: 1024
+  mol_featurizer:
+    _target_: ergochemics.similarity.MolFeaturizer
+
+rc_dist_ub: 1
+
+forward_expansions:
+  - 1_steps_alpha_ketoglutarate_to_alpha_ketoglutarate_semialdehyde_rules_rc_plus_4_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_True_aplusb_True.pk
+
+reverse_expansions:
+  - null
+
+rule_names: ${extract_rule_names:${.forward_expansions}, ${.reverse_expansions}} # TODO: write custom resovler in .py
+krs_name: sprhea_v3_ns
+casp_study: test
+
+hydra:
+  run:
+    dir: ${filepaths.results}/${...casp_study}
+  job:
+    chdir: True
+  sweep:
+    dir: ${filepaths.results}/${...casp_study}
+    subdir: .

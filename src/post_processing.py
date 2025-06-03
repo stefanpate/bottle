@@ -68,14 +68,10 @@ class DatabaseEntry:
         return cls(**dbe)
 
 class Expansion:
-    def __init__(self, forward: pathlib.Path = None, reverse: pathlib.Path = None, operator_reverses: dict = None):
-        self.operator_reverses = operator_reverses
+    def __init__(self, forward: pathlib.Path = None, reverse: pathlib.Path = None):
 
         if not forward and not reverse:
             raise ValueError("Must provide at least one expansion")
-        
-        if reverse and not operator_reverses:
-            raise ValueError("Must provide mappings of operator to reverses to process a reverse expansion")
         
         self.forward = self._load(forward, flip=False) if forward else None
         self.reverse = self._load(reverse, flip=True) if reverse else None
@@ -146,13 +142,13 @@ class Expansion:
         self._reactions = value
         
     @property
-    def generations(self):
+    def generation(self):
         if self.forward and self.reverse:
-            return self.forward['generations'] + self.reverse['generations']
+            return self.forward['generation'] + self.reverse['generation']
         elif self.forward:
-            return self.forward['generations']
+            return self.forward['generation']
         elif self.reverse:
-            return self.reverse['generations']
+            return self.reverse['generation']
 
     def _load(self, filepath: pathlib.Path, flip: bool) -> dict[str, Any]:
         '''
@@ -174,41 +170,38 @@ class Expansion:
             'coreactants',
             'starters',
             'targets',
-            'generations'
+            'generation'
         ]
         half_expansion = {}
 
         with open(filepath, 'rb') as f:
             contents = pickle.load(f)
 
-        for k in attributes:
-            if k == 'generations':
-                half_expansion[k] = contents[k]
-            
-            elif k == 'coreactants':
+        for k in attributes:           
+            if k == 'coreactants':
                 coreactants = defaultdict(set)
                 for name, (smiles, cid) in contents['coreactants'].items():
                     smiles = standardize_smiles(smiles, do_remove_stereo=True, do_find_parent=False, do_neutralize=False, quiet=True)
                     coreactants[smiles].add(name)
                     half_expansion[k] = coreactants
-            
             elif k == 'starters':
                 starters = {}
                 for v in contents['compounds'].values():
                     if v["Type"].startswith("Start"):
                         starters[v['_id']] = v["ID"]
-
             elif k == 'targets':
                 targets = {}
                 for v in contents['targets'].values():
                     target_cid = get_compound_hash(v['SMILES'])[0] # Get neutral (non-target) cpd hash
                     target_name = v['ID']
                     targets[target_cid] = target_name
-
             elif flip and k == 'reactions':
                 reversed_reactions = dict([self._flip_reaction(rxn) for rxn in contents[k].values()])
                 half_expansion[k] = reversed_reactions
-            
+            elif k == 'reactions':
+                for key in contents[k].keys():
+                    contents[k][key]['reversed'] = False # So that both fwd and rev half expansions have this field 
+                half_expansion[k] = contents[k]
             else:
                 half_expansion[k] = contents[k]
 
@@ -234,6 +227,8 @@ class Expansion:
         flipped_rxn['Operators'] = flipped_operators
         flipped_rxn['SMILES_rxn'] = ' => '.join(rxn['SMILES_rxn'].split(' => ')[::-1])
         flipped_rxn['Operator_aligned_smarts'] = '>>'.join(rxn['Operator_aligned_smarts'].split('>>')[::-1])
+        flipped_rxn['am_rxn'] = '>>'.join(rxn['am_rxn'].split('>>')[::-1])
+        flipped_rxn['reversed'] = True
         return flipped_rxn['_id'], flipped_rxn
     
     def find_paths(self):
@@ -318,7 +313,7 @@ class Expansion:
 
         paths = []
         for sr in sources:
-            paths += list(nx.all_simple_paths(DG, source=sr, target=sinks, cutoff=half_expansion['generations'] * 2)) # Search up to gens x 2 (bc bipartite)
+            paths += list(nx.all_simple_paths(DG, source=sr, target=sinks, cutoff=half_expansion['generation'] * 2)) # Search up to gens x 2 (bc bipartite)
 
         if flip:
             paths = [elt[::-1] for elt in paths]

@@ -11,7 +11,10 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": "${command:pickArgs}",
-            "justMyCode": false
+            "justMyCode": true,
+            "env": {
+                "HYDRA_FULL_ERROR": "1"
+            }
         },
         {
             "name": "run_pickaxe",

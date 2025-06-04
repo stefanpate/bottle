@@ -3,12 +3,11 @@ from rdkit.Chem import Draw
 import svgutils.transform as st
 from svgutils.compose import Unit
 from collections import Counter
-from src.config import filepaths
 import numpy as np
 
-plus = st.fromfile(filepaths['artifacts'] / 'plus.svg').to_str().decode()
-arrow = st.fromfile(filepaths['artifacts'] / 'arrow.svg').to_str().decode()
-double_border = st.fromfile(filepaths['artifacts'] / 'double_border.svg').to_str().decode()
+plus = st.fromfile('../artifacts/plus.svg').to_str().decode()
+arrow = st.fromfile('../artifacts/arrow.svg').to_str().decode()
+double_border = st.fromfile('../artifacts/double_border.svg').to_str().decode()
 
 def _add_elt(img: str, movex: int, rxn_img: st.SVGFigure):
         elt = st.fromstring(img)

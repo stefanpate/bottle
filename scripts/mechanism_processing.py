@@ -10,6 +10,7 @@ from pathlib import Path
 from rdkit import Chem
 from src.post_processing import Expansion, get_path_id
 from src.schemas import found_paths_schema, predicted_reactions_schema
+from src.chem_draw import draw_reaction
 import numpy as np
 from time import perf_counter
 from typing import Any

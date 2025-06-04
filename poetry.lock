@@ -1339,7 +1339,7 @@ rdkit = ">=2024.9.5"
 type = "git"
 url = "https://github.com/stefanpate/ergochemics.git"
 reference = "HEAD"
-resolved_reference = "949737c26779a5bd0ab1e5f59c426c9450823fb7"
+resolved_reference = "019a36252e53bd742f71705739d452e7919bdb53"
 
 [[package]]
 name = "executing"

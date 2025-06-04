@@ -24,6 +24,7 @@ reverse_expansions:
 rule_names: ${extract_rule_names:${.forward_expansions}, ${.reverse_expansions}} # TODO: write custom resovler in .py
 krs_name: sprhea_v3_ns
 casp_study: test
+processes: ???
 
 hydra:
   run:

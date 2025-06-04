@@ -7,17 +7,60 @@ from hydra.utils import instantiate
 from functools import partial
 from ergochemics.mapping import get_reaction_center
 from pathlib import Path
-from minedatabase.pickaxe import Pickaxe
 from rdkit import Chem
-from src.post_processing import Expansion
+from src.post_processing import Expansion, get_path_id
+from src.schemas import found_paths_schema, predicted_reactions_schema
 import numpy as np
 from time import perf_counter
+from typing import Any
+from multiprocessing import get_context
 
-def dxgb_initializer(cfg: DictConfig):
-    global dxgb, mfper, _fingerprint
+def proc_initializer(cfg: DictConfig) -> None:
+    def sma_rc_fp(sma, rc):
+        mol = Chem.MolFromSmiles(sma.split('>>')[0])
+        if mol is None:
+            return None
+        return _fingerprint(mol, rc)
+    
+    print("Initializing process for reaction mapping", flush=True)
+    global dxgb, _fingerprint, mapped_rxns, rxn_reverses
     dxgb = instantiate(cfg.dxgb)
     mfper = instantiate(cfg.mfper)
     _fingerprint = partial(mfper.fingerprint, rc_dist_ub=cfg.rc_dist_ub)
+
+    # Create helper dfs
+    mapped_rxns = []
+    for rn in set(cfg.rule_names):
+        df = pl.read_parquet(
+            Path(cfg.filepaths.rxn_x_rule_mapping) / f"{cfg.krs_name}_x_{rn}.parquet"
+        )
+        df = df.with_columns(
+            reaction_center=pl.col("am_smarts").map_elements(
+                get_lhs_block_rc, return_dtype=pl.List(pl.Int64)
+            ),
+            rule_id=pl.col("rule_id").map_elements(
+                lambda x: f"{rn}:{x}",
+                return_dtype=pl.String
+            )
+        )
+        df = df.with_columns(
+            pl.struct(["smarts", "reaction_center"]).map_elements(
+                lambda x: sma_rc_fp(x["smarts"], x["reaction_center"]),
+                return_dtype=pl.Object
+            ).alias("mfp")
+        )
+        mapped_rxns.append(df)
+
+    mapped_rxns = pl.concat(mapped_rxns)
+    
+    # Required to look up analogues of reveresed reactions from retro expansions
+    rxn_reverses = pl.scan_parquet(
+        Path(cfg.filepaths.known_reactions)
+    ).select(
+        pl.col("id"),
+        pl.col("reverse")
+    ).collect()
+    rxn_reverses = dict(rxn_reverses.iter_rows())
 
 def get_lhs_block_rc(am_smarts: str) -> list[int]:
     return get_reaction_center(am_smarts, mode="combined")[0]
@@ -43,127 +86,158 @@ def extract_rule_names(fwd_expansions: list[str], reverse_expansions: list[str])
 
 OmegaConf.register_new_resolver("extract_rule_names", extract_rule_names)
 
-# TODO: modify for this use case
-def process_reactions(pk: Pickaxe, mapped_rxn: pl.DataFrame) -> float:
-    # Collect starters
-    starters = {}
-    for v in pk.compounds.values():
-        if v["Type"].startswith("Start"):
-            starters[v['_id']] = v["ID"]
+def process_reaction(reaction: dict[str, Any]) -> dict[str, Any]:
+    reaction = {k: v for k, v in reaction.items()} # Defensive copy
+    query_smarts = reaction["smarts"]
+    query_am_smarts = reaction["am_smarts"]
+    query_lhs_mol = Chem.MolFromSmiles(query_smarts.split('>>')[0])
+    query_lhs_block_rc = get_lhs_block_rc(query_am_smarts)
 
-    # Calculate morgan fps for all mapped reactions
-    mapped_rxn["mol"] = mapped_rxn["smarts"].apply(lambda x : Chem.MolFromSmiles(x.split('>>')[0]))
-    mapped_rxn["mfp"] = mapped_rxn.apply(lambda x : _fingerprint(x.mol, x.reaction_center), axis=1)
-
-    data = []
-    for v in pk.reactions.values():
-
-        query_smarts = v["Operator_aligned_smarts"]
-        query_am_smarts = v["am_rxn"]
-        query_lhs_mol = Chem.MolFromSmiles(query_smarts.split('>>')[0])
-        query_lhs_block_rc = get_lhs_block_rc(query_am_smarts)
-
-        if query_lhs_mol is None:
-            continue
-
-        rules = set([int(elt.split('_')[0]) for elt in v["Operators"]])
-        analogues = mapped_rxn.loc[mapped_rxn.rule_id.isin(rules)]
-
-        if analogues.empty:
-            max_sim = 0.0
-            nearest_kr = ''
-            nearest_krid = ''
-        else:
-            mfps = np.vstack(analogues["mfp"])
-            query_mfp = _fingerprint(
-                mol=query_lhs_mol,
-                reaction_center=query_lhs_block_rc
-            ).reshape(-1, 1)
-            sims = np.matmul(mfps, query_mfp) / (np.linalg.norm(mfps, axis=1).reshape(-1, 1) * np.linalg.norm(query_mfp))
-            sims = sims.reshape(-1,)
-            max_sim = float(np.max(sims))
-            max_idx = int(np.argmax(sims))
-            nearest_kr = analogues.iloc[max_idx].smarts
-            nearest_krid = analogues.iloc[max_idx].rxn_id
-
-        is_feasible = dxgb.predict_label(query_smarts)
-
-        data.append(
-            [
-                v['_id'],
-                query_smarts,
-                query_am_smarts,
-                is_feasible,
-                max_sim,
-                nearest_kr,
-                nearest_krid,
-                list(v['Operators'])
-            ]
+    if query_lhs_mol is None:
+        return reaction
+    
+    # In case of retro expansion, must get reactions of the reverse direction
+    if reaction["reversed"]:
+        rev_krs = mapped_rxns.filter(
+            pl.col("rule_id").is_in(reaction["rules"])
+        )["rxn_id"]
+        fwd_krs = [rxn_reverses[kr] for kr in rev_krs if kr in rxn_reverses]
+        analogues = mapped_rxns.filter(
+            pl.col("rxn_id").is_in(fwd_krs)
         )
+    else: # For forward expansions, we can use the rules to look up analogues directly
+        analogues = mapped_rxns.filter(pl.col("rule_id").is_in(reaction["rules"]))
 
-    return data
+    if analogues.is_empty():
+        srt_sims = []
+        srt_krids = []
+    else:
+        mfps = np.vstack(analogues["mfp"])
+        query_mfp = _fingerprint(
+            mol=query_lhs_mol,
+            reaction_center=query_lhs_block_rc
+        ).reshape(-1, 1)
+        sims = np.matmul(mfps, query_mfp) / (np.linalg.norm(mfps, axis=1).reshape(-1, 1) * np.linalg.norm(query_mfp))
+        sims = sims.reshape(-1,)
+        srt_sims = sorted(sims, reverse=True)
+        srt_idxs = np.argsort(sims)[::-1]
+        srt_krids = analogues['rxn_id'][srt_idxs].to_list()
+
+    is_feasible = dxgb.predict_label(query_smarts)
+
+    reaction["dxgb_label"] = is_feasible
+    reaction["rxn_sims"] = srt_sims
+    reaction["analogue_ids"] = srt_krids
+    reaction.pop("reversed", None) # Don't want to save this
+
+    return reaction
 
 # TODO: write custom resolver for mapped reaction paths
-
 @hydra.main(version_base=None, config_path="../conf", config_name="mechanism_processing")
 def main(cfg: DictConfig) -> None:
-
-    expansions = []
-    for fwd, rev in zip(cfg.forward_expansions, cfg.reverse_expansions):
+    predicted_reactions = {}
+    paths = {}
+    for fwd, rev, rule_name in zip(cfg.forward_expansions, cfg.reverse_expansions, cfg.rule_names):
         pk = Expansion(
             forward=Path(cfg.filepaths.raw_expansions) / fwd if fwd else None,
             reverse=Path(cfg.filepaths.raw_expansions) / rev if rev else None,
         )
+        
+        # Find paths
         print("Searching for paths")
         tic = perf_counter()
-        paths = pk.find_paths()
+        this_paths = pk.find_paths()
+        pk.prune(this_paths)
+        for sid, tid in this_paths.keys():
+            for rxns in this_paths[(sid, tid)]:
+                path_id = get_path_id(rxns)
+                paths[path_id] = {
+                    "id": path_id,
+                    "starter": pk.starters[sid],
+                    "target": pk.targets[tid],
+                    "reactions": rxns,
+                    "dg_opt": None,
+                    "dg_err": None,
+                    "starter_id": sid,
+                    "target_id": tid,
+                    "mdf": None
+                }
         toc = perf_counter()
         print(f"Found {sum([len(v) for v in paths.values()])} paths in  {toc - tic : .2f} seconds")
-        pk.prune(paths)
-        expansions.append(pk)
-        print(f"Pruned expansion to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
         
-    # Required to look up analogues of reveresed reactions from retro expansions
-    rxn_reverses = pl.scan_parquet(
-        Path(cfg.filepaths.known_reactions)
-    ).select(
-        pl.col("id"),
-        pl.col("reverse")
-    ).collect()
-    rxn_reverses = dict(rxn_reverses.iter_rows())
+        # Collect predicted reactions post-pruning
+        for k, v in pk.reactions.items():
+            predicted_reactions[k] = {
+                "id": k,
+                "smarts": v["Operator_aligned_smarts"],
+                "am_smarts": v["am_rxn"],
+                "dxgb_label": None,
+                "rxn_sims": None,
+                "analogue_ids": None,
+                "rules": [f"{rule_name}:{elt.split('_')[0]}" for elt in v["Operators"]],
+                "reversed": v["reversed"]
+            }
+
+    # Check existing data for redundancy
+    if Path("found_paths.parquet").exists():
+        existing_paths = pl.read_parquet(
+            "found_paths.parquet"
+        )
+                
+        for id in existing_paths["id"]:
+            paths.pop(id, None)
+
+        paths = pl.from_dicts(list(paths.values()), schema=found_paths_schema)
+        found_paths = pl.concat((existing_paths, paths))
+    else:
+        found_paths = pl.from_dicts(list(paths.values()), schema=found_paths_schema)
     
-    mapped_rxns = []
-    for rn in cfg.rule_names:
-        df = pl.read_parquet(
-            Path(cfg.filepaths.rxn_x_rule_mapping) / f"{cfg.krs_name}_x_{rn}.parquet"
-        )
-        df = df.with_columns(
-            reaction_center=pl.col("am_smarts").map_elements(
-                get_lhs_block_rc, return_dtype=pl.List(pl.Int64)
-            )
-        )
-        mapped_rxns.append(df)
+    found_paths.write_parquet("found_paths.parquet")
+
+    if Path("predicted_reactions.parquet").exists():
+        existing_reactions = pl.scan_parquet(
+            "predicted_reactions.parquet"
+        ).select(
+            pl.col("id")
+        ).collect()
+        
+        for id in existing_reactions["id"]:
+            predicted_reactions.pop(id, None)
+
+    
 
     # Process reactions
-    with ProcessPoolExecutor(max_workers=len(expansions), initializer=dxgb_initializer, initargs=(cfg,)) as executor:
-        results = list(
+    predicted_reactions = list(predicted_reactions.values())
+    chunksize = max(1, int(len(predicted_reactions) / cfg.processes))
+    context = get_context("spawn") # Polars hates fork
+    with ProcessPoolExecutor(max_workers=cfg.processes, initializer=proc_initializer, initargs=(cfg,), mp_context=context) as executor:
+        print(executor._mp_context)
+        analyzed_reactions = list(
             tqdm(
-                executor.map(process_reactions, expansions, mapped_rxns, chunksize=1),
-                total=len(expansions),
+                executor.map(process_reaction, predicted_reactions, chunksize=chunksize),
+                total=len(predicted_reactions),
                 desc="Procesing reactions"
             )
         )
 
-    # Save reaction metrics
-    columns = ["id", "smarts", "am_smarts", "dxgb_label", "max_rxn_sim", "nearest_analogue", "nearest_analogue_id", "rules"] 
-    dfes = []
-    for exp, res in zip(cfg.expansion_fns, results):
-        df = pd.DataFrame(data=res, columns=columns)
-        df["expansion"] = exp
-        dfes.append(df)
+    # # TODO: remove. jsut for debugging
+    # print("Initiliazing")
+    # proc_initializer(cfg)
+    # print("Processing reactions in main process")
+    # analyzed_reactions = []
+    # for pr in tqdm(predicted_reactions, desc="Processing reactions", total=len(predicted_reactions)): 
+    #     analyzed_reactions.append(process_reaction(pr))
 
-    full_df = pd.concat(dfes)
-    full_df.to_parquet(f"{cfg.expansion_name}_reaction_metrics.parquet")
+    analyzed_reactions = pl.from_dicts(analyzed_reactions, schema=predicted_reactions_schema)
+    
+    # Save predicted reactions
+    if Path("predicted_reactions.parquet").exists():
+        existing_reactions = pl.read_parquet(
+            "predicted_reactions.parquet"
+        )
+        analyzed_reactions = pl.concat((analyzed_reactions, existing_reactions))
+    
+    analyzed_reactions.write_parquet("predicted_reactions.parquet")
 
 if __name__ == "__main__":
     main()

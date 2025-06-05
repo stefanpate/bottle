@@ -14,43 +14,7 @@ from itertools import permutations, product
 import networkx as nx
 import re
 from statistics import geometric_mean
-
-# NOTE: modified pickaxe to do this upstream so this is technically dead but should keep around for a sec?
-def realign_pred_rxn_to_rule(rxn_smarts: str, rule_template: str, coreactants: dict[str, str]) -> list[tuple[int]]:
-    '''
-    Returns permutations of reaction's reactant indices that match rule template
-
-    Args
-    ----
-    rxn_smarts:str
-        Reaction smarts
-    rule_template:str
-        Reactant names from rule ordered as designated in the operator.
-        Separated by ';'
-    coreactants:dict[str, str]
-        Lookup SMILES to coreactant names
-
-    Returns
-    ------
-    matched_idxs:list[tuple[int]]
-        List of correctly ordered reactant indices
-    '''
-    rct_smi = rxn_smarts.split('>>')[0].split('.')
-    rule_template = rule_template.split(';')
-
-    if len(rct_smi) != len(rule_template):
-        return []
-    
-    rct_names = [coreactants.get(smi, ('Any',)) for smi in rct_smi]
-    rct_idxs = [i for i in range(len(rct_names))]
-    matched_idxs = []
-    for perm in permutations(rct_idxs):
-        permuted_rct_names = [rct_names[idx] for idx in perm]
-        for prod in product(*permuted_rct_names):
-            if all([elt[0] == elt[1] for elt in zip(rule_template, prod)]):
-                matched_idxs.append(perm)
-        
-    return matched_idxs
+import polars as pl
 
 def get_path_id(reaction_ids:Iterable[str]):
     '''Returns hash id for pathway given
@@ -714,12 +678,35 @@ class PathWrangler:
     '''
     enzyme_existence = EnzymeExistence
     
-    def __init__(self, proc_exp: pathlib.Path, img_subdir: str) -> None:
-        img_prefix = proc_exp / img_subdir
-        self.known_reactions = self._prepend_images(load_json(proc_exp / "known_reactions.json"), img_prefix)
-        self.predicted_reactions = self._prepend_images(load_json(proc_exp / "predicted_reactions.json"), img_prefix)
-        self.paths = load_json(proc_exp / "found_paths.json")
-        self.starter_targets = self._extract_starter_targets()
+    def __init__(self, study: pathlib.Path, known: pathlib.Path) -> None:
+        self.study = study
+        self.predicted_reactions = study / "predicted_reactions.parquet"
+        self.paths = study / "found_paths.parquet"
+        self.known_reactions = known / "known_reactions.parquet"
+        self.enzymes = known / "known_enzymes.parquet"
+
+        sts = pl.scan_parquet(self.paths).select(
+            pl.col("starter_id"),
+            pl.col("target_id"),
+            pl.col("starter"),
+            pl.col("target")
+        ).unique()
+
+        starters = sts.select(
+            pl.col("starter_id"),
+            pl.col("starter")
+        ).unique().collect()
+
+        targets = sts.select(
+            pl.col("target_id"),
+            pl.col("target")
+        ).unique().collect()
+
+        self.starters = tuple(starters["starter"])
+        self.targets = tuple(targets["target"])
+        self.starter_ids = tuple(starters["starter_id"])
+        self.target_ids = tuple(targets["target_id"])
+
 
     def _prepend_images(self, d: dict, prefix: pathlib.Path):
         for v in d.values():
@@ -738,86 +725,125 @@ class PathWrangler:
 
     def get_paths(
             self,
-            starters:Iterable[str] = None,
-            targets:Iterable[str] = None,
-            filter_by_enzymes:Dict[str, Iterable] = None,
-            sort_by= None,
+            starters: Iterable[str] = None, # TODO: switch to using ids
+            targets: Iterable[str] = None,
+            sort_by: str | None = None,
+            descending: bool = True,
+            lower_bounds: dict[str, float] | None = None,
+            upper_bounds: dict[str, float] | None = None,
+            filter_by_enzymes: dict[str, Iterable[str]] | None = None,
+            top_k: int = None
         ) -> list[Path]:
         '''
         Get valid paths with options to filter & sort
 
         Args
         -------
-        starters:Iterable[str]
+        starters: Iterable[str]
             Names of desired starter molecules
-        targets:Iterable[str]
+        targets: Iterable[str]
             Names of desired target molecules
-        filter_by_enzymes:Dict[str, Iterable]
-            Maps field name -> list of valid values
-        sort_by:str | dict
-            'min_rcmcs' sorts by path's minimum reaction center mcs
-                given by taking max RCMCS for each predicted reaction 
-            'mean_rcmcs' sorts by paths' mean reaction center mcs
-                given by taking max RCMCS for each predicted reaction
-            You may provide a dict that specifies how to aggregate RCMCS on
-                both the path level (multiple predicted reactions) and the 
-                predicted reaction level (multiple analogues)
-                In {'kr_agg': str, 'pr_agg': str, 'k': int}
-                pr_agg aggregates on path level 'min' | 'mean' | 'max'
-                kr_agg aggregates on predicted reaction level 'min' | 'mean' | 'max'
-                k takes k top analogues per predicted reaction
-
+        sort_by: str
+            Field to sort by, can be one of:
+                - "mdf"
+                - "mean_max_rxn_sim"
+                - "mean_mean_rxn_sim"
+                - "min_max_rxn_sim"
+                - "min_mean_rxn_sim"
+                - "feasibility_frac"
+        descending: bool = True
+            If true sorts in descending order, otherwise ascending
+        lower_bounds: dict[str, float]
+            Maps field name -> lower bound value.
+            Same fields as in sort_by.
+        upper_bounds: dict[str, float]
+            Maps field name -> upper bound value.
+            Same fields as in sort_by.
+        filter_by_enzymes: dict[str, Iterable]
+            Maps field name -> list of desired values.
+            Field may be one of:
+                - "id"
+                - "sequence"
+                - "existence"
+                - "reviewed"
+                - "ec"
+                - "organism"
+                - "name"
+        top_k: int
+            If provided, returns top k paths sorted by sort_by field
+        
         Returns
         ---------
-        Fitlered & sorted List[Path]
+        batch: dict[str, pl.DataFrame]
+            {
+                "paths": pl.DataFrame of paths,
+                "predicted_reactions": pl.DataFrame of predicted reactions,
+                "known_reactions": pl.DataFrame of known reactions,
+                "enzymes": pl.DataFrame of enzymes
+            }
         '''
-        if starters and targets:
-            req_path_ids = [v['id'] for v in self.paths.values() if v['starter'] in starters and v['target'] in targets]
-        elif starters and not targets:
-            req_path_ids = [v['id'] for v in self.paths.values() if v['starter'] in starters]
-        elif not starters and targets:
-            req_path_ids = [v['id'] for v in self.paths.values() if v['target'] in targets]
-        else:
-            req_path_ids = [v['id'] for v in self.paths.values()]
+        if top_k and not sort_by:
+            raise ValueError("If top_k is provided, sort_by must also be provided")
+        
+        _path_schema = pl.read_parquet_schema(self.paths)
+        _enzyme_schema = pl.read_parquet_schema(self.enzymes)
+
+        if sort_by and sort_by not in _path_schema:
+            raise ValueError(f"Invalid sort_by field: {sort_by}. Must be one of {_path_schema}")
+        
+        if lower_bounds and not all([f in _path_schema for f in lower_bounds]):
+            raise ValueError(f"Invalid lower_bounds field(s): {lower_bounds}. Must be one of {_path_schema}")
+        
+        if upper_bounds and not all([f in _path_schema for f in upper_bounds]):
+            raise ValueError(f"Invalid upper_bounds field(s): {upper_bounds}. Must be one of {_path_schema}")
+        
+        if filter_by_enzymes and not all([f in _enzyme_schema for f in filter_by_enzymes]):
+            raise ValueError(f"Invalid filter_by_enzymes field(s): {filter_by_enzymes}. Must be one of {_enzyme_schema}")
+        
+        paths_lf = pl.scan_parquet(self.paths)
+
+        if starters:
+            paths_lf = paths_lf.filter(pl.col("starter").is_in(starters))
+        
+        if targets:
+            paths_lf = paths_lf.filter(pl.col("target").is_in(targets))
+
+        if lower_bounds:
+            for f, v in lower_bounds.items():
+                paths_lf = paths_lf.filter(pl.col(f) >= v)
+        
+        if upper_bounds:
+            for f, v in upper_bounds.items():
+                paths_lf = paths_lf.filter(pl.col(f) <= v)
+
+        if sort_by:
+            paths_lf = paths_lf.sort(sort_by, descending=descending)
+
+        paths_df = paths_lf.slice(0, top_k).collect()
+
+        prids = set(paths_df['reactions'].explode()) # Get all unique reaction ids in paths
+        prxns_df = pl.scan_parquet(self.predicted_reactions).filter(pl.col("id").is_in(prids)).collect()
+        prxns_df = prxns_df.with_columns(
+            pl.col("id").map_elements(lambda x: str(self.study / "svgs" / "predicted" / f"{x}.svg"), return_dtype=pl.String).alias("image"),
+        )
+
+        krids = set(prxns_df['analogue_ids'].explode()) # Get all unique known reaction ids in predicted reactions
+        krxns_df = pl.scan_parquet(self.known_reactions).filter(pl.col("id").is_in(krids)).collect()
+        krxns_df = krxns_df.with_columns(
+            pl.col("id").map_elements(lambda x: str(self.study / "svgs" / "known" / f"{x}.svg"), return_dtype=pl.String).alias("image"),
+        )
+
+        enz_ids = set(krxns_df['enzymes'].explode()) # Get all unique enzyme ids in known reactions
+        enz_lf = pl.scan_parquet(self.enzymes).filter(pl.col("id").is_in(enz_ids))
 
         if filter_by_enzymes:
-            if 'existence' in filter_by_enzymes:
-                filter_by_enzymes['existence'] = [self.enzyme_existence[v.upper()].value for v in filter_by_enzymes['existence']]
-        
-        req_prids = set()
-        req_krids = set()
-        for pid in req_path_ids:
-            for prid in self.paths[pid]['reactions']:
-                req_prids.add(prid)
-                for krid in self.predicted_reactions[prid]['analogues']:
-                    req_krids.add(krid)
+            for f, v in filter_by_enzymes.items():
+                enz_lf = enz_lf.filter(pl.col(f).is_in(v))
 
-        krs = {}
-        for krid in req_krids:
-            kr = KnownReaction.from_dict(self.known_reactions[krid])
-            if filter_by_enzymes:
-                kr.filter_enzymes(filter_by=filter_by_enzymes)
-            krs[krid] = kr
+        enz_df = enz_lf.collect()
 
-        prs = {}
-        for prid in req_prids:
-            pr = PredictedReaction.from_dict(self.predicted_reactions[prid], krs)
-            prs[prid] = pr
+        return {"paths": paths_df, "predicted_reactions": prxns_df, "known_reactions": krxns_df, "enzymes": enz_df}
 
-        paths = []
-        for pid in req_path_ids:
-            p = Path.from_dict(self.paths[pid], prs)
-            if p.valid:
-                paths.append(p)
-
-        if sort_by is None:
-            return paths
-        elif type(sort_by) is str:
-            return sorted(paths, key= lambda p : getattr(p, sort_by), reverse=True)
-        elif type(sort_by) is dict:
-            self._validate_custom_agg(sort_by)
-            return sorted(paths, key= lambda p : p.aggregate_rcmcs(**sort_by))
-        
     def get_path_with_id(self, pid: str) -> Path:
         '''
         Get path with id pid
@@ -856,20 +882,6 @@ class PathWrangler:
                 raise ValueError(f"Missing required argument {k}")
             if type(sort_by[k]) is not t:
                 raise ValueError(f"Invalid type {sort_by[k]} for argument {k}. Must be {t}")
-            
-# TODO: this may be dead now
-def pk_rhash_to_smarts(rhash: str, pk: Expansion):
-    '''
-    Make reaction smarts string for
-    reaction indexed by rhash in a Expansion
-    object
-    '''
-    rxn_smiles = pk.reactions[rhash]["SMILES_rxn"]
-    rxn_stoich = get_stoich_pk(rxn_smiles)
-    products = ".".join([".".join([smi]*stoich) for smi, stoich in rxn_stoich.items() if stoich >= 0])
-    reactants = ".".join([".".join([smi]*abs(stoich)) for smi, stoich in rxn_stoich.items() if stoich <= 0])
-    rxn_sma = ">>".join([reactants, products])
-    return rxn_sma
 
 if __name__ == '__main__':
     # e1 = Enzyme('up1', 'AARTGW', 'Evidence at protein level', 'reviewed', '1.1.1.1', 'mouse', 'mouse protein')

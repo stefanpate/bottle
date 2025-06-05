@@ -137,6 +137,27 @@ def process_reaction(reaction: dict[str, Any]) -> dict[str, Any]:
 # TODO: write custom resolver for mapped reaction paths
 @hydra.main(version_base=None, config_path="../conf", config_name="mechanism_processing")
 def main(cfg: DictConfig) -> None:
+    # Check for existing paths and reactions
+    if Path("predicted_reactions.parquet").exists():
+        existing_reactions = pl.scan_parquet(
+            "predicted_reactions.parquet"
+        ).select(
+            pl.col("id")
+        ).collect()
+    else:
+        existing_reactions = pl.DataFrame(schema=predicted_reactions_schema)
+        existing_reactions.write_parquet("predicted_reactions.parquet")
+
+    if Path("found_paths.parquet").exists():
+        existing_paths = pl.scan_parquet(
+            "found_paths.parquet"
+        ).select(
+            pl.col("id")
+        ).collect()
+    else:
+        existing_paths = pl.DataFrame(schema=found_paths_schema)
+        existing_paths.write_parquet("found_paths.parquet")
+    
     predicted_reactions = {}
     paths = {}
     for fwd, rev, rule_name in zip(cfg.forward_expansions, cfg.reverse_expansions, cfg.rule_names):
@@ -156,6 +177,12 @@ def main(cfg: DictConfig) -> None:
             print(f"Found {len(this_paths[((sid, tid))])} paths from {pk.starters[sid]} to {pk.targets[tid]}")
             for rxns in this_paths[(sid, tid)]:
                 path_id = get_path_id(rxns)
+
+                if path_id in existing_paths['id']:
+                    continue
+
+                # Entering some default values here, to be updated later, 
+                # in order to adhere to the schema
                 paths[path_id] = {
                     "id": path_id,
                     "starter": pk.starters[sid],
@@ -165,11 +192,20 @@ def main(cfg: DictConfig) -> None:
                     "dg_err": None,
                     "starter_id": sid,
                     "target_id": tid,
-                    "mdf": None
+                    "mdf": None,
+                    "mean_max_rxn_sim": 0.0,
+                    "mean_mean_rxn_sim": 0.0,
+                    "min_max_rxn_sim": 0.0,
+                    "min_mean_rxn_sim": 0.0,
+                    "feasibility_frac": 0.0,
                 }
         
         # Collect predicted reactions post-pruning
         for k, v in pk.reactions.items():
+
+            if k in existing_reactions["id"]:
+                continue
+
             predicted_reactions[k] = {
                 "id": k,
                 "smarts": v["Operator_aligned_smarts"],
@@ -181,39 +217,12 @@ def main(cfg: DictConfig) -> None:
                 "reversed": v["reversed"]
             }
 
-    # Check existing data for redundancy
-    if Path("found_paths.parquet").exists():
-        existing_paths = pl.read_parquet(
-            "found_paths.parquet"
-        )
-                
-        for id in existing_paths["id"]:
-            paths.pop(id, None)
-
-        paths = pl.from_dicts(list(paths.values()), schema=found_paths_schema)
-        found_paths = pl.concat((existing_paths, paths))
-    else:
-        found_paths = pl.from_dicts(list(paths.values()), schema=found_paths_schema)
-    
-    found_paths.write_parquet("found_paths.parquet")
-
-    if Path("predicted_reactions.parquet").exists():
-        existing_reactions = pl.scan_parquet(
-            "predicted_reactions.parquet"
-        ).select(
-            pl.col("id")
-        ).collect()
-        
-        for id in existing_reactions["id"]:
-            predicted_reactions.pop(id, None)
-
-    
     # Process reactions
     predicted_reactions = list(predicted_reactions.values())
     chunksize = max(1, int(len(predicted_reactions) / cfg.processes))
     context = get_context("spawn") # Polars hates fork
     with ProcessPoolExecutor(max_workers=cfg.processes, initializer=proc_initializer, initargs=(cfg,), mp_context=context) as executor:
-        print(executor._mp_context)
+        print("Using context: ", executor._mp_context)
         analyzed_reactions = list(
             tqdm(
                 executor.map(process_reaction, predicted_reactions, chunksize=chunksize),
@@ -231,6 +240,25 @@ def main(cfg: DictConfig) -> None:
     #     analyzed_reactions.append(process_reaction(pr))
 
     analyzed_reactions = pl.from_dicts(analyzed_reactions, schema=predicted_reactions_schema)
+
+    # Update paths with reaction data
+    for id, path in paths.items():           
+        rxn = analyzed_reactions.filter(pl.col("id").is_in(path["reactions"])).select(
+            pl.col("dxgb_label"),
+            pl.col("rxn_sims"),
+        )
+
+        paths[id]["feasibility_frac"] = rxn["dxgb_label"].mean()
+        paths[id]["mean_max_rxn_sim"] = np.mean([sims.max() for sims in rxn["rxn_sims"]])
+        paths[id]["mean_mean_rxn_sim"] = np.mean([sims.mean() for sims in rxn["rxn_sims"]])
+        paths[id]["min_max_rxn_sim"] = np.min([sims.max() for sims in rxn["rxn_sims"]])
+        paths[id]["min_mean_rxn_sim"] = np.min([sims.mean() for sims in rxn["rxn_sims"]])
+    
+    # Save paths
+    paths = pl.from_dicts(list(paths.values()), schema=found_paths_schema)
+    existing_paths = pl.read_parquet("found_paths.parquet")
+    paths = pl.concat((existing_paths, paths))
+    paths.write_parquet("found_paths.parquet")
 
     # Generate reaction images
     if not Path("svgs").exists():
@@ -264,12 +292,8 @@ def main(cfg: DictConfig) -> None:
         rxn.save(f"svgs/predicted/{row['id']}.svg")
     
     # Save predicted reactions
-    if Path("predicted_reactions.parquet").exists():
-        existing_reactions = pl.read_parquet(
-            "predicted_reactions.parquet"
-        )
-        analyzed_reactions = pl.concat((analyzed_reactions, existing_reactions))
-    
+    existing_reactions = pl.read_parquet("predicted_reactions.parquet")
+    analyzed_reactions = pl.concat((analyzed_reactions, existing_reactions))
     analyzed_reactions.write_parquet("predicted_reactions.parquet")
 
 if __name__ == "__main__":

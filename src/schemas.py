@@ -22,7 +22,12 @@ found_paths_schema = pl.Schema(
         "dg_err": pl.List(pl.Float32),
         "starter_id": pl.String,
         "target_id": pl.String,
-        "mdf": pl.Float32
+        "mdf": pl.Float32,
+        "mean_max_rxn_sim": pl.Float32,
+        "mean_mean_rxn_sim": pl.Float32,
+        "min_max_rxn_sim": pl.Float32,
+        "min_mean_rxn_sim": pl.Float32,
+        "feasibility_frac": pl.Float32,
     }
 )
 

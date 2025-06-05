@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -A p30041
-#SBATCH -p normal
+#SBATCH -p short
 #SBATCH -N 1
 #SBATCH -n 50
 #SBATCH --mem=0
@@ -14,12 +14,15 @@
 
 # Args
 scripts_dir=/home/spn1560/bottle/scripts
-starters=bottle_targets_24
+starters=alpha_ketoglutarate
+targets=L-glutamine
 generations=2
 processes=50
+a_plus_b=False
+rules=mechinferred_dt_98_rules_w_coreactants
 
 # Commands
 ulimit -c 0
 module purge
 source /home/spn1560/.cache/pypoetry/virtualenvs/bottle-OcfYl-TY-py3.12/bin/activate
-python $scripts_dir/run_pickaxe.py $starters $generations -p $processes
+python $scripts_dir/expand.py starters=$starters targets=$targets generations=$generations rules=$rules processes=$processes

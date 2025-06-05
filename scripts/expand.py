@@ -1,6 +1,5 @@
 import hydra
 from omegaconf import DictConfig
-from src.utils import load_json
 from minedatabase.pickaxe import Pickaxe
 from minedatabase.filters import SimilaritySamplingFilter
 from pathlib import Path
@@ -18,6 +17,7 @@ def main(cfg: DictConfig) -> None:
     pk.load_compound_set(compound_file=Path(cfg.filepaths.starters_targets) / f"{cfg.starters}.csv")
 
     if cfg.a_plus_b:
+        # TODO: Re-intro the strict known role matching?
         # known_reactions = load_json(filepaths['data'] / "sprhea" / "sprhea_240310_v3_mapped_no_subunits.json")
         # known_reactions = [{'smarts': v['smarts'], 'rules': v['imt_rules'] if v['imt_rules'] else []} for v in known_reactions.values()]
         # pk.set_starters_as_coreactants(known_reactions=known_reactions)

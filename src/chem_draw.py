@@ -4,10 +4,13 @@ import svgutils.transform as st
 from svgutils.compose import Unit
 from collections import Counter
 import numpy as np
+from pathlib import Path
 
-plus = st.fromfile('../artifacts/plus.svg').to_str().decode()
-arrow = st.fromfile('../artifacts/arrow.svg').to_str().decode()
-double_border = st.fromfile('../artifacts/double_border.svg').to_str().decode()
+root = Path(__file__).parent.parent
+
+plus = st.fromfile(root / 'artifacts/plus.svg').to_str().decode()
+arrow = st.fromfile(root / 'artifacts/arrow.svg').to_str().decode()
+double_border = st.fromfile(root / 'artifacts/double_border.svg').to_str().decode()
 
 def _add_elt(img: str, movex: int, rxn_img: st.SVGFigure):
         elt = st.fromstring(img)

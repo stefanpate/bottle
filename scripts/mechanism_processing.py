@@ -5,6 +5,7 @@ import polars as pl
 from concurrent.futures import ProcessPoolExecutor
 from hydra.utils import instantiate
 from functools import partial
+from itertools import chain
 from ergochemics.mapping import get_reaction_center
 from pathlib import Path
 from rdkit import Chem
@@ -148,8 +149,11 @@ def main(cfg: DictConfig) -> None:
         print("Searching for paths")
         tic = perf_counter()
         this_paths = pk.find_paths()
+        toc = perf_counter()
+        print(f"Path finding completed in  {toc - tic : .2f} seconds")
         pk.prune(this_paths)
         for sid, tid in this_paths.keys():
+            print(f"Found {len(this_paths[((sid, tid))])} paths from {pk.starters[sid]} to {pk.targets[tid]}")
             for rxns in this_paths[(sid, tid)]:
                 path_id = get_path_id(rxns)
                 paths[path_id] = {
@@ -163,8 +167,6 @@ def main(cfg: DictConfig) -> None:
                     "target_id": tid,
                     "mdf": None
                 }
-        toc = perf_counter()
-        print(f"Found {sum([len(v) for v in paths.values()])} paths in  {toc - tic : .2f} seconds")
         
         # Collect predicted reactions post-pruning
         for k, v in pk.reactions.items():
@@ -206,7 +208,6 @@ def main(cfg: DictConfig) -> None:
             predicted_reactions.pop(id, None)
 
     
-
     # Process reactions
     predicted_reactions = list(predicted_reactions.values())
     chunksize = max(1, int(len(predicted_reactions) / cfg.processes))
@@ -222,14 +223,45 @@ def main(cfg: DictConfig) -> None:
         )
 
     # # TODO: remove. jsut for debugging
-    # print("Initiliazing")
     # proc_initializer(cfg)
     # print("Processing reactions in main process")
     # analyzed_reactions = []
+    # predicted_reactions = list(predicted_reactions.values())
     # for pr in tqdm(predicted_reactions, desc="Processing reactions", total=len(predicted_reactions)): 
     #     analyzed_reactions.append(process_reaction(pr))
 
     analyzed_reactions = pl.from_dicts(analyzed_reactions, schema=predicted_reactions_schema)
+
+    # Generate reaction images
+    if not Path("svgs").exists():
+        Path("svgs").mkdir()
+    
+    if not Path("svgs/known").exists():
+        Path("svgs/known").mkdir()
+        existing_kr_svgs = set()
+    else:
+        existing_kr_svgs = set([fn.name.removesuffix(".svg") for fn in Path("svgs/known").glob("*.svg")])
+    
+    if not Path("svgs/predicted").exists():
+        Path("svgs/predicted").mkdir()
+            
+    krids_to_draw = set(chain(*analyzed_reactions["analogue_ids"])) - existing_kr_svgs
+    krs_to_draw = pl.scan_parquet(
+        Path(cfg.filepaths.known_reactions)
+    ).filter(
+        pl.col("id").is_in(krids_to_draw)
+    ).select(
+        pl.col("id"),
+        pl.col("smarts")
+    ).collect()
+
+    for row in krs_to_draw.iter_rows(named=True):
+        rxn = draw_reaction(row['smarts'], auto_scl=True)
+        rxn.save(f"svgs/known/{row['id']}.svg")
+
+    for row in analyzed_reactions.iter_rows(named=True):
+        rxn = draw_reaction(row['smarts'], auto_scl=True)
+        rxn.save(f"svgs/predicted/{row['id']}.svg")
     
     # Save predicted reactions
     if Path("predicted_reactions.parquet").exists():

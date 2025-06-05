@@ -8,14 +8,14 @@ tani_filter:
   weight: null
 
 coreactants: metacyc_coreactants
-rules: rc_plus_4_rules_w_coreactants
+rules: mechinferred_dt_98_rules_w_coreactants
 starters: alpha_ketoglutarate
-targets: alpha_ketoglutarate_semialdehyde
-a_plus_b: True
+targets: L-glutamine
+a_plus_b: False
 do_tani_sample: False
 prune_to_targets: True
-generations: 1
-processes: 1 # TODO: inherit from slurm config / sh file
+generations: 2
+processes: 10
 
 hydra:
   run:

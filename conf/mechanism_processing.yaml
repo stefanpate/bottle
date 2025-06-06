@@ -17,15 +17,13 @@ rc_dist_ub: 1
 
 forward_expansions:
   - 2_steps_ccm_aa_to_None_rules_mechinferred_dt_98_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk
-  - 2_steps_alpha_ketoglutarate_to_L-glutamine_rules_mechinferred_dt_98_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_True_aplusb_False.pk
 
 reverse_expansions:
-  - 2_steps_bottle_targets_24_to_None_rules_mechinferred_dt_98_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk
-  - null
+  - 3_steps_bottle_targets_24_to_None_rules_mechinferred_dt_98_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk
 
 rule_names: ${extract_rule_names:${.forward_expansions}, ${.reverse_expansions}}
 krs_name: sprhea_v3_ns
-casp_study: test
+casp_study: bottle25
 processes: ???
 
 hydra:

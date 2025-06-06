@@ -16,12 +16,12 @@ mfper:
 rc_dist_ub: 1
 
 forward_expansions:
-  - 1_steps_alpha_ketoglutarate_to_alpha_ketoglutarate_semialdehyde_rules_rc_plus_4_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_True_aplusb_True.pk
+  - 2_steps_alpha_ketoglutarate_to_L-glutamine_rules_mechinferred_dt_98_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_True_aplusb_False.pk
 
 reverse_expansions:
   - null
 
-rule_names: ${extract_rule_names:${.forward_expansions}, ${.reverse_expansions}} # TODO: write custom resovler in .py
+rule_names: ${extract_rule_names:${.forward_expansions}, ${.reverse_expansions}}
 krs_name: sprhea_v3_ns
 casp_study: test
 processes: ???

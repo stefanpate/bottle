@@ -8,7 +8,8 @@ predicted_reactions_schema = pl.Schema(
         "dxgb_label": pl.Int32,
         "rxn_sims": pl.List(pl.Float32),
         "analogue_ids": pl.List(pl.String),
-        "rules": pl.List(pl.String), 
+        "rules": pl.List(pl.String),
+        "reversed": pl.Boolean,
     }
 )
 

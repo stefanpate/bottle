@@ -241,18 +241,21 @@ def main(cfg: DictConfig) -> None:
 
     analyzed_reactions = pl.from_dicts(analyzed_reactions, schema=predicted_reactions_schema)
 
-    # Update paths with reaction data
+    # Add reaction-derived summary stats to paths
     for id, path in paths.items():           
         rxn = analyzed_reactions.filter(pl.col("id").is_in(path["reactions"])).select(
             pl.col("dxgb_label"),
             pl.col("rxn_sims"),
         )
 
+        # If rxn_sims (& analogue_ids) for a predicted rxn is empty, there are 
+        # no analogues. When calculating summary stats, treat this as rxn_sims = [0.0]
+        # instead of skipping it for example.
         paths[id]["feasibility_frac"] = rxn["dxgb_label"].mean()
-        paths[id]["mean_max_rxn_sim"] = np.mean([sims.max() for sims in rxn["rxn_sims"]])
-        paths[id]["mean_mean_rxn_sim"] = np.mean([sims.mean() for sims in rxn["rxn_sims"]])
-        paths[id]["min_max_rxn_sim"] = np.min([sims.max() for sims in rxn["rxn_sims"]])
-        paths[id]["min_mean_rxn_sim"] = np.min([sims.mean() for sims in rxn["rxn_sims"]])
+        paths[id]["mean_max_rxn_sim"] = np.mean([sims.max() or 0 for sims in rxn["rxn_sims"]])
+        paths[id]["mean_mean_rxn_sim"] = np.mean([sims.mean() or 0 for sims in rxn["rxn_sims"]])
+        paths[id]["min_max_rxn_sim"] = np.min([sims.max() or 0 for sims in rxn["rxn_sims"]])
+        paths[id]["min_mean_rxn_sim"] = np.min([sims.mean() or 0 for sims in rxn["rxn_sims"]])
     
     # Save paths
     paths = pl.from_dicts(list(paths.values()), schema=found_paths_schema)

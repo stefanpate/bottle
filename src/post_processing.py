@@ -172,12 +172,7 @@ class Expansion:
         flipped_rxn['_id'] = get_reaction_hash(rxn['Products'], rxn['Reactants'])
         flipped_rxn['Reactants'] = rxn['Products']
         flipped_rxn['Products'] = rxn['Reactants']
-        flipped_operators = set()
-        for o in rxn['Operators']:
-            if o in self.operator_reverses:
-                for fo in self.operator_reverses[o]:
-                    flipped_operators.add(fo)
-        flipped_rxn['Operators'] = flipped_operators
+        flipped_rxn['Operators'] = rxn['Operators']
         flipped_rxn['SMILES_rxn'] = ' => '.join(rxn['SMILES_rxn'].split(' => ')[::-1])
         flipped_rxn['Operator_aligned_smarts'] = '>>'.join(rxn['Operator_aligned_smarts'].split('>>')[::-1])
         flipped_rxn['am_rxn'] = '>>'.join(rxn['am_rxn'].split('>>')[::-1])

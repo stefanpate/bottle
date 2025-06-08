@@ -171,7 +171,11 @@ def main(cfg: DictConfig) -> None:
         this_paths = pk.find_paths()
         toc = perf_counter()
         print(f"Path finding completed in  {toc - tic : .2f} seconds")
+        tic = perf_counter()
+        print("Pruning paths")
         pk.prune(this_paths)
+        toc = perf_counter()
+        print(f"Path pruning completed in {toc - tic : .2f} seconds")
         for sid, tid in this_paths.keys():
             print(f"Found {len(this_paths[((sid, tid))])} paths from {pk.starters[sid]} to {pk.targets[tid]}")
             for rxns in this_paths[(sid, tid)]:
@@ -223,7 +227,7 @@ def main(cfg: DictConfig) -> None:
     chunksize = max(1, int(len(predicted_reactions) / cfg.processes))
     context = get_context("spawn") # Polars hates fork
     with ProcessPoolExecutor(max_workers=cfg.processes, initializer=proc_initializer, initargs=(cfg,), mp_context=context) as executor:
-        print("Using context: ", executor._mp_context)
+        print("Processing reactions w/ context: ", executor._mp_context)
         analyzed_reactions = list(
             tqdm(
                 executor.map(process_reaction, predicted_reactions, chunksize=chunksize),
@@ -287,13 +291,22 @@ def main(cfg: DictConfig) -> None:
         pl.col("smarts")
     ).collect()
 
+
+    tic = perf_counter()
+    print(f"Drawing {len(krs_to_draw)} known reactions")
     for row in krs_to_draw.iter_rows(named=True):
         rxn = draw_reaction(row['smarts'], auto_scl=True)
         rxn.save(f"svgs/known/{row['id']}.svg")
+    toc = perf_counter()
+    print(f"Drawing known reactions completed in {toc - tic : .2f} seconds")
 
+    tic = perf_counter()
+    print(f"Drawing {len(analyzed_reactions)} predicted reactions")
     for row in analyzed_reactions.iter_rows(named=True):
         rxn = draw_reaction(row['smarts'], auto_scl=True)
         rxn.save(f"svgs/predicted/{row['id']}.svg")
+    toc = perf_counter()
+    print(f"Drawing predicted reactions completed in {toc - tic : .2f} seconds")
     
     # Save predicted reactions
     existing_reactions = pl.read_parquet("predicted_reactions.parquet")

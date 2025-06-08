@@ -32,7 +32,7 @@ def proc_initializer(cfg: DictConfig) -> None:
 
     # Create helper dfs
     mapped_rxns = []
-    for rn in set(cfg.rule_names):
+    for rn in set(chain(*cfg.rule_names)):
         df = pl.read_parquet(
             Path(cfg.filepaths.rxn_x_rule_mapping) / f"{cfg.krs_name}_x_{rn}.parquet"
         )
@@ -73,17 +73,16 @@ def extract_rule_names(fwd_expansions: list[str], reverse_expansions: list[str])
         if fwd is not None and rev is not None:
             fwd_rules = fwd.split("_rules_")[1]
             rev_rules = rev.split("_rules_")[1]
-
-            if fwd_rules != rev_rules:
-                raise ValueError(f"Forward and reverse expansions have different rules: {fwd_rules} != {rev_rules}")
-            rules = fwd_rules
+            rule_names.append((f"{fwd_rules}_rules", f"{rev_rules}_rules"))
         elif rev is None:
             rules = fwd.split("_rules_")[1]
+            rule_names.append((None, f"{rules}_rules"))
         elif fwd is None:
             rules = rev.split("_rules_")[1]
+            rule_names.append((f"{rules}_rules", None))
         else:
             raise ValueError("Both forward and reverse expansions are None")
-        rule_names.append(f"{rules}_rules")
+ 
     return rule_names
 
 OmegaConf.register_new_resolver("extract_rule_names", extract_rule_names)
@@ -160,7 +159,7 @@ def main(cfg: DictConfig) -> None:
     
     predicted_reactions = {}
     paths = {}
-    for fwd, rev, rule_name in zip(cfg.forward_expansions, cfg.reverse_expansions, cfg.rule_names):
+    for fwd, rev, (fwd_rules_name, rev_rules_name) in zip(cfg.forward_expansions, cfg.reverse_expansions, cfg.rule_names):
         pk = Expansion(
             forward=Path(cfg.filepaths.raw_expansions) / fwd if fwd else None,
             reverse=Path(cfg.filepaths.raw_expansions) / rev if rev else None,
@@ -206,6 +205,8 @@ def main(cfg: DictConfig) -> None:
             if k in existing_reactions["id"]:
                 continue
 
+            is_reversed = v["reversed"]
+            rule_name = rev_rules_name if is_reversed else fwd_rules_name
             predicted_reactions[k] = {
                 "id": k,
                 "smarts": v["Operator_aligned_smarts"],
@@ -214,7 +215,7 @@ def main(cfg: DictConfig) -> None:
                 "rxn_sims": None,
                 "analogue_ids": None,
                 "rules": [f"{rule_name}:{elt.split('_')[0]}" for elt in v["Operators"]],
-                "reversed": v["reversed"]
+                "reversed": is_reversed,
             }
 
     # Process reactions

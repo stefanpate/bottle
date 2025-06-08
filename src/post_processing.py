@@ -21,7 +21,13 @@ def get_path_id(reaction_ids:Iterable[str]):
     return "P" + hashlib.sha1(concat.encode("utf-8")).hexdigest()
 
 class Expansion:
-    def __init__(self, forward: pathlib.Path = None, reverse: pathlib.Path = None):
+    def __init__(
+        self,
+        forward: pathlib.Path = None,
+        reverse: pathlib.Path = None,
+        override_starters: dict[str, str] = None,
+        override_targets: dict[str, str] = None,
+    ):
 
         if not forward and not reverse:
             raise ValueError("Must provide at least one expansion")
@@ -36,37 +42,27 @@ class Expansion:
         else:
             self.checkpoints = None
 
-        self._compounds = None
-        self._reactions = None
-        self._coreactants = None
-
         if self.forward and self.reverse:
-            self._compounds = {**self.forward['compounds'], **self.reverse['compounds']}
-            self._reactions = {**self.forward['reactions'], **self.reverse['reactions']}
-            self._coreactants = {**self.forward['coreactants'], **self.reverse['coreactants']}
+            self.compounds = {**self.forward['compounds'], **self.reverse['compounds']}
+            self.reactions = {**self.forward['reactions'], **self.reverse['reactions']}
+            self.coreactants = {**self.forward['coreactants'], **self.reverse['coreactants']}
+        elif self.forward:
+            self.compounds = self.forward['compounds']
+            self.reactions = self.forward['reactions']
+            self.coreactants = self.forward['coreactants']
+        elif self.reverse:
+            self.compounds = self.reverse['compounds']
+            self.reactions = self.reverse['reactions']
+            self.coreactants = self.reverse['coreactants']
 
-    @property
-    def coreactants(self):
-        if self._coreactants:
-            return self._coreactants
-        elif not self.reverse:
-            return self.forward['coreactants']
-        else:
-            return self.reverse['coreactants']
-    
-    @property
-    def compounds(self):
-        if self._compounds:
-            return self._compounds
-        elif not self.reverse:
-            return self.forward['compounds']
-        else:
-            return self.reverse['compounds']
-        
-    @compounds.setter
-    def compounds(self, value: dict):
-        self._compounds = value
-    
+        if self.forward and not self.reverse and override_targets:
+            self.forward['targets'] = override_targets
+        elif self.reverse and not self.forward and override_starters:
+            self.reverse['starters'] = override_starters
+        elif override_starters or override_targets:
+            raise ValueError("Cannot override starters or targets when both forward and reverse expansions are provided")
+
+       
     @property
     def starters(self):
         if self.forward: # Forward or combo
@@ -80,19 +76,6 @@ class Expansion:
             return self.reverse['targets']
         else: # Forward
             return self.forward['targets']
-        
-    @property
-    def reactions(self):
-        if self._reactions:
-            return self._reactions
-        elif not self.reverse:
-            return self.forward['reactions']
-        else:
-            return self.reverse['reactions']
-        
-    @reactions.setter
-    def reactions(self, value: dict):
-        self._reactions = value
         
     @property
     def generation(self):

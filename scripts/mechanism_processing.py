@@ -16,6 +16,7 @@ import numpy as np
 from time import perf_counter
 from typing import Any
 from multiprocessing import get_context
+import json
 
 def proc_initializer(cfg: DictConfig) -> None:
     def sma_rc_fp(sma, rc):
@@ -32,7 +33,9 @@ def proc_initializer(cfg: DictConfig) -> None:
 
     # Create helper dfs
     mapped_rxns = []
-    for rn in set(chain(*cfg.rule_names)):
+    unique_rule_names = set(chain(*cfg.rule_names))
+    unique_rule_names.discard(None)  # Remove None if present
+    for rn in unique_rule_names:
         df = pl.read_parquet(
             Path(cfg.filepaths.rxn_x_rule_mapping) / f"{cfg.krs_name}_x_{rn}.parquet"
         )
@@ -76,10 +79,10 @@ def extract_rule_names(fwd_expansions: list[str], reverse_expansions: list[str])
             rule_names.append((f"{fwd_rules}_rules", f"{rev_rules}_rules"))
         elif rev is None:
             rules = fwd.split("_rules_")[1]
-            rule_names.append((None, f"{rules}_rules"))
+            rule_names.append((f"{rules}_rules", None))
         elif fwd is None:
             rules = rev.split("_rules_")[1]
-            rule_names.append((f"{rules}_rules", None))
+            rule_names.append((None, f"{rules}_rules"))
         else:
             raise ValueError("Both forward and reverse expansions are None")
  
@@ -159,10 +162,18 @@ def main(cfg: DictConfig) -> None:
     
     predicted_reactions = {}
     paths = {}
-    for fwd, rev, (fwd_rules_name, rev_rules_name) in zip(cfg.forward_expansions, cfg.reverse_expansions, cfg.rule_names):
+    for fwd, rev, (fwd_rules_name, rev_rules_name), do_override_starters in zip(cfg.forward_expansions, cfg.reverse_expansions, cfg.rule_names, cfg.override_starters):
+        
+        if do_override_starters:
+            with open(Path(cfg.filepaths.artifacts) / "st_overrides" / rev.replace(".pk", ".json"), "r") as f:
+                starter_overrides = json.load(f)
+        else:
+            starter_overrides = None
+        
         pk = Expansion(
             forward=Path(cfg.filepaths.raw_expansions) / fwd if fwd else None,
             reverse=Path(cfg.filepaths.raw_expansions) / rev if rev else None,
+            override_starters=starter_overrides,
         )
         
         # Find paths
@@ -171,11 +182,17 @@ def main(cfg: DictConfig) -> None:
         this_paths = pk.find_paths()
         toc = perf_counter()
         print(f"Path finding completed in  {toc - tic : .2f} seconds")
+        this_paths = {}
         tic = perf_counter()
         print("Pruning paths")
         pk.prune(this_paths)
         toc = perf_counter()
+        
         print(f"Path pruning completed in {toc - tic : .2f} seconds")
+        if not this_paths:
+            print(f"No paths found for {fwd} and {rev}. Skipping.")
+            continue
+        
         for sid, tid in this_paths.keys():
             print(f"Found {len(this_paths[((sid, tid))])} paths from {pk.starters[sid]} to {pk.targets[tid]}")
             for rxns in this_paths[(sid, tid)]:
@@ -257,10 +274,10 @@ def main(cfg: DictConfig) -> None:
         # no analogues. When calculating summary stats, treat this as rxn_sims = [0.0]
         # instead of skipping it for example.
         paths[id]["feasibility_frac"] = rxn["dxgb_label"].mean()
-        paths[id]["mean_max_rxn_sim"] = np.mean([sims.max() or 0 for sims in rxn["rxn_sims"]])
-        paths[id]["mean_mean_rxn_sim"] = np.mean([sims.mean() or 0 for sims in rxn["rxn_sims"]])
-        paths[id]["min_max_rxn_sim"] = np.min([sims.max() or 0 for sims in rxn["rxn_sims"]])
-        paths[id]["min_mean_rxn_sim"] = np.min([sims.mean() or 0 for sims in rxn["rxn_sims"]])
+        paths[id]["mean_max_rxn_sim"] = np.mean([sims.max() or 0 for sims in rxn["rxn_sims"]] or [0])
+        paths[id]["mean_mean_rxn_sim"] = np.mean([sims.mean() or 0 for sims in rxn["rxn_sims"]] or [0])
+        paths[id]["min_max_rxn_sim"] = np.min([sims.max() or 0 for sims in rxn["rxn_sims"]] or [0])
+        paths[id]["min_mean_rxn_sim"] = np.min([sims.mean() or 0 for sims in rxn["rxn_sims"]] or [0])
     
     # Save paths
     paths = pl.from_dicts(list(paths.values()), schema=found_paths_schema)

@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ARG POETRY_VERSION=1.8.3
+ARG POETRY_VERSION=2.1.0
 
 RUN pip install poetry==$POETRY_VERSION \
     && poetry self add poetry-plugin-bundle
@@ -67,15 +67,16 @@ COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
 # copy project assets
 WORKDIR ${BOTTLE_EXPANSION_ASSETS}
-COPY --from=assets ./found_paths.json .
-COPY --from=assets ./known_reactions.json .
-COPY --from=assets ./predicted_reactions.json .
+COPY --from=assets ./found_paths.parquet .
+COPY --from=assets ./predicted_reactions.parquet .
 COPY --from=assets ./svgs ./svgs
 
 # copy project source code
 WORKDIR ${HOME}
 COPY notebooks/ ${HOME}/notebooks
 COPY voila.json ${HOME}/voila.json
+COPY ./artifacts/known/known_reactions.parquet ${HOME}/known/known_reactions.parquet
+COPY ./artifacts/known/known_enzymes.parquet ${HOME}/known/known_enzymes.parquet
 
 # change ownership of project files to root
 RUN chown -R ${NB_UID} ${HOME}

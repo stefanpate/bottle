@@ -164,15 +164,15 @@ class Expansion:
     
     def find_paths(self):
         '''
-        Returns reaction paths from real-world starters to real-world targets
-        in real-world forward direction.
+        Returns
+        -------
+        st_paths: list[list[list[str], list[str], list[str]]]
+            Each element is a path. There are three subelements:
+                - list of starter compound ids
+                - list of target compound ids
+                - list of reaction ids
+            Everything is now in the "real-world" direction of synthesis
         '''
-        def dictize_paths(paths: list):
-            dpaths = defaultdict(list)
-            for p in paths:
-                dpaths[(p[0], p[-1])].append(p[1::2])
-            return dpaths
-
         # Single direction expansions
         if self.forward and not self.reverse:
             paths = self._find_paths(self.forward, retro=False)
@@ -205,7 +205,24 @@ class Expansion:
                 for p in forward_by_checkpoint[rwt]:
                     paths.append(p)
 
-        return dictize_paths(paths)     
+        st_paths = []
+        for p in paths:
+            s = set()
+            t = set()
+            rids = []
+            for rid in p[1::2]:
+                rids.append(rid)
+                for _, cid in self.reactions[rid]['Reactants']:
+                    if cid in self.starters:
+                        s.add(cid)
+                    
+                for _, cid in self.reactions[rid]['Products']:
+                    if cid in self.targets:
+                        t.add(cid)
+
+            st_paths.append([list(s), list(t), rids])
+                    
+        return st_paths    
 
     def _find_paths(self, half_expansion: dict, retro: bool):
         '''
@@ -333,7 +350,7 @@ class Expansion:
         
         return DG
     
-    def prune(self, paths: dict[tuple, tuple]):
+    def prune(self, paths: list[list[list[str], list[str], list[str]]]):
         '''
         Prune compounds and reactions to save time
         e.g., with thermo stuff
@@ -341,13 +358,12 @@ class Expansion:
         pruned_rxns = {}
         pruned_cpds = {}
 
-        for st_paths in paths.values():
-            for p in st_paths:
-                for rid in p:
-                    rxn = self.reactions[rid]
-                    pruned_rxns[rid] = rxn
-                    for _, cid in rxn['Reactants'] + rxn['Products']:
-                        pruned_cpds[cid] = self.compounds[cid]
+        for _, _, rids in paths:
+            for rid in rids:
+                rxn = self.reactions[rid]
+                pruned_rxns[rid] = rxn
+                for _, cid in rxn['Reactants'] + rxn['Products']:
+                    pruned_cpds[cid] = self.compounds[cid]
         
         self.reactions = pruned_rxns
         self.compounds = pruned_cpds
@@ -413,26 +429,33 @@ class PathWrangler:
         self.enzymes = known / "known_enzymes.parquet"
 
         sts = pl.scan_parquet(self.paths).select(
-            pl.col("starter_id"),
-            pl.col("target_id"),
-            pl.col("starter"),
-            pl.col("target")
+            pl.col("starter_ids"),
+            pl.col("target_ids"),
+            pl.col("starters"),
+            pl.col("targets")
+        ).explode(
+            [
+                "starter_ids",
+                "target_ids",
+                "starters",
+                "targets"
+            ]
         ).unique()
 
         starters = sts.select(
-            pl.col("starter_id"),
-            pl.col("starter")
+            pl.col("starter_ids"),
+            pl.col("starters")
         ).unique().collect()
 
         targets = sts.select(
-            pl.col("target_id"),
-            pl.col("target")
+            pl.col("target_ids"),
+            pl.col("targets")
         ).unique().collect()
 
-        self.starters = tuple(starters["starter"])
-        self.targets = tuple(targets["target"])
-        self.starter_ids = tuple(starters["starter_id"])
-        self.target_ids = tuple(targets["target_id"])
+        self.starters = tuple(starters["starters"])
+        self.targets = tuple(targets["targets"])
+        self.starter_ids = tuple(starters["starter_ids"])
+        self.target_ids = tuple(targets["target_ids"])
 
     def get_paths(
             self,
@@ -514,10 +537,14 @@ class PathWrangler:
         paths_lf = pl.scan_parquet(self.paths)
 
         if starters:
-            paths_lf = paths_lf.filter(pl.col("starter").is_in(starters))
+            paths_lf = paths_lf.filter(
+                pl.col("starters").list.eval(pl.element().is_in(starters)).list.all()
+            )
         
         if targets:
-            paths_lf = paths_lf.filter(pl.col("target").is_in(targets))
+            paths_lf = paths_lf.filter(
+                pl.col("targets").list.eval(pl.element().is_in(targets)).list.all()
+            )
 
         if lower_bounds:
             for f, v in lower_bounds.items():

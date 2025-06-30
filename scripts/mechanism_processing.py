@@ -182,7 +182,6 @@ def main(cfg: DictConfig) -> None:
         this_paths = pk.find_paths()
         toc = perf_counter()
         print(f"Path finding completed in  {toc - tic : .2f} seconds")
-        this_paths = {}
         tic = perf_counter()
         print("Pruning paths")
         pk.prune(this_paths)
@@ -192,33 +191,33 @@ def main(cfg: DictConfig) -> None:
         if not this_paths:
             print(f"No paths found for {fwd} and {rev}. Skipping.")
             continue
+        else:
+            print(f"Found {len(this_paths)} paths for {fwd} and {rev}")
         
-        for sid, tid in this_paths.keys():
-            print(f"Found {len(this_paths[((sid, tid))])} paths from {pk.starters[sid]} to {pk.targets[tid]}")
-            for rxns in this_paths[(sid, tid)]:
-                path_id = get_path_id(rxns)
+        for sids, tids, rids in this_paths:
+            path_id = get_path_id(rids)
 
-                if path_id in existing_paths['id']:
-                    continue
+            if path_id in existing_paths['id']:
+                continue
 
-                # Entering some default values here, to be updated later, 
-                # in order to adhere to the schema
-                paths[path_id] = {
-                    "id": path_id,
-                    "starter": pk.starters[sid],
-                    "target": pk.targets[tid],
-                    "reactions": rxns,
-                    "dg_opt": None,
-                    "dg_err": None,
-                    "starter_id": sid,
-                    "target_id": tid,
-                    "mdf": None,
-                    "mean_max_rxn_sim": 0.0,
-                    "mean_mean_rxn_sim": 0.0,
-                    "min_max_rxn_sim": 0.0,
-                    "min_mean_rxn_sim": 0.0,
-                    "feasibility_frac": 0.0,
-                }
+            # Entering some default values here, to be updated later, 
+            # in order to adhere to the schema
+            paths[path_id] = {
+                "id": path_id,
+                "starters": [pk.starters[sid] for sid in sids],
+                "targets": [pk.targets[tid] for tid in tids],
+                "reactions": rids,
+                "dg_opt": None,
+                "dg_err": None,
+                "starter_ids": sids,
+                "target_ids": tids,
+                "mdf": None,
+                "mean_max_rxn_sim": 0.0,
+                "mean_mean_rxn_sim": 0.0,
+                "min_max_rxn_sim": 0.0,
+                "min_mean_rxn_sim": 0.0,
+                "feasibility_frac": 0.0,
+            }
         
         # Collect predicted reactions post-pruning
         for k, v in pk.reactions.items():

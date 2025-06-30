@@ -16,13 +16,13 @@ predicted_reactions_schema = pl.Schema(
 found_paths_schema = pl.Schema(
     {
         "id": pl.String,
-        "starter": pl.String,
-        "target": pl.String,
+        "starters": pl.List(pl.String),
+        "targets": pl.List(pl.String),
         "reactions": pl.List(pl.String),
         "dg_opt": pl.List(pl.Float32),
         "dg_err": pl.List(pl.Float32),
-        "starter_id": pl.String,
-        "target_id": pl.String,
+        "starter_ids": pl.List(pl.String),
+        "target_ids": pl.List(pl.String),
         "mdf": pl.Float32,
         "mean_max_rxn_sim": pl.Float32,
         "mean_mean_rxn_sim": pl.Float32,

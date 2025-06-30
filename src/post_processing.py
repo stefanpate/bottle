@@ -434,12 +434,9 @@ class PathWrangler:
             pl.col("starters"),
             pl.col("targets")
         ).explode(
-            [
-                "starter_ids",
-                "target_ids",
-                "starters",
-                "targets"
-            ]
+            ["starters", "starter_ids"]
+        ).explode(
+            ["targets", "target_ids"]
         ).unique()
 
         starters = sts.select(

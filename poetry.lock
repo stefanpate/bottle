@@ -2883,7 +2883,7 @@ setuptools = ">=70.1.1"
 type = "git"
 url = "https://github.com/stefanpate/pickaxe"
 reference = "py_upgrade"
-resolved_reference = "8ed0666778421d723384c67c6dbcc21322897785"
+resolved_reference = "1dbe1cddfe000731fad4174fcecd88a391dbc60a"
 
 [[package]]
 name = "mistune"
@@ -3810,13 +3810,13 @@ xarray = ["xarray"]
 
 [[package]]
 name = "pkginfo"
-version = "1.11.2"
+version = "1.12.1.2"
 description = "Query metadata from sdists / bdists / installed packages."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pkginfo-1.11.2-py3-none-any.whl", hash = "sha256:9ec518eefccd159de7ed45386a6bb4c6ca5fa2cb3bd9b71154fae44f6f1b36a3"},
-    {file = "pkginfo-1.11.2.tar.gz", hash = "sha256:c6bc916b8298d159e31f2c216e35ee5b86da7da18874f879798d0a1983537c86"},
+    {file = "pkginfo-1.12.1.2-py3-none-any.whl", hash = "sha256:c783ac885519cab2c34927ccfa6bf64b5a704d7c69afaea583dd9b7afe969343"},
+    {file = "pkginfo-1.12.1.2.tar.gz", hash = "sha256:5cd957824ac36f140260964eba3c6be6442a8359b8c48f4adf90210f33a04b7b"},
 ]
 
 [package.extras]

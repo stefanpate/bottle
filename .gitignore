@@ -89,3 +89,5 @@ cover/
 *.pot
 conf/filepaths/filepaths.yaml
 logs/
+
+.local

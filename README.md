@@ -55,11 +55,31 @@ License must cover pKa calculator and ```cxcalc``` must exist in PATH. See more 
 6. tests
 
 ## Usage
-- run_pickaxe.py does a network expansion from starters to targets.
-- process_expansion.py from Pickaxe output, (1) finds paths between starter and target molecules (2) assigns known reaction analogues to the predicted reactions in found paths using a reaction-based similarity score (3) calculates thermodynamic values for predicted pathways using eQuilibrator (4) stores processed paths, predicted reactions, and known reaction information to json
-- map_operators.py maps operators to reaction with option to return the reaction center
-- sprhea_extract.py does most of the processing of known protein-reaction data from SwissProt + Rhea flat files
-- download_rhea_smi_name_pairs.py pulls molecule SMILES-name pairs from Rhea
+### Running a network expansion with Pickaxe
+
+```
+python scripts/expand.py rules=mechinformed_rules_w_coreactants starters=ccm_aa targets=bottle_targets_24
+```
+
+See conf/expand.yaml for more options
+
+### Processing network expansion
+
+Expansion processing has three main parts
+
+1. Path finding
+
+TODO
+
+2. Mechanism processing
+
+Analyzing the likelihood that an existing or engineered enzyme can significantly catalyze the predicted reactions. The main thrust of this is to compare reactant structures to those of characterized enzymatic reactions from [Rhea](https://www.rhea-db.org/) and [UniProt](https://www.uniprot.org/), extracted and formatted according to schemas in [this repository](https://github.com/stefanpate/enz-rxn-data).
+
+3. Thermodynamic calculations
+
+TODO: calculates thermodynamic values for predicted pathways using eQuilibrator (4) stores processed paths, predicted reactions, and known reaction information to json
+
+### Visualizing processed synthesis paths
 
 ## Dev Notes
 
@@ -73,16 +93,6 @@ poetry install --with dev
 
 ```shell
 poe test
-```
-
-## Scripts (in order)
-
-1. `bottle` a master command, supports `--help`
-2. `bottle filter-smiles` allows filtering of input streams of smiles lines (files or stdin) by smarts patterns. Example
-   usage:
-
-```shell
-bottle filter-smiles --mol-smarts=C4_FG123 ~/Downloads/known_compounds_240310_v2.txt -
 ```
 
 ## Building the docker of viola PathViewer to Railway

@@ -136,7 +136,6 @@ def process_reaction(reaction: dict[str, Any]) -> dict[str, Any]:
 
     return reaction
 
-# TODO: write custom resolver for mapped reaction paths
 @hydra.main(version_base=None, config_path="../conf", config_name="mechanism_processing")
 def main(cfg: DictConfig) -> None:
     # Check for existing paths and reactions

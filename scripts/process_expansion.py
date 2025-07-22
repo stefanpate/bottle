@@ -51,160 +51,160 @@ if __name__ == '__main__':
     parser.add_argument("--do-thermo", action="store_true", help="Does thermo calculations if provided")
     args = parser.parse_args()
 
-    imt_reverses = load_json(filepaths['rules'] / "jnimt_reverses.json")
+    # imt_reverses = load_json(filepaths['rules'] / "jnimt_reverses.json")
 
-    print("Loading expansion")
-    pk = Expansion(
-        forward=filepaths['raw_expansions'] / f"{args.forward}.pk" if args.forward else args.forward,
-        reverse=filepaths['raw_expansions'] / f"{args.reverse}.pk" if args.reverse else args.reverse,
-        operator_reverses=imt_reverses,
-    )
-    print("Searching for paths")
-    tic = perf_counter()
-    paths = pk.find_paths()
-    toc = perf_counter()
-    print(f"Found {sum([len(v) for v in paths.values()])} paths in  {toc - tic : .2f} seconds")
-    pk.prune(paths)
-    print(f"Pruned expansion to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
+    # print("Loading expansion")
+    # pk = Expansion(
+    #     forward=filepaths['raw_expansions'] / f"{args.forward}.pk" if args.forward else args.forward,
+    #     reverse=filepaths['raw_expansions'] / f"{args.reverse}.pk" if args.reverse else args.reverse,
+    #     operator_reverses=imt_reverses,
+    # )
+    # print("Searching for paths")
+    # tic = perf_counter()
+    # paths = pk.find_paths()
+    # toc = perf_counter()
+    # print(f"Found {sum([len(v) for v in paths.values()])} paths in  {toc - tic : .2f} seconds")
+    # pk.prune(paths)
+    # print(f"Pruned expansion to {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
 
-    if args.do_thermo:
-        set_start_method("spawn")
+    # if args.do_thermo:
+    #     set_start_method("spawn")
     
-    # Set params
-    pre_standardized = False # Predicted reactions assumed pre-standardized
+    # # Set params
+    # pre_standardized = False # Predicted reactions assumed pre-standardized
 
-    # Load stored paths
-    stored_fp = filepaths['processed_expansions'] / args.stored_dir 
-    if not stored_fp.exists():
-        stored_fp.mkdir()
+    # # Load stored paths
+    # stored_fp = filepaths['processed_expansions'] / args.stored_dir 
+    # if not stored_fp.exists():
+    #     stored_fp.mkdir()
 
-    path_filepath = stored_fp / 'found_paths.json'
-    predicted_reactions_filepath = stored_fp / "predicted_reactions.json"
-    known_reactions_filepath = stored_fp / "known_reactions.json"
-    load_processed = lambda path : load_json(path) if path.exists() else {}
-    stored_paths = load_processed(path_filepath)
-    stored_predicted_reactions = load_processed(predicted_reactions_filepath)
-    stored_known_reactions = load_processed(known_reactions_filepath)
+    # path_filepath = stored_fp / 'found_paths.json'
+    # predicted_reactions_filepath = stored_fp / "predicted_reactions.json"
+    # known_reactions_filepath = stored_fp / "known_reactions.json"
+    # load_processed = lambda path : load_json(path) if path.exists() else {}
+    # stored_paths = load_processed(path_filepath)
+    # stored_predicted_reactions = load_processed(predicted_reactions_filepath)
+    # stored_known_reactions = load_processed(known_reactions_filepath)
 
-    # Read in rules
-    rules_dir = filepaths['rules']
-    rules_fns = ["minimal1224_all_uniprot.tsv", "JN3604IMT_rules.tsv"]
-    read_pd = lambda fn : pd.read_csv(f"{rules_dir}/{fn}", sep='\t').set_index("Name").drop(columns='Comments')
-    min_rules, imt_rules = [read_pd(fn) for fn in rules_fns]
+    # # Read in rules
+    # rules_dir = filepaths['rules']
+    # rules_fns = ["minimal1224_all_uniprot.tsv", "JN3604IMT_rules.tsv"]
+    # read_pd = lambda fn : pd.read_csv(f"{rules_dir}/{fn}", sep='\t').set_index("Name").drop(columns='Comments')
+    # min_rules, imt_rules = [read_pd(fn) for fn in rules_fns]
 
-    # Read in known reactions
-    # NOTE: Minified IMT operator must match MIN operator of a known reaction to be counted
-    known_reaction_bank = load_json(filepaths['data'] / "sprhea" / "sprhea_240310_v3_mapped_no_subunits.json")
-    rule2krs = defaultdict(list)
-    for k, v in known_reaction_bank.items():
-        if v['imt_rules'] and v['min_rule']:
-            for imt in v['imt_rules']:
-                imt_minified = imt.split('_')[0] 
-                if imt_minified == v['min_rule']:
-                    rule2krs[imt_minified].append(k)
+    # # Read in known reactions
+    # # NOTE: Minified IMT operator must match MIN operator of a known reaction to be counted
+    # known_reaction_bank = load_json(filepaths['data'] / "sprhea" / "sprhea_240310_v3_mapped_no_subunits.json")
+    # rule2krs = defaultdict(list)
+    # for k, v in known_reaction_bank.items():
+    #     if v['imt_rules'] and v['min_rule']:
+    #         for imt in v['imt_rules']:
+    #             imt_minified = imt.split('_')[0] 
+    #             if imt_minified == v['min_rule']:
+    #                 rule2krs[imt_minified].append(k)
 
-    rule2ct = {k : len(v) for k, v in rule2krs.items()}
+    # rule2ct = {k : len(v) for k, v in rule2krs.items()}
 
-    dxgb = DORA_XGB.feasibility_classifier(cofactor_positioning='add_concat')
+    # dxgb = DORA_XGB.feasibility_classifier(cofactor_positioning='add_concat')
 
-    if args.do_thermo:
-        print("Adding compounds to equilibrator")
-        add_compounds_to_eQ(pk)
+    # if args.do_thermo:
+    #     print("Adding compounds to equilibrator")
+    #     add_compounds_to_eQ(pk)
 
-    # Create new PredictedReaction objects where don't already have
-    print("Creating new predicted reactions")
-    new_predicted_reactions = {}
-    for sid, tid in paths.keys():
-        for path in paths[(sid, tid)]:        
-            for rid in path:
-                if rid not in stored_predicted_reactions:
-                    pr = PredictedReaction.from_pickaxe(pk, rid)
-                    pr.feasibility = float(dxgb.predict_proba(pr.smarts))
-                    new_predicted_reactions[rid] = pr
+    # # Create new PredictedReaction objects where don't already have
+    # print("Creating new predicted reactions")
+    # new_predicted_reactions = {}
+    # for sid, tid in paths.keys():
+    #     for path in paths[(sid, tid)]:        
+    #         for rid in path:
+    #             if rid not in stored_predicted_reactions:
+    #                 pr = PredictedReaction.from_pickaxe(pk, rid)
+    #                 pr.feasibility = float(dxgb.predict_proba(pr.smarts))
+    #                 new_predicted_reactions[rid] = pr
 
-    # Add KnownReactions to new PredictedReactions
-    print("Adding known analogues")
-    tic = perf_counter()
-    new_known_reactions = {}
-    unmapped = dict(new_predicted_reactions.items())
-    for id, pr in tqdm(sorted(new_predicted_reactions.items())):
-        most_common_map = None
-        analogues = {}
-        minified_rules = [imt.split('_')[0] for imt in pr.operators] # Minify rules
-        srt_rules = sorted(minified_rules, key= lambda x : rule2ct.get(x, 0), reverse=True) # If multiple operators, start w/ most common
-        for min in srt_rules:
+    # # Add KnownReactions to new PredictedReactions
+    # print("Adding known analogues")
+    # tic = perf_counter()
+    # new_known_reactions = {}
+    # unmapped = dict(new_predicted_reactions.items())
+    # for id, pr in tqdm(sorted(new_predicted_reactions.items())):
+    #     most_common_map = None
+    #     analogues = {}
+    #     minified_rules = [imt.split('_')[0] for imt in pr.operators] # Minify rules
+    #     srt_rules = sorted(minified_rules, key= lambda x : rule2ct.get(x, 0), reverse=True) # If multiple operators, start w/ most common
+    #     for min in srt_rules:
 
-            # Standardize smarts
-            if pre_standardized:
-                rxn = pr.smarts
-            else:
-                try:
-                    rxn = standardize_smarts_rxn(pr.smarts, quiet=True)
-                except:
-                    print(f"Unable to standardize reaction: {pr.smarts}")
-                    continue
+    #         # Standardize smarts
+    #         if pre_standardized:
+    #             rxn = pr.smarts
+    #         else:
+    #             try:
+    #                 rxn = standardize_smarts_rxn(pr.smarts, quiet=True)
+    #             except:
+    #                 print(f"Unable to standardize reaction: {pr.smarts}")
+    #                 continue
 
-            # Get reaction center
-            n_rcts = len(rxn.split('>>')[0].split('.'))
-            matched_idxs = ([i for i in range(n_rcts)], )
-            res = map_rxn2rule(rxn, min_rules.loc[min, "SMARTS"], return_rc=True, matched_idxs=matched_idxs)
-            did_map, aligned_smarts, reaction_center = res['did_map'], res['aligned_smarts'], res['reaction_center']
+    #         # Get reaction center
+    #         n_rcts = len(rxn.split('>>')[0].split('.'))
+    #         matched_idxs = ([i for i in range(n_rcts)], )
+    #         res = map_rxn2rule(rxn, min_rules.loc[min, "SMARTS"], return_rc=True, matched_idxs=matched_idxs)
+    #         did_map, aligned_smarts, reaction_center = res['did_map'], res['aligned_smarts'], res['reaction_center']
 
-            if did_map:
+    #         if did_map:
 
-                if most_common_map is None: # First operator mapped is the most common
-                    pr.smarts = aligned_smarts
-                    pr.reaction_center = reaction_center
-                    lhs_patts = extract_operator_patts(min_rules.loc[min, 'SMARTS'], side=0)
-                    pr_rcts = pr.smarts.split(">>")[0].split('.')
-                    pr_rcts_rc = [pr_rcts, pr.reaction_center]
-                    unmapped.pop(id, None)
-                    most_common_map = min
+    #             if most_common_map is None: # First operator mapped is the most common
+    #                 pr.smarts = aligned_smarts
+    #                 pr.reaction_center = reaction_center
+    #                 lhs_patts = extract_operator_patts(min_rules.loc[min, 'SMARTS'], side=0)
+    #                 pr_rcts = pr.smarts.split(">>")[0].split('.')
+    #                 pr_rcts_rc = [pr_rcts, pr.reaction_center]
+    #                 unmapped.pop(id, None)
+    #                 most_common_map = min
                 
-                # If this is the first op or subsequent but same underlying min rule
-                # and therefore reaction center, then you can assign analogues
-                if most_common_map == min:
-                    for krid in rule2krs[min]:
-                        if krid in stored_known_reactions: # Load from stored known reactions
-                            kr = KnownReaction.from_dict(stored_known_reactions[krid])
-                        else: # Create new known reaction from bank
-                            bank_kr = known_reaction_bank[krid]
+    #             # If this is the first op or subsequent but same underlying min rule
+    #             # and therefore reaction center, then you can assign analogues
+    #             if most_common_map == min:
+    #                 for krid in rule2krs[min]:
+    #                     if krid in stored_known_reactions: # Load from stored known reactions
+    #                         kr = KnownReaction.from_dict(stored_known_reactions[krid])
+    #                     else: # Create new known reaction from bank
+    #                         bank_kr = known_reaction_bank[krid]
                             
-                            # Combine all known reaction operators
-                            combined_ops = []
-                            if bank_kr['min_rule']:
-                                combined_ops.append(bank_kr['min_rule'])
-                            if bank_kr['imt_rules']:
-                                combined_ops += bank_kr['imt_rules']
+    #                         # Combine all known reaction operators
+    #                         combined_ops = []
+    #                         if bank_kr['min_rule']:
+    #                             combined_ops.append(bank_kr['min_rule'])
+    #                         if bank_kr['imt_rules']:
+    #                             combined_ops += bank_kr['imt_rules']
                             
-                            # Create known reaction object
-                            kr = KnownReaction(
-                                id=krid,
-                                smarts=bank_kr['smarts'],
-                                operators=combined_ops,
-                                enzymes=[Enzyme.from_dict(e) for e in bank_kr['enzymes']],
-                                db_entries=[DatabaseEntry.from_dict({'name': 'rhea', 'id': rhea}) for rhea in bank_kr['rhea_ids']],
-                                reaction_center=bank_kr['reaction_center'],
-                            )
-                            new_known_reactions[krid] = kr # Store in dict of new krs
+    #                         # Create known reaction object
+    #                         kr = KnownReaction(
+    #                             id=krid,
+    #                             smarts=bank_kr['smarts'],
+    #                             operators=combined_ops,
+    #                             enzymes=[Enzyme.from_dict(e) for e in bank_kr['enzymes']],
+    #                             db_entries=[DatabaseEntry.from_dict({'name': 'rhea', 'id': rhea}) for rhea in bank_kr['rhea_ids']],
+    #                             reaction_center=bank_kr['reaction_center'],
+    #                         )
+    #                         new_known_reactions[krid] = kr # Store in dict of new krs
                             
-                        # RCMCS
-                        kr_rcts_rc = [
-                            kr.smarts.split('>>')[0].split('.'), # Reactants
-                            kr.reaction_center, # Reaction center
-                        ]
-                        rcmcs = calc_lhs_rcmcs(pr_rcts_rc, kr_rcts_rc, patts=lhs_patts, norm='max')
-                        pr.rcmcs[krid] = rcmcs
+    #                     # RCMCS
+    #                     kr_rcts_rc = [
+    #                         kr.smarts.split('>>')[0].split('.'), # Reactants
+    #                         kr.reaction_center, # Reaction center
+    #                     ]
+    #                     rcmcs = calc_lhs_rcmcs(pr_rcts_rc, kr_rcts_rc, patts=lhs_patts, norm='max')
+    #                     pr.rcmcs[krid] = rcmcs
 
-                        analogues[krid] = kr # Append predicted reaction analogues
-            else:
-                print(f"Minified operator failed to recapitulate reaction {min} {id}")
+    #                     analogues[krid] = kr # Append predicted reaction analogues
+    #         else:
+    #             print(f"Minified operator failed to recapitulate reaction {min} {id}")
 
-            pr.analogues = analogues # Add analogues to predicted reaction
+    #         pr.analogues = analogues # Add analogues to predicted reaction
 
-    toc = perf_counter()
-    print(f"Analogue analysis took: {toc - tic : .2f} seconds")
-    print(f"{len(unmapped)} predicted reactions left unmapped")
+    # toc = perf_counter()
+    # print(f"Analogue analysis took: {toc - tic : .2f} seconds")
+    # print(f"{len(unmapped)} predicted reactions left unmapped")
     
     if args.do_thermo:
         # Connect to compound cache

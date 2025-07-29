@@ -1,6 +1,6 @@
 from src.utils import load_json
-from src.cheminfo_utils import standardize_smiles
 from minedatabase.utils import get_compound_hash
+from ergochemics.standardize import standardize_smiles
 from typing import Iterable, Any
 from enum import Enum
 import hashlib

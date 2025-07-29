@@ -14,12 +14,12 @@
 
 # Args
 scripts_dir=/home/spn1560/bottle/scripts
-starters=bottle_targets_24
+starters=bottle_targets_25
 targets=null
-generations=4
+generations=2
 processes=50
 a_plus_b=True
-rules=mechinferred_dt_98_rules_w_coreactants
+rules=mechinferred_dt_91_rules_w_coreactants
 prune=False
 
 # Commands

@@ -25,8 +25,6 @@ class Expansion:
         self,
         forward: pathlib.Path = None,
         reverse: pathlib.Path = None,
-        override_starters: dict[str, str] = None,
-        override_targets: dict[str, str] = None,
     ):
 
         if not forward and not reverse:
@@ -54,14 +52,6 @@ class Expansion:
             self.compounds = self.reverse['compounds']
             self.reactions = self.reverse['reactions']
             self.coreactants = self.reverse['coreactants']
-
-        if self.forward and not self.reverse and override_targets:
-            self.forward['targets'] = override_targets
-        elif self.reverse and not self.forward and override_starters:
-            self.reverse['starters'] = override_starters
-        elif override_starters or override_targets:
-            raise ValueError("Cannot override starters or targets when both forward and reverse expansions are provided")
-
        
     @property
     def starters(self):

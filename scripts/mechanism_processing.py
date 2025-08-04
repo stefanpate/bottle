@@ -161,18 +161,11 @@ def main(cfg: DictConfig) -> None:
     
     predicted_reactions = {}
     paths = {}
-    for fwd, rev, (fwd_rules_name, rev_rules_name), do_override_starters in zip(cfg.forward_expansions, cfg.reverse_expansions, cfg.rule_names, cfg.override_starters):
-        
-        if do_override_starters:
-            with open(Path(cfg.filepaths.artifacts) / "st_overrides" / rev.replace(".pk", ".json"), "r") as f:
-                starter_overrides = json.load(f)
-        else:
-            starter_overrides = None
-        
+    for fwd, rev, (fwd_rules_name, rev_rules_name) in zip(cfg.forward_expansions, cfg.reverse_expansions, cfg.rule_names):
+
         pk = Expansion(
             forward=Path(cfg.filepaths.raw_expansions) / fwd if fwd else None,
             reverse=Path(cfg.filepaths.raw_expansions) / rev if rev else None,
-            override_starters=starter_overrides,
         )
         
         # Find paths

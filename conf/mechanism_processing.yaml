@@ -21,9 +21,6 @@ forward_expansions:
 reverse_expansions:
   - 2_steps_lbnl_targets_to_None_rules_mechinformed_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk
 
-override_starters:
-  - False
-
 rule_names: ${extract_rule_names:${.forward_expansions}, ${.reverse_expansions}}
 krs_name: sprhea_v3_ns
 casp_study: lbnl # bottle25

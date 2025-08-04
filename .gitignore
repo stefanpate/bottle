@@ -17,6 +17,7 @@ artifacts/pwy_svgs/
 artifacts/processed_expansions/known_reactions.json
 *.ipynb_checkpoints*
 *__pycache__*
+*ipython/
 
 .env
 

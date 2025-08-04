@@ -1,0 +1,16 @@
+defaults:
+  - filepaths: filepaths
+  - _self_
+
+mode: retro
+pk_fn: null
+dest: ${filepaths.results}/extracted_am_rxns
+
+hydra:
+  run:
+    dir: ${...dest}
+  job:
+    chdir: True
+  sweep:
+    dir: ${...dest}
+    subdir: .

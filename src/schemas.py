@@ -31,3 +31,10 @@ found_paths_schema = pl.Schema(
         "feasibility_frac": pl.Float32,
     }
 )
+
+expansion_reactions_schema = pl.Schema(
+    {
+        "am_smarts": pl.String,
+        "rules": pl.List(pl.String),
+    }
+)

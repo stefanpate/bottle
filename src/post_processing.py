@@ -367,16 +367,6 @@ class Expansion:
         
         self.reactions = pruned_rxns
         self.compounds = pruned_cpds
-    
-def get_stoich_pk(smiles_rxn):
-    lhs, rhs = [r for r in smiles_rxn.split("=>")]
-    lhs, rhs = [[rct.strip(" ") for rct in side.split(" + ")] for side in [lhs, rhs]]
-    [rct.split(" ") for rct in lhs]
-    pat = re.compile("\((\d+)\) (.+)")
-    reactants = {get_canon_smiles(smiles): -1*int(stoich) for stoich, smiles in [pat.findall(rct)[0] for rct in lhs]}
-    products = {get_canon_smiles(smiles): int(stoich) for stoich, smiles in [pat.findall(rct)[0] for rct in rhs]}
-    reactants.update(products)
-    return reactants
 
 def get_canon_smiles(smi):
     _ = rdBase.BlockLogs()
@@ -618,6 +608,9 @@ class PathWrangler:
     #             raise ValueError(f"Missing required argument {k}")
     #         if type(sort_by[k]) is not t:
     #             raise ValueError(f"Invalid type {sort_by[k]} for argument {k}. Must be {t}")
+
+
+
 
 if __name__ == '__main__':
     from hydra import compose, initialize

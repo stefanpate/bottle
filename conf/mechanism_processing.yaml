@@ -16,15 +16,16 @@ mfper:
 rc_dist_ub: 1
 
 forward_expansions:
-  - 2_steps_ccm_aa_to_None_rules_mechinformed_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk
+  - 2_steps_ccm_aa_to_None_rules_mechinferred_dt_13_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk
+  - 2_steps_ccm_aa_to_None_rules_mechinferred_dt_13_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk
 
 reverse_expansions:
-  - 2_steps_lbnl_targets_to_None_rules_mechinformed_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk
+  - 3_steps_bottle_targets_25_to_None_rules_mechinferred_dt_04_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_False.pk
+  - 3_steps_bottle_targets_25_to_None_rules_mechinformed_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk
 
 rule_names: ${extract_rule_names:${.forward_expansions}, ${.reverse_expansions}}
-krs_name: sprhea_v3_ns
-casp_study: lbnl # bottle25
-processes: 2 #???
+casp_study: bottle25
+processes: 1 #???
 
 hydra:
   run:

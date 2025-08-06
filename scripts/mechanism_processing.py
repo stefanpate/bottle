@@ -37,7 +37,7 @@ def proc_initializer(cfg: DictConfig) -> None:
     unique_rule_names.discard(None)  # Remove None if present
     for rn in unique_rule_names:
         df = pl.read_parquet(
-            Path(cfg.filepaths.rxn_x_rule_mapping) / f"{cfg.krs_name}_x_{rn}.parquet"
+            Path(cfg.filepaths.rxn_x_rule_mapping) / f"mapped_known_reactions_x_{rn}.parquet"
         )
         df = df.with_columns(
             reaction_center=pl.col("am_smarts").map_elements(
@@ -131,7 +131,7 @@ def process_reaction(reaction: dict[str, Any]) -> dict[str, Any]:
 
     reaction["dxgb_label"] = is_feasible
     reaction["rxn_sims"] = srt_sims
-    reaction["analogue_ids"] = srt_krids
+    reaction["analogue_ids"] = [int(elt) for elt in srt_krids] # TODO: will not need to cast to int once move all ids to hashes (str)
     reaction.pop("reversed", None) # Don't want to save this
 
     return reaction

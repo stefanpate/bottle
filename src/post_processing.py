@@ -591,16 +591,6 @@ class PathWrangler:
 
     #     return p
     
-    # def _validate_custom_agg(self, sort_by:dict):
-    #     req_kwargs = {'kr_agg': str, 'pr_agg': str, 'k': int}
-    #     for k, t in req_kwargs.items():
-    #         if k not in sort_by:
-    #             raise ValueError(f"Missing required argument {k}")
-    #         if type(sort_by[k]) is not t:
-    #             raise ValueError(f"Invalid type {sort_by[k]} for argument {k}. Must be {t}")
-
-
-
 
 if __name__ == '__main__':
     from hydra import compose, initialize

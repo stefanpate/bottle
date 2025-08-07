@@ -131,7 +131,7 @@ def process_reaction(reaction: dict[str, Any]) -> dict[str, Any]:
 
     reaction["dxgb_label"] = is_feasible
     reaction["rxn_sims"] = srt_sims
-    reaction["analogue_ids"] = [int(elt) for elt in srt_krids] # TODO: will not need to cast to int once move all ids to hashes (str)
+    reaction["analogue_ids"] = srt_krids
     reaction.pop("reversed", None) # Don't want to save this
 
     return reaction
@@ -243,15 +243,7 @@ def main(cfg: DictConfig) -> None:
                 desc="Procesing reactions"
             )
         )
-
-    # # TODO: remove. jsut for debugging
-    # proc_initializer(cfg)
-    # print("Processing reactions in main process")
-    # analyzed_reactions = []
-    # predicted_reactions = list(predicted_reactions.values())
-    # for pr in tqdm(predicted_reactions, desc="Processing reactions", total=len(predicted_reactions)): 
-    #     analyzed_reactions.append(process_reaction(pr))
-
+        
     analyzed_reactions = pl.from_dicts(analyzed_reactions, schema=predicted_reactions_schema)
 
     # Add reaction-derived summary stats to paths

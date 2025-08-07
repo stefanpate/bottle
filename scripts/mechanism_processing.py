@@ -132,7 +132,10 @@ def process_reaction(reaction: dict[str, Any]) -> dict[str, Any]:
     reaction["dxgb_label"] = is_feasible
     reaction["rxn_sims"] = srt_sims
     reaction["analogue_ids"] = srt_krids
-    reaction.pop("reversed", None) # Don't want to save this
+    try:
+        reaction.pop("reversed", None) # Don't want to save this
+    except KeyError:
+        pass
 
     return reaction
 

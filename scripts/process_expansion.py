@@ -1,3 +1,5 @@
+# TODO: DEPRECATED. Delete after migrating thermo processing to another script.
+
 import pathlib
 import pandas as pd
 from collections import defaultdict

@@ -12,12 +12,23 @@ predicted_reactions_schema = pl.Schema(
     }
 )
 
-found_paths_schema = pl.Schema(
+rxn_type = pl.Enum(categories=["predicted", "known"])
+
+paths_schema = pl.Schema(
+    {
+        "path_id": pl.String,
+        "rxn_id": pl.String,
+        "main_pdt_id": pl.String,
+        "rxn_type": rxn_type,
+        "generation": pl.Int32,
+    }
+)
+
+path_stats_schema = pl.Schema(
     {
         "id": pl.String,
         "starters": pl.List(pl.String),
         "targets": pl.List(pl.String),
-        "reactions": pl.List(pl.String),
         "dg_opt": pl.List(pl.Float32),
         "dg_err": pl.List(pl.Float32),
         "starter_ids": pl.List(pl.String),

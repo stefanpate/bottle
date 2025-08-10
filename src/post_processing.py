@@ -14,11 +14,12 @@ import networkx as nx
 import re
 import polars as pl
 
-def get_path_id(reaction_ids:Iterable[str]):
-    '''Returns hash id for pathway given
-    reaction ids'''
-    concat = "".join(reaction_ids)
-    return "P" + hashlib.sha1(concat.encode("utf-8")).hexdigest()
+# TODO: Reimplemente w/ generations included. (Resolve generation ties with lex sort)
+# def get_path_id(reaction_ids:Iterable[str]):
+#     '''Returns hash id for pathway given
+#     reaction ids'''
+#     concat = "".join(reaction_ids)
+#     return "P" + hashlib.sha1(concat.encode("utf-8")).hexdigest()
 
 class Expansion:
     def __init__(
@@ -358,32 +359,33 @@ class Expansion:
         self.reactions = pruned_rxns
         self.compounds = pruned_cpds
 
-def get_canon_smiles(smi):
-    _ = rdBase.BlockLogs()
-    try:
-        return CanonSmiles(smi)
-    except BaseException as e:
-        return smi
+# TODO: Delete. Superseded by ergochemics
+# def get_canon_smiles(smi):
+#     _ = rdBase.BlockLogs()
+#     try:
+#         return CanonSmiles(smi)
+#     except BaseException as e:
+#         return smi
     
-def get_reaction_hash(
-    reactants: list[tuple], products: list[tuple]
-) -> str:
-    """Tries to do what Pickaxe does mid transform.
-    By the way pickaxe is not doing what I think it
-    wants to do.
-    TODO: make hashes stoich-sensitive
-    """
-    def to_str(half_rxn):
-        return [f"(1) {x}" for x in sorted(half_rxn)]
+# def get_reaction_hash(
+#     reactants: list[tuple], products: list[tuple]
+# ) -> str:
+#     """Tries to do what Pickaxe does mid transform.
+#     By the way pickaxe is not doing what I think it
+#     wants to do.
+#     TODO: make hashes stoich-sensitive
+#     """
+#     def to_str(half_rxn):
+#         return [f"(1) {x}" for x in sorted(half_rxn)]
 
-    reactant_ids = [reactant[1] for reactant in reactants]
-    product_ids = [product[1] for product in products]
-    text_ids_rxn = (
-        " + ".join(to_str(reactant_ids)) + " => " + " + ".join(to_str(product_ids))
-    )
-    rhash = "R" + hashlib.sha256(text_ids_rxn.encode()).hexdigest()
+#     reactant_ids = [reactant[1] for reactant in reactants]
+#     product_ids = [product[1] for product in products]
+#     text_ids_rxn = (
+#         " + ".join(to_str(reactant_ids)) + " => " + " + ".join(to_str(product_ids))
+#     )
+#     rhash = "R" + hashlib.sha256(text_ids_rxn.encode()).hexdigest()
 
-    return rhash
+#     return rhash
 
 class EnzymeExistence(Enum):
     PROTEIN = 'Evidence at protein level'

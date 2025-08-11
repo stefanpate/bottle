@@ -133,7 +133,7 @@ class ReactionNetwork(nx.MultiDiGraph):
 
         return node_path, edge_path
     
-    def add_reaction(self, am_rxn: str, rid: str | None = None, smi2name: dict[str, str] = {}) -> None:
+    def add_reaction(self, am_rxn: str, rid: str | None = None, rxn_type: str | None = None, smi2name: dict[str, str] = {}) -> None:
         '''
         Adds a reaction to the reaction network.
 
@@ -141,8 +141,10 @@ class ReactionNetwork(nx.MultiDiGraph):
         ----
         am_rxn: str
             Atom-mapped reaction string in the form of "R1.R2.R3>>P1.P2.P3".
-        rid: str | None
+        rid: str (Optional)
             Reaction ID. If None, uses a hash of the reaction string.
+        rxn_type: str (Optional)
+            Type of reaction, e.g., "known" or "predicted".
         smi2name: dict[str, str] (Optional)
             Mapping from SMILES to compound names.
         '''
@@ -168,6 +170,10 @@ class ReactionNetwork(nx.MultiDiGraph):
             for rct_smi, pnmc in rcts.items():
                 rct_id = hash_compound(rct_smi)
 
+                if self.has_edge(rct_id, pdt_id, key=rid):
+                    self.logger.warning(f"Edges involving reaction id {rid} already exist. Skipping addition to avoid duplication or overwriting.")                
+                    return
+                
                 grouped_predecessors.append(rct_id)
                 rnmc = mass_contributions['rct_normed_mass_contrib'][pdt_smi][rct_smi]
                 
@@ -186,6 +192,7 @@ class ReactionNetwork(nx.MultiDiGraph):
                         'pnmc': pnmc,
                         'rnmc': rnmc,
                         'am_smarts': am_rxn,
+                        'rxn_type': rxn_type
                     }
                 )
 

@@ -1243,7 +1243,7 @@ rdkit = ">=2024.9.5"
 type = "git"
 url = "https://github.com/stefanpate/ergochemics.git"
 reference = "HEAD"
-resolved_reference = "019a36252e53bd742f71705739d452e7919bdb53"
+resolved_reference = "e622a99ac68a651e2fdc5fce7b9dbafe606dd760"
 
 [[package]]
 name = "executing"
@@ -2890,21 +2890,19 @@ dev = ["absl-py", "pyink", "pylint (>=2.6.0)", "pytest", "pytest-xdist"]
 
 [[package]]
 name = "mordred"
-version = "1.2.0"
+version = "0.6.0"
 description = "molecular descriptor calculator"
 optional = false
 python-versions = "*"
 files = [
-    {file = "mordred-1.2.0.tar.gz", hash = "sha256:1115f9f3a3dde290dd68d51a5070fce43a62aab96b980cffc9d72b74a59e1c5a"},
+    {file = "mordred-0.6.0.tar.gz", hash = "sha256:6c947c4cc83b9839e868eb4a1558ca25b0488ad1426582efa39ed8dbfd54c1ae"},
 ]
 
 [package.dependencies]
-networkx = "==2.*"
-numpy = "==1.*"
-six = "==1.*"
-
-[package.extras]
-full = ["pandas", "tqdm"]
+networkx = ">=1.10"
+numpy = ">=1.10"
+six = ">=1.10"
+tqdm = ">=3.7.1"
 
 [[package]]
 name = "more-itertools"
@@ -3094,21 +3092,23 @@ files = [
 
 [[package]]
 name = "networkx"
-version = "2.8.8"
+version = "3.5"
 description = "Python package for creating and manipulating graphs and networks"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.11"
 files = [
-    {file = "networkx-2.8.8-py3-none-any.whl", hash = "sha256:e435dfa75b1d7195c7b8378c3859f0445cd88c6b0375c181ed66823a9ceb7524"},
-    {file = "networkx-2.8.8.tar.gz", hash = "sha256:230d388117af870fce5647a3c52401fcf753e94720e6ea6b4197a5355648885e"},
+    {file = "networkx-3.5-py3-none-any.whl", hash = "sha256:0030d386a9a06dee3565298b4a734b68589749a544acbb6c412dc9e2489ec6ec"},
+    {file = "networkx-3.5.tar.gz", hash = "sha256:d4c6f9cf81f52d69230866796b82afbccdec3db7ae4fbd1b65ea750feed50037"},
 ]
 
 [package.extras]
-default = ["matplotlib (>=3.4)", "numpy (>=1.19)", "pandas (>=1.3)", "scipy (>=1.8)"]
-developer = ["mypy (>=0.982)", "pre-commit (>=2.20)"]
-doc = ["nb2plots (>=0.6)", "numpydoc (>=1.5)", "pillow (>=9.2)", "pydata-sphinx-theme (>=0.11)", "sphinx (>=5.2)", "sphinx-gallery (>=0.11)", "texext (>=0.6.6)"]
-extra = ["lxml (>=4.6)", "pydot (>=1.4.2)", "pygraphviz (>=1.9)", "sympy (>=1.10)"]
-test = ["codecov (>=2.1)", "pytest (>=7.2)", "pytest-cov (>=4.0)"]
+default = ["matplotlib (>=3.8)", "numpy (>=1.25)", "pandas (>=2.0)", "scipy (>=1.11.2)"]
+developer = ["mypy (>=1.15)", "pre-commit (>=4.1)"]
+doc = ["intersphinx-registry", "myst-nb (>=1.1)", "numpydoc (>=1.8.0)", "pillow (>=10)", "pydata-sphinx-theme (>=0.16)", "sphinx (>=8.0)", "sphinx-gallery (>=0.18)", "texext (>=0.6.7)"]
+example = ["cairocffi (>=1.7)", "contextily (>=1.6)", "igraph (>=0.11)", "momepy (>=0.7.2)", "osmnx (>=2.0.0)", "scikit-learn (>=1.5)", "seaborn (>=0.13)"]
+extra = ["lxml (>=4.6)", "pydot (>=3.0.1)", "pygraphviz (>=1.14)", "sympy (>=1.10)"]
+test = ["pytest (>=7.2)", "pytest-cov (>=4.0)", "pytest-xdist (>=3.0)"]
+test-extras = ["pytest-mpl", "pytest-randomly"]
 
 [[package]]
 name = "notebook-shim"
@@ -6238,4 +6238,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.12"
-content-hash = "d8a86f8fa38d7a34e53932bd2199640983f3be1d4b8a1c760039d6c97fd09628"
+content-hash = "21c1cc42abfea449bd0f981ad856cb423dadf4b64bacd75587404453e5001b03"

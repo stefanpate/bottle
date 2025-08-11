@@ -17,9 +17,8 @@ from time import perf_counter
 from typing import Any
 from multiprocessing import get_context
 import json
-from collections import defaultdict
 
-def proc_initializer(cfg: DictConfig, _mapped_rxns: pl.DataFrame) -> None:
+def proc_initializer(cfg: DictConfig) -> None:
     def sma_rc_fp(sma, rc):
         mol = Chem.MolFromSmiles(sma.split('>>')[0])
         if mol is None:
@@ -33,7 +32,7 @@ def proc_initializer(cfg: DictConfig, _mapped_rxns: pl.DataFrame) -> None:
     _fingerprint = partial(mfper.fingerprint, rc_dist_ub=cfg.rc_dist_ub)
 
     # Create helper dfs
-    mapped_rxns = _mapped_rxns
+    mapped_rxns = []
     unique_rule_names = set(chain(*cfg.rule_names))
     unique_rule_names.discard(None)  # Remove None if present
     for rn in unique_rule_names:
@@ -70,6 +69,26 @@ def proc_initializer(cfg: DictConfig, _mapped_rxns: pl.DataFrame) -> None:
 
 def get_lhs_block_rc(am_smarts: str) -> list[int]:
     return get_reaction_center(am_smarts, mode="combined")[0]
+
+def extract_rule_names(fwd_expansions: list[str], reverse_expansions: list[str]) -> str:
+    rule_names = []
+    for fwd, rev in zip(fwd_expansions, reverse_expansions):
+        if fwd is not None and rev is not None:
+            fwd_rules = fwd.split("_rules_")[1]
+            rev_rules = rev.split("_rules_")[1]
+            rule_names.append((f"{fwd_rules}_rules", f"{rev_rules}_rules"))
+        elif rev is None:
+            rules = fwd.split("_rules_")[1]
+            rule_names.append((f"{rules}_rules", None))
+        elif fwd is None:
+            rules = rev.split("_rules_")[1]
+            rule_names.append((None, f"{rules}_rules"))
+        else:
+            raise ValueError("Both forward and reverse expansions are None")
+ 
+    return rule_names
+
+OmegaConf.register_new_resolver("extract_rule_names", extract_rule_names)
 
 def process_reaction(reaction: dict[str, Any]) -> dict[str, Any]:
     reaction = {k: v for k, v in reaction.items()} # Defensive copy
@@ -120,40 +139,100 @@ def process_reaction(reaction: dict[str, Any]) -> dict[str, Any]:
 
     return reaction
 
-def load_mapped_reactions(rule_names: pl.Series, mappings_dir: str) -> pl.DataFrame:
-    unique_rules = set(rule_names.explode())
-    rules_by_set = defaultdict(set)
-    for rule in unique_rules:
-        ruleset_name, rule_id = rule.split(":")
-        rules_by_set[ruleset_name].add(rule_id)
-    
-    mapped_rxns = []
-    for ruleset_name, rule_ids in rules_by_set.items():
-        df = pl.scan_parquet(
-            Path(mappings_dir) / f"mapped_known_reactions_x_{ruleset_name}_rules.parquet"
-        ).filter(
-            pl.col("rule_id").is_in(rule_ids)
-        ).with_columns(
-            pl.col("rule_id").prefix(f"{ruleset_name}:")
-        ).collect()
-        mapped_rxns.append(df)
-
-    mapped_rxns = pl.concat(mapped_rxns)
-    return mapped_rxns
-
-
 @hydra.main(version_base=None, config_path="../conf", config_name="mechanism_processing")
 def main(cfg: DictConfig) -> None:
+    # Check for existing paths and reactions
+    if Path("predicted_reactions.parquet").exists():
+        existing_reactions = pl.scan_parquet(
+            "predicted_reactions.parquet"
+        ).select(
+            pl.col("id")
+        ).collect()
+    else:
+        existing_reactions = pl.DataFrame(schema=predicted_reactions_schema)
+        existing_reactions.write_parquet("predicted_reactions.parquet")
 
-    if not Path("paths.parquet").exists():
-        return
+    if Path("found_paths.parquet").exists():
+        existing_paths = pl.scan_parquet(
+            "found_paths.parquet"
+        ).select(
+            pl.col("id")
+        ).collect()
+    else:
+        existing_paths = pl.DataFrame(schema=found_paths_schema)
+        existing_paths.write_parquet("found_paths.parquet")
     
-    pred_rxns_to_do = pl.scan_parquet("predicted_reactions.parquet").filter(
-        pl.col("dxgb_label").is_null() | pl.col("rxn_sims").is_null() | pl.col("analogue_ids").is_null()
-    ).collect()
+    predicted_reactions = {}
+    paths = {}
+    for fwd, rev, (fwd_rules_name, rev_rules_name) in zip(cfg.forward_expansions, cfg.reverse_expansions, cfg.rule_names):
 
-    _mapped_reactions = load_mapped_reactions(rule_names=pred_rxns_to_do["rules"], mappings_dir=cfg.filepaths.rxn_x_rule_mapping)
-    
+        pk = Expansion(
+            forward=Path(cfg.filepaths.raw_expansions) / fwd if fwd else None,
+            reverse=Path(cfg.filepaths.raw_expansions) / rev if rev else None,
+        )
+        
+        # Find paths
+        print("Searching for paths")
+        tic = perf_counter()
+        this_paths = pk.find_paths()
+        toc = perf_counter()
+        print(f"Path finding completed in  {toc - tic : .2f} seconds")
+        tic = perf_counter()
+        print("Pruning paths")
+        pk.prune(this_paths)
+        toc = perf_counter()
+        
+        print(f"Path pruning completed in {toc - tic : .2f} seconds")
+        if not this_paths:
+            print(f"No paths found for {fwd} and {rev}. Skipping.")
+            continue
+        else:
+            print(f"Found {len(this_paths)} paths for {fwd} and {rev}")
+        
+        for sids, tids, rids in this_paths:
+            path_id = get_path_id(rids)
+
+            if path_id in existing_paths['id']:
+                continue
+
+            # Entering some default values here, to be updated later, 
+            # in order to adhere to the schema
+            paths[path_id] = {
+                "id": path_id,
+                "starters": [pk.starters[sid] for sid in sids],
+                "targets": [pk.targets[tid] for tid in tids],
+                "reactions": rids,
+                "dg_opt": None,
+                "dg_err": None,
+                "starter_ids": sids,
+                "target_ids": tids,
+                "mdf": None,
+                "mean_max_rxn_sim": 0.0,
+                "mean_mean_rxn_sim": 0.0,
+                "min_max_rxn_sim": 0.0,
+                "min_mean_rxn_sim": 0.0,
+                "feasibility_frac": 0.0,
+            }
+        
+        # Collect predicted reactions post-pruning
+        for k, v in pk.reactions.items():
+
+            if k in existing_reactions["id"]:
+                continue
+
+            is_reversed = v["reversed"]
+            rule_name = rev_rules_name if is_reversed else fwd_rules_name
+            predicted_reactions[k] = {
+                "id": k,
+                "smarts": v["Operator_aligned_smarts"],
+                "am_smarts": v["am_rxn"],
+                "dxgb_label": None,
+                "rxn_sims": None,
+                "analogue_ids": None,
+                "rules": [f"{rule_name}:{elt.split('_')[0]}" for elt in v["Operators"]],
+                "reversed": is_reversed,
+            }
+
     # Process reactions
     predicted_reactions = list(predicted_reactions.values())
     chunksize = max(1, int(len(predicted_reactions) / cfg.processes))
@@ -214,6 +293,7 @@ def main(cfg: DictConfig) -> None:
         pl.col("id"),
         pl.col("smarts")
     ).collect()
+
 
     tic = perf_counter()
     print(f"Drawing {len(krs_to_draw)} known reactions")

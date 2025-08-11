@@ -5,7 +5,7 @@ from pathlib import Path
 import polars as pl
 from src.schemas import expansion_reactions_schema
 
-@hydra.main(version_base=None, config_path="../conf", config_name="extract_am_rxns")
+@hydra.main(version_base=None, config_path="../conf", config_name="parse_expansion")
 def main(cfg: DictConfig) -> None:
 
     if cfg.pk_fn is not None:
@@ -46,11 +46,19 @@ def main(cfg: DictConfig) -> None:
                 for smi in targets:
                     f.write(smi + "\n")
 
-        rxn_data = [
-            (">>".join(rxn['am_rxn'].split('>>')[::-1]), list(rxn['Operators'])) 
-            for rxn in pk.reactions.values() 
-            if 'am_rxn' in rxn
-        ]
+        rxn_data = []
+        for rxn in pk.reactions.values():
+            if 'am_rxn' not in rxn:
+                continue
+            
+            if cfg.mode == "retro":
+                am_smarts = ">>".join(rxn['am_rxn'].split('>>')[::-1])
+                # TODO: Get reverse rules
+            else:
+                am_smarts = rxn['am_rxn']
+
+            rules = [f"{cfg.rule_set}:{rule}" for rule in rxn['Operators']]
+            rxn_data.append((am_smarts, rules))
 
         rxns = pl.DataFrame(
             rxn_data,

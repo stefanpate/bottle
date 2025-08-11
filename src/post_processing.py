@@ -6,20 +6,24 @@ from enum import Enum
 import hashlib
 import pathlib
 import pickle
-from rdkit import rdBase
-from rdkit.Chem import CanonSmiles
 from collections import defaultdict
 from itertools import product
 import networkx as nx
-import re
 import polars as pl
 
-# TODO: Reimplemente w/ generations included. (Resolve generation ties with lex sort)
-# def get_path_id(reaction_ids:Iterable[str]):
-#     '''Returns hash id for pathway given
-#     reaction ids'''
-#     concat = "".join(reaction_ids)
-#     return "P" + hashlib.sha1(concat.encode("utf-8")).hexdigest()
+def hash_path(rxns: list[tuple[int, str]]) -> str:
+    '''Returns hash id for pathway given
+    reaction ids
+    
+    Args
+    -----
+    rxns: list[tuple[int, str]]
+        List of (generation, reaction id) tuples
+    '''
+    rxns = sorted(rxns, key=lambda x: (x[0], x[1])) # Sort by generation, then lexicographically
+    reaction_ids = [r[1] for r in rxns]
+    concat = "".join(reaction_ids)
+    return hashlib.sha1(concat.encode("utf-8")).hexdigest()
 
 class Expansion:
     def __init__(
@@ -359,34 +363,6 @@ class Expansion:
         self.reactions = pruned_rxns
         self.compounds = pruned_cpds
 
-# TODO: Delete. Superseded by ergochemics
-# def get_canon_smiles(smi):
-#     _ = rdBase.BlockLogs()
-#     try:
-#         return CanonSmiles(smi)
-#     except BaseException as e:
-#         return smi
-    
-# def get_reaction_hash(
-#     reactants: list[tuple], products: list[tuple]
-# ) -> str:
-#     """Tries to do what Pickaxe does mid transform.
-#     By the way pickaxe is not doing what I think it
-#     wants to do.
-#     TODO: make hashes stoich-sensitive
-#     """
-#     def to_str(half_rxn):
-#         return [f"(1) {x}" for x in sorted(half_rxn)]
-
-#     reactant_ids = [reactant[1] for reactant in reactants]
-#     product_ids = [product[1] for product in products]
-#     text_ids_rxn = (
-#         " + ".join(to_str(reactant_ids)) + " => " + " + ".join(to_str(product_ids))
-#     )
-#     rhash = "R" + hashlib.sha256(text_ids_rxn.encode()).hexdigest()
-
-#     return rhash
-
 class EnzymeExistence(Enum):
     PROTEIN = 'Evidence at protein level'
     TRANSCRIPT = 'Evidence at transcript level'
@@ -593,7 +569,6 @@ class PathWrangler:
 
     #     return p
     
-
 if __name__ == '__main__':
     from hydra import compose, initialize
     

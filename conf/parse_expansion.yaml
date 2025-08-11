@@ -4,6 +4,7 @@ defaults:
 
 mode: retro
 pk_fn: null
+rule_set: ???
 dest: ${filepaths.results}/extracted_am_rxns
 
 hydra:

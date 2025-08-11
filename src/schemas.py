@@ -9,6 +9,7 @@ predicted_reactions_schema = pl.Schema(
         "rxn_sims": pl.List(pl.Float32),
         "analogue_ids": pl.List(pl.String),
         "rules": pl.List(pl.String),
+
     }
 )
 

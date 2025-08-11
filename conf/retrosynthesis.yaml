@@ -9,7 +9,7 @@ am_rxns: am_rxns.parquet
 expansion: ???
 casp_study: ???
 known_reaction_network: ${filepaths.interim_data}/known_reaction_network.json
-expansion_extract: ${filepaths.extracted_am_rxns}/${.expansion}
+expansion_extract: ${filepaths.interim_data}/expansions/${.expansion}
 max_depth: 2
 max_leaves: 3
 tot_rnmc_lb: 0.0

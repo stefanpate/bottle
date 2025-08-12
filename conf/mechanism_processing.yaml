@@ -15,7 +15,7 @@ mfper:
 
 rc_dist_ub: 1
 
-casp_study: lbnl
+casp_study: test
 processes: 5
 
 hydra:

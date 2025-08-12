@@ -4,8 +4,9 @@ defaults:
 
 mode: retro
 pk_fn: null
-rule_set: ???
-dest: ${filepaths.results}/extracted_am_rxns
+rule_set: ??? # e.g., mechinferred_dt_04
+rxn_x_rule_mapping: ${filepaths.rxn_x_rule_mapping}/mapped_known_reactions_x_${.rule_set}_rules.parquet
+dest: ${filepaths.interim_data}/expansions
 
 hydra:
   run:

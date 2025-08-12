@@ -105,7 +105,7 @@ def main(cfg: DictConfig):
         smarts_lookup[k] = d['am_smarts']
         rxn_type_lookup[k] = d['rxn_type']
 
-    rules_lookup = dict(zip(am_rxns['am_smarts'], am_rxns['rules']))
+    rules_lookup = dict(zip(am_rxns['am_smarts'], am_rxns['rules'].to_list()))
 
     new_paths, new_path_stats, new_reactions = [], [], []
     for tree in trees:
@@ -159,6 +159,8 @@ def main(cfg: DictConfig):
                     ]
                 )
 
+    # Concat and save
+    
     paths = pl.concat([
         existing_paths,
         pl.DataFrame(

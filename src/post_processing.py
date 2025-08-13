@@ -12,7 +12,8 @@ import networkx as nx
 import polars as pl
 
 def hash_path(rxns: list[tuple[int, str]]) -> str:
-    '''Returns hash id for pathway given
+    '''
+    Returns hash id for pathway given
     reaction ids
     
     Args
@@ -382,11 +383,12 @@ class PathWrangler:
     def __init__(self, study: pathlib.Path, known: pathlib.Path) -> None:
         self.study = study
         self.predicted_reactions = study / "predicted_reactions.parquet"
-        self.paths = study / "found_paths.parquet"
+        self.paths = study / "paths.parquet"
+        self.path_stats = study / "path_stats.parquet"
         self.known_reactions = known / "known_reactions.parquet"
         self.enzymes = known / "known_enzymes.parquet"
 
-        sts = pl.scan_parquet(self.paths).select(
+        sts = pl.scan_parquet(self.path_stats).select(
             pl.col("starter_ids"),
             pl.col("target_ids"),
             pl.col("starters"),
@@ -474,56 +476,63 @@ class PathWrangler:
         if top_k and not sort_by:
             raise ValueError("If top_k is provided, sort_by must also be provided")
         
-        _path_schema = pl.read_parquet_schema(self.paths)
+        _path_stats_schema = pl.read_parquet_schema(self.path_stats)
         _enzyme_schema = pl.read_parquet_schema(self.enzymes)
 
-        if sort_by and sort_by not in _path_schema:
-            raise ValueError(f"Invalid sort_by field: {sort_by}. Must be one of {_path_schema}")
+        if sort_by and sort_by not in _path_stats_schema:
+            raise ValueError(f"Invalid sort_by field: {sort_by}. Must be one of {_path_stats_schema}")
         
-        if lower_bounds and not all([f in _path_schema for f in lower_bounds]):
-            raise ValueError(f"Invalid lower_bounds field(s): {lower_bounds}. Must be one of {_path_schema}")
+        if lower_bounds and not all([f in _path_stats_schema for f in lower_bounds]):
+            raise ValueError(f"Invalid lower_bounds field(s): {lower_bounds}. Must be one of {_path_stats_schema}")
         
-        if upper_bounds and not all([f in _path_schema for f in upper_bounds]):
-            raise ValueError(f"Invalid upper_bounds field(s): {upper_bounds}. Must be one of {_path_schema}")
+        if upper_bounds and not all([f in _path_stats_schema for f in upper_bounds]):
+            raise ValueError(f"Invalid upper_bounds field(s): {upper_bounds}. Must be one of {_path_stats_schema}")
         
         if filter_by_enzymes and not all([f in _enzyme_schema for f in filter_by_enzymes]):
             raise ValueError(f"Invalid filter_by_enzymes field(s): {filter_by_enzymes}. Must be one of {_enzyme_schema}")
         
-        paths_lf = pl.scan_parquet(self.paths)
+        path_stats_lf = pl.scan_parquet(self.path_stats)
 
         if starters:
-            paths_lf = paths_lf.filter(
+            path_stats_lf = path_stats_lf.filter(
                 pl.col("starters").list.eval(pl.element().is_in(starters)).list.all()
             )
         
         if targets:
-            paths_lf = paths_lf.filter(
+            path_stats_lf = path_stats_lf.filter(
                 pl.col("targets").list.eval(pl.element().is_in(targets)).list.all()
             )
 
         if lower_bounds:
             for f, v in lower_bounds.items():
-                paths_lf = paths_lf.filter(pl.col(f) >= v)
+                path_stats_lf = path_stats_lf.filter(pl.col(f) >= v)
         
         if upper_bounds:
             for f, v in upper_bounds.items():
-                paths_lf = paths_lf.filter(pl.col(f) <= v)
+                path_stats_lf = path_stats_lf.filter(pl.col(f) <= v)
+
+        paths_lf = path_stats_lf.join(
+            other=pl.scan_parquet(self.paths),
+            left_on="id",
+            right_on="path_id",
+            how="inner"
+        )
 
         if sort_by:
             paths_lf = paths_lf.sort(sort_by, descending=descending)
 
         paths_df = paths_lf.slice(0, top_k).collect()
 
-        prids = set(paths_df['reactions'].explode()) # Get all unique reaction ids in paths
+        prids = set(paths_df['rxn_id']) # Get all unique reaction ids in paths
         prxns_df = pl.scan_parquet(self.predicted_reactions).filter(pl.col("id").is_in(prids)).collect()
         prxns_df = prxns_df.with_columns(
-            pl.col("id").map_elements(lambda x: str(self.study / "svgs" / "predicted" / f"{x}.svg"), return_dtype=pl.String).alias("image"),
+            pl.col("id").map_elements(lambda x: str(self.study / "svgs" / f"{x}.svg"), return_dtype=pl.String).alias("image"),
         )
 
         krids = set(prxns_df['analogue_ids'].explode()) # Get all unique known reaction ids in predicted reactions
         krxns_df = pl.scan_parquet(self.known_reactions).filter(pl.col("id").is_in(krids)).collect()
         krxns_df = krxns_df.with_columns(
-            pl.col("id").map_elements(lambda x: str(self.study / "svgs" / "known" / f"{x}.svg"), return_dtype=pl.String).alias("image"),
+            pl.col("id").map_elements(lambda x: str(self.study / "svgs" / f"{x}.svg"), return_dtype=pl.String).alias("image"),
         )
 
         enz_ids = set(krxns_df['enzymes'].explode()) # Get all unique enzyme ids in known reactions

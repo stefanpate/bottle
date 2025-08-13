@@ -112,7 +112,7 @@ def load_mapped_reactions(rule_names: pl.Series, mappings_dir: str) -> pl.DataFr
     return mapped_rxns
 
 
-@hydra.main(version_base=None, config_path="../conf", config_name="mechanism_processing")
+@hydra.main(version_base=None, config_path="../conf", config_name="analyze_structures")
 def main(cfg: DictConfig) -> None:
 
     if not Path("paths.parquet").exists():

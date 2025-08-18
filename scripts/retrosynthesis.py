@@ -107,12 +107,34 @@ def main(cfg: DictConfig):
 
     rules_lookup = dict(zip(am_rxns['am_smarts'], am_rxns['rules'].to_list()))
 
-    new_paths, new_path_stats, new_reactions = [], [], []
+    # Collect paths and path stats
+
+    new_paths, new_path_stats = [], []
     for tree in trees:
         path_entry = tree_to_path_entry(tree)
         if path_entry['path_id'] in existing_paths['path_id'].to_list():
             continue
 
+        # One entry per path
+        new_path_stats.append(
+            [
+                path_entry['path_id'],
+                path_entry['starters'], # TODO: come back with names
+                path_entry['targets'], # TODO: come back with names
+                None, # dg_opt
+                None, # dg_err
+                path_entry['starters'], # starter_ids
+                path_entry['targets'], # target_ids
+                None, # mdf
+                None, # mean_max_rxn_sim
+                None, # mean_mean_rxn_sim
+                None, # min_max_rxn_sim
+                None, # min_mean_rxn_sim
+                None, # feasibility_frac
+            ]
+        )
+
+        # One entry per reaction
         for rxn_id, main_pdt_id, generation in zip(path_entry['rxn_ids'], path_entry['main_pdt_ids'], path_entry['generations']):
             new_paths.append(
                 [
@@ -124,42 +146,7 @@ def main(cfg: DictConfig):
                 ]
             )
 
-            new_path_stats.append(
-                [
-                    path_entry['path_id'],
-                    path_entry['starters'], # TODO: come back with names
-                    path_entry['targets'], # TODO: come back with names
-                    None, # dg_opt
-                    None, # dg_err
-                    path_entry['starters'], # starter_ids
-                    path_entry['targets'], # target_ids
-                    None, # mdf
-                    None, # mean_max_rxn_sim
-                    None, # mean_mean_rxn_sim
-                    None, # min_max_rxn_sim
-                    None, # min_mean_rxn_sim
-                    None, # feasibility_frac
-                ]
-            )
-
-            # New predicted reactions only
-            if rxn_type_lookup[rxn_id] == 'predicted' and rxn_id not in existing_reactions['id']:
-                am_rxn = smarts_lookup[rxn_id]
-                rcts, pdts = de_am(am_rxn)
-                de_am_rxn = f"{'.'.join(rcts)}>>{'.'.join(pdts)}"
-                new_reactions.append(
-                    [
-                        rxn_id,
-                        de_am_rxn,
-                        am_rxn,
-                        None, # dxgb_label
-                        None, # rxn_sims
-                        None, # analogue_ids
-                        rules_lookup[smarts_lookup[rxn_id]], # rules
-                    ]
-                )
-
-    # Concat and save
+    # Concat paths, path_stats
     
     paths = pl.concat([
         existing_paths,
@@ -169,6 +156,7 @@ def main(cfg: DictConfig):
             orient='row'
         )
     ])
+
     path_stats = pl.concat([
         existing_path_stats,
         pl.DataFrame(
@@ -177,6 +165,29 @@ def main(cfg: DictConfig):
             orient='row'
         )
     ])
+
+    # Collect new unique predicted reactions
+    new_reactions = []
+    for rxn_id in new_paths['rxn_id'].unique():
+
+        if rxn_type_lookup[rxn_id] == 'predicted' and rxn_id not in existing_reactions['id']:
+            am_rxn = smarts_lookup[rxn_id]
+            rcts, pdts = de_am(am_rxn)
+            de_am_rxn = f"{'.'.join(rcts)}>>{'.'.join(pdts)}"
+            new_reactions.append(
+                [
+                    rxn_id,
+                    de_am_rxn,
+                    am_rxn,
+                    None, # dxgb_label
+                    None, # rxn_sims
+                    None, # analogue_ids
+                    rules_lookup[smarts_lookup[rxn_id]], # rules
+                ]
+            )
+
+    
+    # Concat and save predicted reactions
     reactions = pl.concat([
         existing_reactions,
         pl.DataFrame(
@@ -186,6 +197,7 @@ def main(cfg: DictConfig):
         )
     ])
 
+    # Save
     paths.write_parquet("paths.parquet")
     path_stats.write_parquet("path_stats.parquet")
     reactions.write_parquet("predicted_reactions.parquet")

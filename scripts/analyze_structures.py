@@ -104,7 +104,7 @@ def load_mapped_reactions(rule_names: pl.Series, mappings_dir: str) -> pl.DataFr
         ).filter(
             pl.col("rule_id").is_in(rule_ids)
         ).with_columns(
-            pl.col("rule_id").map_elements(lambda x: f"{ruleset_name}:{x}")
+            pl.col("rule_id").map_elements(lambda x: f"{ruleset_name}:{x}", return_dtype=pl.String).alias("rule_id")
         ).collect()
         mapped_rxns.append(df)
 
@@ -167,9 +167,9 @@ def main(cfg: DictConfig) -> None:
     req_rxns = pl.scan_parquet("predicted_reactions.parquet").filter(
         pl.col("id").is_in(req_prids)
     ).select(
+        pl.col("id"),
         pl.col("dxgb_label"),
         pl.col("rxn_sims"),
-        pl.col("id")
     ).collect()
 
     # Known reactions get perfect scores
@@ -179,7 +179,8 @@ def main(cfg: DictConfig) -> None:
 
     if len(req_krids) > 0:
         req_krs = pl.from_dicts(
-            [{"id": rid, "dxgb_label": 1, "rxn_sims": [1]} for rid in req_krids]
+            data=[{"id": rid, "dxgb_label": 1, "rxn_sims": [1]} for rid in req_krids],
+            schema=req_rxns.schema
         )
 
         req_rxns = pl.concat((req_rxns, req_krs))
@@ -215,46 +216,6 @@ def main(cfg: DictConfig) -> None:
     existing_path_stats = pl.read_parquet("path_stats.parquet")
     updated_path_stats = update_table(existing_path_stats, analyzed_path_stats)
     updated_path_stats.write_parquet("path_stats.parquet")
-
-    # TODO: Move to path finding scripts
-    # # Generate reaction images
-    # if not Path("svgs").exists():
-    #     Path("svgs").mkdir()
-    
-    # if not Path("svgs/known").exists():
-    #     Path("svgs/known").mkdir()
-    #     existing_kr_svgs = set()
-    # else:
-    #     existing_kr_svgs = set([fn.name.removesuffix(".svg") for fn in Path("svgs/known").glob("*.svg")])
-    
-    # if not Path("svgs/predicted").exists():
-    #     Path("svgs/predicted").mkdir()
-            
-    # krids_to_draw = set(chain(*analyzed_reactions["analogue_ids"])) - existing_kr_svgs
-    # krs_to_draw = pl.scan_parquet(
-    #     Path(cfg.filepaths.known_reactions)
-    # ).filter(
-    #     pl.col("id").is_in(krids_to_draw)
-    # ).select(
-    #     pl.col("id"),
-    #     pl.col("smarts")
-    # ).collect()
-
-    # tic = perf_counter()
-    # print(f"Drawing {len(krs_to_draw)} known reactions")
-    # for row in krs_to_draw.iter_rows(named=True):
-    #     rxn = draw_reaction(row['smarts'], auto_scl=True)
-    #     rxn.save(f"svgs/known/{row['id']}.svg")
-    # toc = perf_counter()
-    # print(f"Drawing known reactions completed in {toc - tic : .2f} seconds")
-
-    # tic = perf_counter()
-    # print(f"Drawing {len(analyzed_reactions)} predicted reactions")
-    # for row in analyzed_reactions.iter_rows(named=True):
-    #     rxn = draw_reaction(row['smarts'], auto_scl=True)
-    #     rxn.save(f"svgs/predicted/{row['id']}.svg")
-    # toc = perf_counter()
-    # print(f"Drawing predicted reactions completed in {toc - tic : .2f} seconds")
 
 if __name__ == "__main__":
     main()

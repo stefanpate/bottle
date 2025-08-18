@@ -70,7 +70,6 @@ def main(cfg: DictConfig):
     toc = perf_counter()
     logger.info(f"Added {len(am_rxns)} reactions in {toc - tic:.2f} seconds.")
 
-
     logger.info("Setting sources...")
     G.set_sources(smiles=default_sources)
     G.set_sources(smiles=sources)
@@ -110,6 +109,7 @@ def main(cfg: DictConfig):
     # Collect paths and path stats
 
     new_paths, new_path_stats = [], []
+    new_rxn_ids = set()
     for tree in trees:
         path_entry = tree_to_path_entry(tree)
         if path_entry['path_id'] in existing_paths['path_id'].to_list():
@@ -145,6 +145,7 @@ def main(cfg: DictConfig):
                     generation
                 ]
             )
+            new_rxn_ids.add(rxn_id)
 
     # Concat paths, path_stats
     
@@ -168,7 +169,7 @@ def main(cfg: DictConfig):
 
     # Collect new unique predicted reactions
     new_reactions = []
-    for rxn_id in new_paths['rxn_id'].unique():
+    for rxn_id in new_rxn_ids:
 
         if rxn_type_lookup[rxn_id] == 'predicted' and rxn_id not in existing_reactions['id']:
             am_rxn = smarts_lookup[rxn_id]

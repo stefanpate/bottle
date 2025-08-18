@@ -79,10 +79,6 @@ class SyntheticTree:
     @property
     def n_gens(self) -> int:
         return len(self.generations) - 1
-    
-    @property
-    def n_leaves(self) -> int:
-        return len(self.leaves)
 
 class ReactionNetwork(nx.MultiDiGraph):
     def __init__(self, incoming_graph_data=None, multigraph_input=None, **attr):
@@ -216,6 +212,10 @@ class ReactionNetwork(nx.MultiDiGraph):
         ------
         ValueError
             If neither `smiles` nor `ids` are provided.
+
+        Notes
+        -----
+        Source compounds are those that do not need to be synthesized within the network.
         '''
         if smiles is None and ids is None:
             raise ValueError("Provide either smiles or node ids to set sources.")
@@ -226,13 +226,53 @@ class ReactionNetwork(nx.MultiDiGraph):
         ct = 0
         for _id in ids:
             if _id in self.nodes:
-                self.nodes[_id]['source'] = True
+                self.nodes[_id]['type'] = 'source'
                 ct += 1
             else:
                 raise ValueError(f"Node id {_id} not found in the network.")
             
         if not quiet:
             self.logger.info(f"Set {ct} source compounds in the reaction network.")
+
+    def set_helpers(self, smiles: Iterable[str] = None, ids: Iterable[int] = None, quiet: bool = False) -> None:
+        '''
+        Sets the helper compounds in the reaction network.
+
+        Args
+        ----
+        smiles: Iterable[str], optional
+            An iterable of SMILES strings representing the helper compounds.
+        ids: Iterable[int], optional
+            An iterable of node indices representing the helper compounds.
+        quiet: bool, optional
+            If True, suppresses output messages.
+        
+        Raises
+        ------
+        ValueError
+            If neither `smiles` nor `ids` are provided.
+
+        Notes
+        -----
+        Helper compounds are treated like sources in that they do not need to be synthesized,
+        but they do not contribute (a significant amount of) mass to products
+        '''
+        if smiles is None and ids is None:
+            raise ValueError("Provide either smiles or node ids to set helpers.")
+        
+        if smiles is not None:
+            ids = [_id for smi in smiles for _id in self.get_nodes_by_prop('smiles', smi)]
+        
+        ct = 0
+        for _id in ids:
+            if _id in self.nodes:
+                self.nodes[_id]['type'] = 'helper'
+                ct += 1
+            else:
+                raise ValueError(f"Node id {_id} not found in the network.")
+            
+        if not quiet:
+            self.logger.info(f"Set {ct} helper compounds in the reaction network.")
    
     def prune(self, pnmc_lb: float, rnmc_lb: float, source_augmented_pnmc_lb: float) -> None:
         '''
@@ -315,11 +355,15 @@ class ReactionNetwork(nx.MultiDiGraph):
         while stack:
             tree = stack.pop()
             ct+=1
-            
-            if tree.n_gens > max_depth or tree.n_leaves > max_leaves: # Exclusion criteria
+
+            if tree.n_gens > max_depth:
+                continue
+
+            n_leaves = len(leaf for leaf in tree.leaves if not self.nodes[leaf[0]]['type'] != 'helper')
+            if n_leaves > max_leaves:
                 continue
             
-            if all([self.nodes[leaf[0]]['source'] for leaf in tree.leaves]): # Inclusion criteria. All leaf nodes designated as sources
+            if all([self.nodes[leaf[0]]['type'] in ['source', 'helper'] for leaf in tree.leaves]): # Resolved if all leaves are sources or helpers
                 synthetic_trees.append(tree)
                 continue
 
@@ -327,7 +371,7 @@ class ReactionNetwork(nx.MultiDiGraph):
             # First collect reaction choices for each leaf
             leaf_choices = {}
             for leaf in tree.leaves:
-                if self.nodes[leaf[0]]['source']: # No need to grow tree from a source
+                if self.nodes[leaf[0]]['type'] in ['source', 'helper']: # No need to grow tree from a source
                     continue
 
                 leaf_choices[leaf] = []

@@ -1,3 +1,7 @@
+'''
+Deprecated
+'''
+
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from tqdm import tqdm

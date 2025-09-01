@@ -79,6 +79,10 @@ class SyntheticTree:
     @property
     def n_gens(self) -> int:
         return len(self.generations) - 1
+    
+    @property
+    def n_leaves(self) -> int:
+        return len(self.leaves)
 
 class ReactionNetwork(nx.MultiDiGraph):
     def __init__(self, incoming_graph_data=None, multigraph_input=None, **attr):
@@ -103,31 +107,32 @@ class ReactionNetwork(nx.MultiDiGraph):
     def get_nodes_by_prop(self, prop: str, value: Any) -> list[int]:
         return [x for x, y in self.nodes(data=True) if y[prop] == value]
         
-    def shortest_path(self, source: str = None, target: str = None, rm_req_target: bool = True, quiet: bool = False) -> dict | list:
-        if source is None and target is None:
-            return nx.shortest_path(self)
-        elif (source is None) ^ (target is None):
-            raise ValueError("Provide both source and target or neither")
-        elif rm_req_target: # TODO: remember what this was for
-            target_smiles = self.nodes[target]['smiles']
-            to_remove = [(i, j) for i, j, props in self.edges(data=True) if target_smiles in props['coreactants']]
-            pruned = deepcopy(self)
-            pruned.remove_edges_from(to_remove)
-        else:
-            pruned = self
+    # Deprecated
+    # def shortest_path(self, source: str = None, target: str = None, rm_req_target: bool = True, quiet: bool = False) -> dict | list:
+    #     if source is None and target is None:
+    #         return nx.shortest_path(self)
+    #     elif (source is None) ^ (target is None):
+    #         raise ValueError("Provide both source and target or neither")
+    #     elif rm_req_target: # TODO: remember what this was for
+    #         target_smiles = self.nodes[target]['smiles']
+    #         to_remove = [(i, j) for i, j, props in self.edges(data=True) if target_smiles in props['coreactants']]
+    #         pruned = deepcopy(self)
+    #         pruned.remove_edges_from(to_remove)
+    #     else:
+    #         pruned = self
         
-        try:
-            node_path = nx.shortest_path(pruned, source, target)
-        except NetworkXNoPath as e:
-            if not quiet:
-                print(e)
-            return [], [] # No path found
+    #     try:
+    #         node_path = nx.shortest_path(pruned, source, target)
+    #     except NetworkXNoPath as e:
+    #         if not quiet:
+    #             print(e)
+    #         return [], [] # No path found
         
-        edge_path = []
-        for i in range(len(node_path) - 1):
-            edge_path.append(pruned.get_edges_between(node_path[i], node_path[i+1]))
+    #     edge_path = []
+    #     for i in range(len(node_path) - 1):
+    #         edge_path.append(pruned.get_edges_between(node_path[i], node_path[i+1]))
 
-        return node_path, edge_path
+    #     return node_path, edge_path
     
     def add_reaction(self, am_rxn: str, rid: str | None = None, rxn_type: str | None = None, smi2name: dict[str, str] = {}) -> None:
         '''
@@ -155,7 +160,7 @@ class ReactionNetwork(nx.MultiDiGraph):
                     pdt_id,
                     smiles = pdt_smi,
                     name = smi2name.get(pdt_smi, "Unknown"),
-                    source = False,
+                    type = 'intermediate',
                     grouped_predecessors = {},
                     tot_rnmc = {rid: mass_contributions['tot_rct_normed_mass_contrib'][pdt_smi]},
                 )
@@ -175,7 +180,7 @@ class ReactionNetwork(nx.MultiDiGraph):
                 
                 if rct_id not in self.nodes:
                     rct_attrs = {'smiles': rct_smi, 'name': smi2name.get(rct_smi, "Unknown")}
-                    rct_attrs['source'] = False
+                    rct_attrs['type'] = 'intermediate'
                     rct_attrs['grouped_predecessors'] = {}
                     rct_attrs['tot_rnmc'] = {}
                     self.add_node(rct_id, **rct_attrs)
@@ -273,10 +278,28 @@ class ReactionNetwork(nx.MultiDiGraph):
             
         if not quiet:
             self.logger.info(f"Set {ct} helper compounds in the reaction network.")
-   
-    def prune(self, pnmc_lb: float, rnmc_lb: float, source_augmented_pnmc_lb: float) -> None:
+    
+    def reset_cpd_types(self, quiet: bool = False) -> None:
         '''
-        Prunes the reaction network based on the provided thresholds.
+        Resets the types of all compounds in the reaction network to 'intermediate'.
+        This is useful for reclassifying compounds after setting sources or helpers.
+        
+        Args
+        ----
+        quiet: bool, optional
+            If True, suppresses output messages.
+        '''
+        ct = 0
+        for node in self.nodes:
+            self.nodes[node]['type'] = 'intermediate' # Reset type to intermediate
+        
+        if not quiet:
+            self.logger.info(f"Reset {ct} compound types to 'intermediate'.")
+   
+    def prune(self, pnmc_lb: float = 0.0, rnmc_lb: float = 0.0, source_augmented_pnmc_lb: float = 0.0) -> None:
+        '''
+        Prunes the reaction network based on the provided mass contribution thresholds and
+        'helper' designation. By default, helpers are disconnected from the network.
 
         Args
         ----
@@ -287,31 +310,43 @@ class ReactionNetwork(nx.MultiDiGraph):
         source_augmented_pnmc_lb: float
             Lower bound for augmented product normalized mass contribution from sources.
         '''
-        to_remove = []
+        to_remove = set()
         
         for node, data in self.nodes(data=True):
-            if 'grouped_predecessors' not in data or 'tot_rnmc' not in data:
+            if 'grouped_predecessors' not in data:
                 continue
             
             for rxn_id, preds in data['grouped_predecessors'].items():
                 rxn_pnmcs = {}
+
+                # Never interested in an in-edge to a helper or source
+                if data['type'] in ['helper', 'source']:
+                    for pred in preds:
+                        to_remove.add((pred, node, rxn_id))
+
+                # Aggregate source mass contributions for later
                 rxn_sources = set()
                 for pred in preds:
                     edge_data = self.get_edge_data(pred, node, key=rxn_id)
                     rxn_pnmcs[pred] = edge_data['pnmc']
-                    if self.nodes[pred]['source']:
+                    if self.nodes[pred]['type'] == 'source':
                         rxn_sources.add(pred)
 
                 for pred in preds:
-                    # Mark for deletion and move on if fails either indepenedent criteria
+                    # Mark for deletion all in-edges from helpers
+                    if self.nodes[pred]['type'] == 'helper':
+                        to_remove.add((pred, node, rxn_id))
+                        continue
+
+                    # Mark for deletion if fails either indepenedent criteria
                     if edge_data['rnmc'] < rnmc_lb or edge_data['pnmc'] < pnmc_lb:
-                        to_remove.append((pred, node, rxn_id))
+                        to_remove.add((pred, node, rxn_id))
                         continue
                     
                     source_mass = sum(rxn_pnmcs[s] for s in rxn_sources if s != pred) # Source contribution, excl pred if it is a source, avoid double counting
                     # Mark for deletion if fails augmented mass criteria
                     if rxn_pnmcs[pred] + source_mass < source_augmented_pnmc_lb:
-                        to_remove.append((pred, node, rxn_id))
+                        to_remove.add((pred, node, rxn_id))
 
         # Remove from grouped predecessors attr
         # TODO: consider alt soln e.g., caching and raw atom counts to avoid this
@@ -356,14 +391,10 @@ class ReactionNetwork(nx.MultiDiGraph):
             tree = stack.pop()
             ct+=1
 
-            if tree.n_gens > max_depth:
-                continue
-
-            n_leaves = len(leaf for leaf in tree.leaves if not self.nodes[leaf[0]]['type'] != 'helper')
-            if n_leaves > max_leaves:
+            if tree.n_gens > max_depth or tree.n_leaves > max_leaves:
                 continue
             
-            if all([self.nodes[leaf[0]]['type'] in ['source', 'helper'] for leaf in tree.leaves]): # Resolved if all leaves are sources or helpers
+            if all([self.nodes[leaf[0]]['type'] == 'source' for leaf in tree.leaves]): # Resolved if all leaves are sources
                 synthetic_trees.append(tree)
                 continue
 
@@ -371,7 +402,7 @@ class ReactionNetwork(nx.MultiDiGraph):
             # First collect reaction choices for each leaf
             leaf_choices = {}
             for leaf in tree.leaves:
-                if self.nodes[leaf[0]]['type'] in ['source', 'helper']: # No need to grow tree from a source
+                if self.nodes[leaf[0]]['type'] == 'source': # No need to grow tree from a source
                     continue
 
                 leaf_choices[leaf] = []
@@ -387,7 +418,7 @@ class ReactionNetwork(nx.MultiDiGraph):
             for choice in choices:
                 new_tree = tree.copy()
                 for leaf, rxn in zip(leaf_choices.keys(), choice):
-                    rcts = list(self.nodes[leaf[0]]['grouped_predecessors'][rxn])
+                    rcts = [rct for rct in self.nodes[leaf[0]]['grouped_predecessors'][rxn] if self.nodes[rct]['type'] != 'helper'] # Exclude helpers as reactants
                     new_tree.grow(leaf, rxn, rcts)
                 stack.append(new_tree)
 
@@ -542,8 +573,13 @@ def de_am(am_rxn: str) -> tuple[str, str]:
        
 if __name__ == '__main__':
     import pandas as pd
+    from hydra import compose, initialize
+    from pathlib import Path
+
+    with initialize(version_base=None, config_path="../conf/filepaths"):
+        cfg = compose(config_name="filepaths")
   
-    G = ReactionNetwork.from_json('/home/stef/krxns/data/processed/known_reaction_network.json')
+    G = ReactionNetwork.from_json(Path(cfg.interim_data) / 'known_reaction_network.json')
     print("Full reaction network loaded from JSON.")
     print(f"Number of nodes: {G.number_of_nodes()}, Number of edges: {G.number_of_edges()}")
     rnmc_lb = 0.25
@@ -553,10 +589,10 @@ if __name__ == '__main__':
     print(f"Pruned reaction network with pnmc_lb={pnmc_lb}, rnmc_lb={rnmc_lb}, source_augmented_pnmc_lb={aug_mc_lb}.")
     print(f"Number of nodes after pruning: {G.number_of_nodes()}, Number of edges: {G.number_of_edges()}")
 
-    G = ReactionNetwork.from_json('/home/stef/krxns/data/processed/known_reaction_network.json')
+    G = ReactionNetwork.from_json(Path(cfg.interim_data) / 'known_reaction_network.json')
     print("Full reaction network loaded from JSON.")
     print(f"Number of nodes: {G.number_of_nodes()}, Number of edges: {G.number_of_edges()}")
-    sources = pd.read_csv('/home/stef/krxns/data/interim/default_sources.csv')['smiles'].tolist()
+    sources = pd.read_csv(Path(cfg.interim_data) / 'default_sources.csv')['smiles'].tolist()
     G.set_sources(smiles=sources)
     rnmc_lb = 0.25
     pnmc_lb = 0.25
@@ -565,8 +601,20 @@ if __name__ == '__main__':
     print(f"Pruned reaction network with pnmc_lb={pnmc_lb}, rnmc_lb={rnmc_lb}, source_augmented_pnmc_lb={aug_mc_lb}, and default sources.")
     print(f"Number of nodes after pruning: {G.number_of_nodes()}, Number of edges: {G.number_of_edges()}")
 
-    G = ReactionNetwork.from_json('/home/stef/krxns/data/processed/known_reaction_network.json')
-    default_sources = pd.read_csv('/home/stef/krxns/data/interim/default_sources.csv')['smiles'].tolist()
+    G = ReactionNetwork.from_json(Path(cfg.interim_data) / 'known_reaction_network.json')
+    print("Full reaction network loaded from JSON.")
+    print(f"Number of nodes: {G.number_of_nodes()}, Number of edges: {G.number_of_edges()}")
+    helpers = pd.read_csv(Path(cfg.interim_data) / 'default_sources.csv')['smiles'].tolist()
+    G.set_helpers(smiles=helpers)
+    rnmc_lb = 0.25
+    pnmc_lb = 0.25
+    aug_mc_lb = 0.8
+    G.prune(pnmc_lb=pnmc_lb, rnmc_lb=rnmc_lb, source_augmented_pnmc_lb=aug_mc_lb)
+    print(f"Pruned reaction network with pnmc_lb={pnmc_lb}, rnmc_lb={rnmc_lb}, source_augmented_pnmc_lb={aug_mc_lb}, and default helpers.")
+    print(f"Number of nodes after pruning: {G.number_of_nodes()}, Number of edges: {G.number_of_edges()}")
+
+    G = ReactionNetwork.from_json(Path(cfg.interim_data) / 'known_reaction_network.json')
+    default_sources = pd.read_csv(Path(cfg.interim_data) / 'default_sources.csv')['smiles'].tolist()
     rnmc_lb = 0.25
     pnmc_lb = 0.25
     aug_mc_lb = 0.8

@@ -19,85 +19,150 @@ def reverse_rules(rules: list[str], rule2rxn: dict[int, str], rxn2rule: dict[str
 
     return fwd_rules
 
+def parse_reactions(reactions: dict, rule2rxn: dict[int, str], rxn2rule: dict[str, int], reaction_reverses: dict[str, str], mode: str, rule_set: str) -> list[tuple[str, list[str]]]:
+    rxn_data = []
+    for rxn in tqdm(reactions.values(), desc="Processing reactions", total=len(reactions)):
+        if 'am_rxn' not in rxn:
+            continue
+        
+        rules = [elt.split('_')[0] for elt in rxn['Operators']]
+        
+        if mode == "retro":
+            am_smarts = ">>".join(rxn['am_rxn'].split('>>')[::-1])
+            rules = reverse_rules(rules, rule2rxn, rxn2rule, reaction_reverses)
+        else:
+            am_smarts = rxn['am_rxn']
+
+        rules = [f"{rule_set}:{rule}" for rule in rules]
+        rxn_data.append((am_smarts, rules))
+
+    return rxn_data
+
 @hydra.main(version_base=None, config_path="../conf", config_name="parse_expansion")
 def main(cfg: DictConfig) -> None:
-
-    if cfg.pk_fn is not None:
-        pk_fns = [Path(cfg.pk_fn)]
-    else:
-        pk_fns = list(Path(cfg.filepaths.raw_expansions).glob("*.pk"))
-
-    for pk_fn in pk_fns:
-        
-        if Path(f"{pk_fn.stem}").exists():
-            continue
-        else:
-            Path(f"{pk_fn.stem}").mkdir()
-        
-        pk = Pickaxe()
-        pk.load_pickled_pickaxe(
-            Path(cfg.filepaths.raw_expansions) / pk_fn
+    
+    if cfg.fwd_exp is not None and cfg.rev_exp is not None:
+        steps = int(cfg.fwd_exp[0]) + int(cfg.rev_exp[0])
+        fwd_rules = cfg.fwd_exp.split('_rules_')[1]
+        rev_rules = cfg.rev_exp.split('_rules_')[1]
+        exp_name = Path(f"{steps}_steps_combo_{fwd_rules}_and_{rev_rules}_rules")
+    elif cfg.fwd_exp is not None:
+        exp_name = Path(cfg.fwd_exp).stem
+    elif rev_exp is not None:
+        exp_name = Path(cfg.rev_exp).stem
+  
+    if not Path(exp_name).exists():
+        Path(exp_name).mkdir(parents=True, exist_ok=True)
+    
+    rxn_data = []
+    helpers = set()
+    if cfg.fwd_exp is not None:
+        fwd_rule_set = cfg.fwd_exp.split('_rules_')[1]
+        fwd_exp = Pickaxe()
+        fwd_exp.load_pickled_pickaxe(
+            Path(cfg.filepaths.raw_expansions) / Path(cfg.fwd_exp)
         )
 
-        if cfg.mode == "retro":
-            kcs = pl.read_parquet(
-                Path(cfg.filepaths.known) / "known_compounds.parquet",
-            )
+        sources = []
+        for cid, cpd in fwd_exp.compounds.items():
+            if cid[0] == 'X':
+                helpers.add(cpd['SMILES'])
 
-            krs = pl.read_parquet(
-                Path(cfg.filepaths.known) / "known_reactions.parquet",
-            )
-            reaction_reverses = dict(zip(krs["id"], krs["reverse"]))
-
-            mapped_rxns = pl.read_parquet(
-                Path(cfg.rxn_x_rule_mapping),
-            )
-            rule2rxn = mapped_rxns.group_by("rule_id").agg(
-                pl.col("rxn_id")
-            )
-            rule2rxn = dict(zip(rule2rxn["rule_id"], rule2rxn["rxn_id"].to_list()))
-            rxn2rule = dict(zip(mapped_rxns["rxn_id"], mapped_rxns["rule_id"].to_list()))
-            targets = [cpd['SMILES'] for cpd in pk.compounds.values() if cpd['Type'] == 'Starting Compound']
-
-            pred_kcs = []
-            kcs_smiles = set(kcs["smiles"].to_list())
-            for cid, cpd in pk.compounds.items():
-                if cpd['SMILES'] in kcs_smiles and cpd['Type'] != 'Starting Compound':
-                    pred_kcs.append(cpd['SMILES'])
-
-            with open(Path(pk_fn.stem) / "pred_kcs.txt", "w") as f:
-                for smi in pred_kcs:
-                    f.write(smi + "\n")
-
-            with open(Path(pk_fn.stem) / "targets.txt", "w") as f:
-                for smi in targets:
-                    f.write(smi + "\n")
-
-        rxn_data = []
-        for rxn in tqdm(pk.reactions.values(), desc="Processing reactions", total=len(pk.reactions)):
-            if 'am_rxn' not in rxn:
-                continue
+            if cpd['Type'] == 'Starting Compound':
+                sources.append(cpd['SMILES'])
             
-            rules = [elt.split('_')[0] for elt in rxn['Operators']]
-            
-            if cfg.mode == "retro":
-                am_smarts = ">>".join(rxn['am_rxn'].split('>>')[::-1])
-                rules = reverse_rules(rules, rule2rxn, rxn2rule, reaction_reverses)
-            else:
-                am_smarts = rxn['am_rxn']
+        with open(Path(exp_name) / "sources.txt", "w") as f:
+            for smi in sources:
+                f.write(smi + "\n")
 
-            rules = [f"{cfg.rule_set}:{rule}" for rule in rules]
-            rxn_data.append((am_smarts, rules))
+        targets = [cpd["SMILES"] for cpd in fwd_exp.targets.values()]
 
-        rxns = pl.DataFrame(
-            rxn_data,
-            schema=expansion_reactions_schema,
-            orient="row",
+        with open(Path(exp_name) / "targets.txt", "w") as f:
+            for smi in targets:
+                f.write(smi + "\n")
+
+        rxn_data += parse_reactions(
+            fwd_exp.reactions,
+            rule2rxn={},
+            rxn2rule={},
+            reaction_reverses={},
+            mode="fwd",
+            rule_set=fwd_rule_set,
         )
 
-        rxns.write_parquet(
-            Path(pk_fn.stem) / "am_rxns.parquet",
+        del fwd_exp
+  
+    if cfg.rev_exp is not None:
+        rev_rule_set = cfg.rev_exp.split('_rules_')[1]
+        rev_exp = Pickaxe()
+        rev_exp.load_pickled_pickaxe(
+            Path(cfg.filepaths.raw_expansions) / Path(cfg.rev_exp)
         )
+
+        kcs = pl.read_parquet(
+            Path(cfg.filepaths.known) / "known_compounds.parquet",
+        )
+
+        krs = pl.read_parquet(
+            Path(cfg.filepaths.known) / "known_reactions.parquet",
+        )
+        reaction_reverses = dict(zip(krs["id"], krs["reverse"]))
+
+        mapped_rxns = pl.read_parquet(
+            Path(cfg.filepaths.rxn_x_rule_mapping) / f"mapped_known_reactions_x_{rev_rule_set}_rules.parquet",
+        )
+
+        rule2rxn = mapped_rxns.group_by("rule_id").agg(
+            pl.col("rxn_id")
+        )
+
+        rule2rxn = dict(zip(rule2rxn["rule_id"], rule2rxn["rxn_id"].to_list()))
+        rxn2rule = dict(zip(mapped_rxns["rxn_id"], mapped_rxns["rule_id"].to_list()))
+        targets = [cpd['SMILES'] for cpd in rev_exp.compounds.values() if cpd['Type'] == 'Starting Compound']
+
+        pred_kcs = []
+        kcs_smiles = set(kcs["smiles"].to_list())
+        for cid, cpd in rev_exp.compounds.items():
+            if cpd['SMILES'] in kcs_smiles and cpd['Type'] != 'Starting Compound':
+                pred_kcs.append(cpd['SMILES'])
+
+            if cid[0] == 'X':
+                helpers.add(cpd['SMILES'])
+
+        with open(Path(exp_name) / "pred_kcs.txt", "w") as f:
+            for smi in pred_kcs:
+                f.write(smi + "\n")
+
+        with open(Path(exp_name) / "targets.txt", "w") as f:
+            for smi in targets:
+                f.write(smi + "\n")
+
+        rxn_data += parse_reactions(
+            rev_exp.reactions,
+            rule2rxn=rule2rxn,
+            rxn2rule=rxn2rule,
+            reaction_reverses=reaction_reverses,
+            mode="retro",
+            rule_set=rev_rule_set,
+        )
+
+    with open(Path(exp_name) / "helpers.txt", "w") as f:
+        for smi in helpers:
+            f.write(smi + "\n")
+
+    rxns = pl.DataFrame(
+        rxn_data,
+        schema=expansion_reactions_schema,
+        orient="row",
+    )
+
+    rxns = rxns.group_by("am_smarts").agg(
+        pl.col("rules").explode().unique().sort()
+    )
+
+    rxns.write_parquet(
+        Path(exp_name) / "am_rxns.parquet",
+    )
 
 if __name__ == "__main__":
     main()

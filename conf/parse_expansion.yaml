@@ -2,10 +2,8 @@ defaults:
   - filepaths: filepaths
   - _self_
 
-mode: retro
-pk_fn: null
-rule_set: ??? # e.g., mechinferred_dt_04
-rxn_x_rule_mapping: ${filepaths.rxn_x_rule_mapping}/mapped_known_reactions_x_${.rule_set}_rules.parquet
+fwd_exp: null
+rev_exp: null
 dest: ${filepaths.interim_data}/expansions
 
 hydra:

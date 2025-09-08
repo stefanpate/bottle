@@ -2,9 +2,7 @@ defaults:
   - filepaths: filepaths
   - _self_
 
-sources: sources.txt
-targets: targets.txt
-helpers: helpers.txt
+cpds: compounds.parquet
 am_rxns: am_rxns.parquet
 expansion: ???
 casp_study: ???

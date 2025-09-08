@@ -1,13 +1,14 @@
 import hydra
 from omegaconf import DictConfig
 import polars as pl
-from src.network import ReactionNetwork, SyntheticTree, de_am
+from src.network import ReactionNetwork, de_am
 from src.schemas import predicted_reactions_schema, paths_schema, path_stats_schema
 from src.post_processing import hash_path
 from pathlib import Path
 from time import perf_counter
 import logging
 import networkx as nx
+from networkx.exception import NodeNotFound
 
 logger  = logging.getLogger(__name__)
 
@@ -17,31 +18,6 @@ def check_existing(fn: str, schema: pl.Schema):
     else:
         existing = pl.DataFrame(schema=schema)
     return existing
-
-# TODO: delete
-# def tree_to_path_entry(tree: SyntheticTree):
-#     rids, gens, main_pdt_ids = [], [], []
-#     for i, gen in enumerate(tree.generations):
-#         for main_pdt_id, rxn_id in gen.items():
-            
-#             if rxn_id is None:
-#                 continue
-            
-#             rids.append(rxn_id)
-#             gens.append(i)
-#             main_pdt_ids.append(main_pdt_id)
-#     path_id = hash_path(list(zip(gens, rids)))
-#     target = tree.root
-#     starters = [cid for cid, _ in tree.leaves]
-
-#     return {
-#         "path_id": path_id,
-#         "rxn_ids": rids,
-#         "main_pdt_ids": main_pdt_ids,
-#         "generations": gens,
-#         "starters": starters,
-#         "targets": [target],
-#     }
 
 def path_to_path_entry(path: list[tuple[str, str, str]], source_ids: list[str], target_ids: list[str]):
     rids, gens, main_pdt_ids = [], [], []
@@ -70,14 +46,11 @@ def path_to_path_entry(path: list[tuple[str, str, str]], source_ids: list[str], 
 def main(cfg: DictConfig):
 
     # Load data for reaction network
-    with open(Path(cfg.expansion_extract) / cfg.helpers, 'r') as f:
-        helpers = [line.strip() for line in f.readlines()]
-
-    with open(Path(cfg.expansion_extract) / cfg.sources, 'r') as f:
-        sources = [line.strip() for line in f.readlines()]
-
-    with open(Path(cfg.expansion_extract) / cfg.targets, 'r') as f:
-        targets = [line.strip() for line in f.readlines()]
+    cpds = pl.read_parquet(Path(cfg.expansion_extract) / cfg.cpds)
+    helpers = cpds.filter(pl.col('type') == 'helper')['id'].to_list()
+    sources = cpds.filter(pl.col('type') == 'source')['id'].to_list()
+    targets = cpds.filter(pl.col('type') == 'target')['id'].to_list()
+    cid2name = dict(zip(cpds['id'].to_list(), cpds['name'].to_list()))
 
     am_rxns = pl.read_parquet(Path(cfg.expansion_extract) / cfg.am_rxns)
 
@@ -94,30 +67,27 @@ def main(cfg: DictConfig):
     toc = perf_counter()
     logger.info(f"Added {len(am_rxns)} reactions in {toc - tic:.2f} seconds.")
 
+    targets = [t for t in targets if G.has_node(t)]
+    if len(targets) == 0:
+        logger.info("No valid targets in network, exiting...")
+        return
+    
     logger.info("Setting helpers...")
-    G.set_helpers(smiles=helpers)
+    G.set_helpers(ids=helpers)
 
-    source_ids, target_ids = [], []
-    for s in sources:
-        elt = G.get_nodes_by_prop('smiles', s)
-        if len(elt) == 0:
-            logger.warning(f"Source {s} not in network")
-        else:
-            source_ids.append(elt[0])
-    for t in targets:
-        elt = G.get_nodes_by_prop('smiles', t)
-        if len(elt) == 0:
-            logger.warning(f"Target {t} not in network")
-        else:
-            target_ids.append(elt[0])
+    
     logger.info("Finding paths...")
     paths = []
     tic = perf_counter()
-    for sid in source_ids:
+    for sid in sources:
+        if not G.has_node(sid):
+            logger.info(f"Source {sid} not in network, skipping...")
+            continue
+        
         paths += nx.all_simple_edge_paths(
             G=G,
             source=sid,
-            target=target_ids,
+            target=targets,
             cutoff=cfg.max_depth
         )
 
@@ -144,7 +114,7 @@ def main(cfg: DictConfig):
     new_paths, new_path_stats = [], []
     new_rxn_ids = set()
     for path in paths:
-        path_entry = path_to_path_entry(path, source_ids, target_ids)
+        path_entry = path_to_path_entry(path, sources, targets)
         
         if path_entry['path_id'] in existing_paths['path_id'].to_list():
             continue
@@ -153,8 +123,8 @@ def main(cfg: DictConfig):
         new_path_stats.append(
             [
                 path_entry['path_id'],
-                path_entry['starters'], # TODO: come back with names
-                path_entry['targets'], # TODO: come back with names
+                [cid2name.get(sid) for sid in path_entry['starters']],
+                [cid2name.get(tid) for tid in path_entry['targets']],
                 None, # dg_opt
                 None, # dg_err
                 path_entry['starters'], # starter_ids
@@ -236,6 +206,7 @@ def main(cfg: DictConfig):
     paths.write_parquet("paths.parquet")
     path_stats.write_parquet("path_stats.parquet")
     reactions.write_parquet("predicted_reactions.parquet")
+    cpds.write_parquet("compounds.parquet")
 
 if __name__ == "__main__":
     main()

@@ -50,11 +50,11 @@ def main(cfg: DictConfig):
 
     default_sources = pl.read_csv(Path(cfg.default_sources))['smiles'].to_list()
 
-    with open(Path(cfg.expansion_extract) / cfg.sources, 'r') as f:
-        sources = [line.strip() for line in f.readlines()]
-
-    with open(Path(cfg.expansion_extract) / cfg.targets, 'r') as f:
-        targets = [line.strip() for line in f.readlines()]
+    cpds = pl.read_parquet(Path(cfg.expansion_extract) / cfg.cpds)
+    helpers = cpds.filter(pl.col('type') == 'helper')['id'].to_list()
+    sources = cpds.filter(pl.col('type') == 'source')['id'].to_list()
+    targets = cpds.filter(pl.col('type') == 'target')['id'].to_list()
+    cid2name = dict(zip(cpds['id'].to_list(), cpds['name'].to_list()))
 
     am_rxns = pl.read_parquet(Path(cfg.expansion_extract) / cfg.am_rxns)
 
@@ -72,13 +72,12 @@ def main(cfg: DictConfig):
 
     logger.info("Setting sources...")
     G.set_sources(smiles=default_sources)
-    G.set_sources(smiles=sources)
-
-    target_ids = [G.get_nodes_by_prop('smiles', t)[0] for t in targets]
+    G.set_sources(ids=sources)
+    G.set_helpers(ids=helpers)
 
     logger.info("Enumerating synthetic trees...")
     trees = []
-    for tid in target_ids:
+    for tid in targets:
         tic = perf_counter()
         trees += G.enumerate_synthetic_trees(
                 target=tid,
@@ -119,8 +118,8 @@ def main(cfg: DictConfig):
         new_path_stats.append(
             [
                 path_entry['path_id'],
-                path_entry['starters'], # TODO: come back with names
-                path_entry['targets'], # TODO: come back with names
+                [cid2name.get(sid) for sid in path_entry['starters']],
+                [cid2name.get(tid) for tid in path_entry['targets']],
                 None, # dg_opt
                 None, # dg_err
                 path_entry['starters'], # starter_ids

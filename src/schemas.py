@@ -43,6 +43,17 @@ path_stats_schema = pl.Schema(
     }
 )
 
+compound_type = pl.Enum(categories=["source", "target", "intermediate", "helper"])
+
+compounds_schema = pl.Schema(
+    {
+        "id": pl.String,
+        "smiles": pl.String,
+        "type": compound_type,
+        "name": pl.String,
+    }
+)
+
 expansion_reactions_schema = pl.Schema(
     {
         "smarts": pl.String,

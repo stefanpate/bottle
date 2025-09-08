@@ -247,7 +247,7 @@ class ReactionNetwork(nx.MultiDiGraph):
                 self.nodes[_id]['type'] = 'helper'
                 ct += 1
             else:
-                raise ValueError(f"Node id {_id} not found in the network.")
+                logger.warning(f"Node id {_id} not found in the network.")
             
         if not quiet:
             self.logger.info(f"Set {ct} helper compounds in the reaction network.")

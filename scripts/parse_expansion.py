@@ -3,12 +3,12 @@ from omegaconf import DictConfig
 from minedatabase.pickaxe import Pickaxe
 from pathlib import Path
 import polars as pl
-from src.schemas import expansion_reactions_schema
+from src.schemas import expansion_reactions_schema, compounds_schema
 from tqdm import tqdm
 from itertools import chain
 from src.network import de_am
 from ergochemics.mapping import rc_to_nest
-from ergochemics.standardize import hash_reaction # TODO remove after testing
+from ergochemics.standardize import hash_compound
 
 def reverse_rules(rules: list[str], rule2rxn: dict[int, str], rxn2rule: dict[str, int], reaction_reverses: dict[str, str]) -> list[str]:
     rules = [int(rule) for rule in rules]
@@ -38,7 +38,6 @@ def parse_reactions(reactions: dict, rule2rxn: dict[int, str], rxn2rule: dict[st
 
         lhs, rhs = de_am(am_smarts)
         smarts = f"{".".join(lhs)}>>{".".join(rhs)}"
-        rid = hash_reaction(smarts)
         size = max([rule2size.get(rule, 0) for rule in rules])
         rules = [f"{rule_set}:{rule}" for rule in rules]
         rxn_data.append((smarts, am_smarts, rules, size))
@@ -52,7 +51,9 @@ def main(cfg: DictConfig) -> None:
         steps = int(cfg.fwd_exp[0]) + int(cfg.rev_exp[0])
         fwd_rules = cfg.fwd_exp.split('_rules_')[1]
         rev_rules = cfg.rev_exp.split('_rules_')[1]
-        exp_name = Path(f"{steps}_steps_combo_{fwd_rules}_and_{rev_rules}_rules")
+        starter_name = cfg.fwd_exp.split('_steps_')[1].split('_to_')[0]
+        target_name = cfg.rev_exp.split('_steps_')[1].split('_to_')[0]
+        exp_name = Path(f"{steps}_steps_{starter_name}_to_{target_name}_combo_{fwd_rules}_and_{rev_rules}_rules")
     elif cfg.fwd_exp is not None:
         exp_name = Path(cfg.fwd_exp).stem
     elif rev_exp is not None:
@@ -62,7 +63,10 @@ def main(cfg: DictConfig) -> None:
         Path(exp_name).mkdir(parents=True, exist_ok=True)
     
     rxn_data = []
-    helpers = set()
+    pred_kcs = {}
+    helpers = {}
+    sources = {}
+    targets = {}
     if cfg.fwd_exp is not None:
         fwd_rule_set = cfg.fwd_exp.split('_rules_')[1]
         fwd_exp = Pickaxe()
@@ -80,23 +84,18 @@ def main(cfg: DictConfig) -> None:
 
         rule2size = dict(zip(rule2size["rule_id"], rule2size["size"].to_list()))
 
-        sources = []
         for cid, cpd in fwd_exp.compounds.items():
             if cid[0] == 'X':
-                helpers.add(cpd['SMILES'])
+                _id = hash_compound(cpd['SMILES'])
+                helpers[_id] = (cpd['SMILES'], cpd.get("ID", None))
 
             if cpd['Type'] == 'Starting Compound':
-                sources.append(cpd['SMILES'])
-            
-        with open(Path(exp_name) / "sources.txt", "w") as f:
-            for smi in sources:
-                f.write(smi + "\n")
-
-        targets = [cpd["SMILES"] for cpd in fwd_exp.targets.values()]
-
-        with open(Path(exp_name) / "targets.txt", "w") as f:
-            for smi in targets:
-                f.write(smi + "\n")
+                _id = hash_compound(cpd['SMILES'])
+                sources[_id] = (cpd['SMILES'], cpd.get("ID", None))
+        
+        for cpd in fwd_exp.targets.values():
+            _id = hash_compound(cpd["SMILES"])
+            targets[_id] = (cpd["SMILES"], cpd.get("ID", None))
 
         rxn_data += parse_reactions(
             fwd_exp.reactions,
@@ -141,24 +140,20 @@ def main(cfg: DictConfig) -> None:
         rule2size = dict(zip(rule2size["rule_id"], rule2size["size"].to_list()))
         rule2rxn = dict(zip(rule2rxn["rule_id"], rule2rxn["rxn_id"].to_list()))
         rxn2rule = dict(zip(mapped_rxns["rxn_id"], mapped_rxns["rule_id"].to_list()))
-        targets = [cpd['SMILES'] for cpd in rev_exp.compounds.values() if cpd['Type'] == 'Starting Compound']
 
-        pred_kcs = []
         kcs_smiles = set(kcs["smiles"].to_list())
         for cid, cpd in rev_exp.compounds.items():
             if cpd['SMILES'] in kcs_smiles and cpd['Type'] != 'Starting Compound':
-                pred_kcs.append(cpd['SMILES'])
+                _id = hash_compound(cpd['SMILES'])
+                pred_kcs[_id] = (cpd['SMILES'], cpd.get("ID", None))
 
             if cid[0] == 'X':
-                helpers.add(cpd['SMILES'])
+                _id = hash_compound(cpd['SMILES'])
+                helpers[_id] = (cpd['SMILES'], cpd.get("ID", None))
 
-        with open(Path(exp_name) / "pred_kcs.txt", "w") as f:
-            for smi in pred_kcs:
-                f.write(smi + "\n")
-
-        with open(Path(exp_name) / "targets.txt", "w") as f:
-            for smi in targets:
-                f.write(smi + "\n")
+            if cpd['Type'] == 'Starting Compound': # in reverse exp, these are the targets
+                _id = hash_compound(cpd['SMILES'])
+                targets[_id] = (cpd['SMILES'], cpd.get("ID", None))
 
         rxn_data += parse_reactions(
             rev_exp.reactions,
@@ -170,9 +165,30 @@ def main(cfg: DictConfig) -> None:
             rule_set=rev_rule_set,
         )
 
-    with open(Path(exp_name) / "helpers.txt", "w") as f:
-        for smi in helpers:
-            f.write(smi + "\n")
+    # User-defined sources and targets override other designations
+    # helper designation overrides intermediate designation
+    pred_kcs = {k: v for k, v in pred_kcs.items() if k not in sources and k not in targets and k not in helpers}
+    helpers = {k: v for k, v in helpers.items() if k not in sources and k not in targets}
+
+    cpds = []
+    for k, (smiles, name) in sources.items():
+        cpds.append((k, smiles, "source", name))
+    for k, (smiles, name) in targets.items():
+        cpds.append((k, smiles, "target", name))
+    for k, (smiles, name) in pred_kcs.items():
+        cpds.append((k, smiles, "intermediate", name))
+    for k, (smiles, name) in helpers.items():
+        cpds.append((k, smiles, "helper", name))
+
+    cpds = pl.DataFrame(
+        cpds,
+        schema=compounds_schema,
+        orient="row",
+    )
+
+    cpds.write_parquet(
+        Path(exp_name) / "compounds.parquet"
+    )
 
     rxns = pl.DataFrame(
         rxn_data,

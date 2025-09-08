@@ -7,6 +7,7 @@ from src.post_processing import hash_path
 from pathlib import Path
 from time import perf_counter
 import logging
+import networkx as nx
 
 logger  = logging.getLogger(__name__)
 
@@ -96,16 +97,27 @@ def main(cfg: DictConfig):
     logger.info("Setting helpers...")
     G.set_helpers(smiles=helpers)
 
-    source_ids = [G.get_nodes_by_prop('smiles', s)[0] for s in sources]
-    target_ids = [G.get_nodes_by_prop('smiles', t)[0] for t in targets]
-
+    source_ids, target_ids = [], []
+    for s in sources:
+        elt = G.get_nodes_by_prop('smiles', s)
+        if len(elt) == 0:
+            logger.warning(f"Source {s} not in network")
+        else:
+            source_ids.append(elt[0])
+    for t in targets:
+        elt = G.get_nodes_by_prop('smiles', t)
+        if len(elt) == 0:
+            logger.warning(f"Target {t} not in network")
+        else:
+            target_ids.append(elt[0])
     logger.info("Finding paths...")
     paths = []
     tic = perf_counter()
     for sid in source_ids:
-        paths += G.all_simple_edge_paths(
+        paths += nx.all_simple_edge_paths(
+            G=G,
             source=sid,
-            targets=target_ids,
+            target=target_ids,
             cutoff=cfg.max_depth
         )
 
@@ -129,11 +141,10 @@ def main(cfg: DictConfig):
     rules_lookup = dict(zip(am_rxns['am_smarts'], am_rxns['rules'].to_list()))
 
     # Collect paths and path stats
-
     new_paths, new_path_stats = [], []
     new_rxn_ids = set()
     for path in paths:
-        path_entry = path_to_path_entry(path)
+        path_entry = path_to_path_entry(path, source_ids, target_ids)
         
         if path_entry['path_id'] in existing_paths['path_id'].to_list():
             continue

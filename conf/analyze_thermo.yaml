@@ -1,0 +1,15 @@
+defaults:
+  - filepaths: filepaths
+  - _self_
+
+casp_study: ???
+eq_cache: ${filepaths.artifacts}/.cache/equilibrator/compounds.sqlite
+
+hydra:
+  run:
+    dir: ${filepaths.processed_data}/${...casp_study}
+  job:
+    chdir: True
+  sweep:
+    dir: ${filepaths.processed_data}/${...casp_study}
+    subdir: .

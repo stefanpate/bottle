@@ -1,15 +1,13 @@
-from src.utils import load_json
-from minedatabase.utils import get_compound_hash
-from ergochemics.standardize import standardize_smiles
-from typing import Iterable, Any
+from typing import Iterable
 from enum import Enum
 import hashlib
 import pathlib
-import pickle
-from collections import defaultdict
-from itertools import product
-import networkx as nx
 import polars as pl
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+import cvxpy
+import numpy as np
+from equilibrator_api import Q_
 
 def hash_path(rxns: list[tuple[int, str]]) -> str:
     '''
@@ -25,344 +23,6 @@ def hash_path(rxns: list[tuple[int, str]]) -> str:
     reaction_ids = [r[1] for r in rxns]
     concat = "".join(reaction_ids)
     return hashlib.sha1(concat.encode("utf-8")).hexdigest()
-
-class Expansion:
-    def __init__(
-        self,
-        forward: pathlib.Path = None,
-        reverse: pathlib.Path = None,
-    ):
-
-        if not forward and not reverse:
-            raise ValueError("Must provide at least one expansion")
-        
-        self.forward = self._load(forward, flip=False) if forward else None
-        self.reverse = self._load(reverse, flip=True) if reverse else None
-        
-        if self.forward and self.reverse:
-            self.checkpoints = {k for k in self.forward['compounds'] if k[0] != 'X'} & {k for k in self.reverse['compounds'] if k[0] != 'X'}
-            self.forward['targets'] = self.checkpoints
-            self.reverse['starters'] = self.checkpoints
-        else:
-            self.checkpoints = None
-
-        if self.forward and self.reverse:
-            self.compounds = {**self.forward['compounds'], **self.reverse['compounds']}
-            self.reactions = {**self.forward['reactions'], **self.reverse['reactions']}
-            self.coreactants = {**self.forward['coreactants'], **self.reverse['coreactants']}
-        elif self.forward:
-            self.compounds = self.forward['compounds']
-            self.reactions = self.forward['reactions']
-            self.coreactants = self.forward['coreactants']
-        elif self.reverse:
-            self.compounds = self.reverse['compounds']
-            self.reactions = self.reverse['reactions']
-            self.coreactants = self.reverse['coreactants']
-       
-    @property
-    def starters(self):
-        if self.forward: # Forward or combo
-            return self.forward['starters']
-        else: # Retro
-            return self.reverse['starters']
-        
-    @property
-    def targets(self):
-        if self.reverse: # Retro or combo
-            return self.reverse['targets']
-        else: # Forward
-            return self.forward['targets']
-        
-    @property
-    def generation(self):
-        if self.forward and self.reverse:
-            return self.forward['generation'] + self.reverse['generation']
-        elif self.forward:
-            return self.forward['generation']
-        elif self.reverse:
-            return self.reverse['generation']
-
-    def _load(self, filepath: pathlib.Path, flip: bool) -> dict[str, Any]:
-        '''
-        Loads half expansions and stores in the direction of real-world synthesis
-
-        Args
-        -----
-        filepath:pathlib.Path
-            To half expansion file
-        flip:bool
-            Need to flip reactions, i.e., direction of expansion
-            is opposite real-world direction of synthesis
-        '''
-
-        attributes = [
-            'compounds',
-            'reactions',
-            'operators',
-            'coreactants',
-            'starters',
-            'targets',
-            'generation'
-        ]
-        half_expansion = {}
-
-        with open(filepath, 'rb') as f:
-            contents = pickle.load(f)
-
-        for k in attributes:           
-            if k == 'coreactants':
-                coreactants = defaultdict(set)
-                for name, (smiles, cid) in contents['coreactants'].items():
-                    smiles = standardize_smiles(smiles, do_remove_stereo=True, do_find_parent=False, do_neutralize=False, quiet=True)
-                    coreactants[smiles].add(name)
-                    half_expansion[k] = coreactants
-            elif k == 'starters':
-                starters = {}
-                for v in contents['compounds'].values():
-                    if v["Type"].startswith("Start"):
-                        starters[v['_id']] = v["ID"]
-            elif k == 'targets':
-                targets = {}
-                for v in contents['targets'].values():
-                    target_cid = get_compound_hash(v['SMILES'])[0] # Get neutral (non-target) cpd hash
-                    target_name = v['ID']
-                    targets[target_cid] = target_name
-            elif flip and k == 'reactions':
-                reversed_reactions = dict([self._flip_reaction(rxn) for rxn in contents[k].values()])
-                half_expansion[k] = reversed_reactions
-            elif k == 'reactions':
-                for key in contents[k].keys():
-                    contents[k][key]['reversed'] = False # So that both fwd and rev half expansions have this field 
-                half_expansion[k] = contents[k]
-            else:
-                half_expansion[k] = contents[k]
-
-        if flip:
-            half_expansion['targets'] = starters
-            half_expansion['starters'] = targets
-        else:
-            half_expansion['starters'] = starters
-            half_expansion['targets'] = targets
-
-        return half_expansion
-
-    def _flip_reaction(self, rxn: dict):
-        flipped_rxn = {}
-        flipped_rxn['_id'] = get_reaction_hash(rxn['Products'], rxn['Reactants'])
-        flipped_rxn['Reactants'] = rxn['Products']
-        flipped_rxn['Products'] = rxn['Reactants']
-        flipped_rxn['Operators'] = rxn['Operators']
-        flipped_rxn['SMILES_rxn'] = ' => '.join(rxn['SMILES_rxn'].split(' => ')[::-1])
-        flipped_rxn['Operator_aligned_smarts'] = '>>'.join(rxn['Operator_aligned_smarts'].split('>>')[::-1])
-        flipped_rxn['am_rxn'] = '>>'.join(rxn['am_rxn'].split('>>')[::-1])
-        flipped_rxn['reversed'] = True
-        return flipped_rxn['_id'], flipped_rxn
-    
-    def find_paths(self):
-        '''
-        Returns
-        -------
-        st_paths: list[list[list[str], list[str], list[str]]]
-            Each element is a path. There are three subelements:
-                - list of starter compound ids
-                - list of target compound ids
-                - list of reaction ids
-            Everything is now in the "real-world" direction of synthesis
-        '''
-        # Single direction expansions
-        if self.forward and not self.reverse:
-            paths = self._find_paths(self.forward, retro=False)
-        elif self.reverse and not self.forward:
-            paths = self._find_paths(self.reverse, retro=True)
-        else: # Combo expansions
-            forward_paths = self._find_paths(self.forward, retro=False)
-            retro_paths = self._find_paths(self.reverse, retro=True)
-
-            # Stitch together halves of combo
-            forward_by_checkpoint = defaultdict(list)
-            for fp in forward_paths:
-                forward_by_checkpoint[fp[-1]].append(fp)
-
-            retro_by_checkpoint = defaultdict(list)
-            for rp in retro_paths:
-                retro_by_checkpoint[rp[0]].append(rp)
-
-            paths = []
-            for ckpt in forward_by_checkpoint.keys() & retro_by_checkpoint.keys():
-                path_pairs = product(forward_by_checkpoint[ckpt], retro_by_checkpoint[ckpt])
-                for pair in path_pairs:
-                    paths.append(pair[0][:-1] + pair[1])
-
-            # Catch paths that connect over just half of the combo expansion
-            for rws in self.forward['starters']:
-                for p in retro_by_checkpoint[rws]:
-                    paths.append(p)
-            for rwt in self.reverse['targets']:
-                for p in forward_by_checkpoint[rwt]:
-                    paths.append(p)
-
-        st_paths = []
-        for p in paths:
-            s = set()
-            t = set()
-            rids = []
-            for rid in p[1::2]:
-                rids.append(rid)
-                for _, cid in self.reactions[rid]['Reactants']:
-                    if cid in self.starters:
-                        s.add(cid)
-                    
-                for _, cid in self.reactions[rid]['Products']:
-                    if cid in self.targets:
-                        t.add(cid)
-
-            st_paths.append([list(s), list(t), rids])
-                    
-        return st_paths    
-
-    def _find_paths(self, half_expansion: dict, retro: bool):
-        '''
-        
-        Args
-        ----
-        retro:bool
-            is retro expansion
-        
-        '''
-        if self.checkpoints and retro: # Combo, retro half
-            sources = self.checkpoints
-            sinks = half_expansion['targets'].keys()
-        elif self.checkpoints and not retro: # Combo, fwd half
-            sources = half_expansion['starters'].keys()
-            sinks = self.checkpoints
-        else: # Single direction expansion, both stored in rw synth dir
-            sources = half_expansion['starters'].keys()
-            sinks = half_expansion['targets'].keys()
-
-        # Faster to search from few to many
-        if len(sources) > len(sinks):
-            tmp = sources
-            sources = sinks
-            sinks = tmp
-            flip = True
-        else:
-            flip = False
-
-        sinks = list(sinks - sources) # all_simple_paths returns empty generator if source in sink
-
-        DG = self.construct_network(half_expansion)
-
-        if flip:
-            DG = DG.reverse(copy=False)
-
-        paths = []
-        for sr in sources:
-            paths += list(nx.all_simple_paths(DG, source=sr, target=sinks, cutoff=half_expansion['generation'] * 2)) # Search up to gens x 2 (bc bipartite)
-
-        if flip:
-            paths = [elt[::-1] for elt in paths]
-
-        return paths
-    
-    def construct_network(self, half_expansion: dict):
-        '''
-        Constructs bipartite (compounds and reactions) directed graph
-        in the order of real-world synthesis
-
-        Args
-        ----
-        half_expansion
-        flip
-            Flips orientation of the edges (direction of the reactions)
-        '''
-        cpd_node_list = []
-        rxn_node_list = []
-        edge_list = []
-
-        # Get compound information
-        for i, cpd in half_expansion['compounds'].items():
-
-            if i[0] == "X": # Skip coreactants
-                 continue
-
-            cpd_node_list.append(
-                (
-                    i,
-                    {
-                        "SMILES": cpd["SMILES"],
-                        "InChIKey": cpd["InChI_key"],
-                        "Type": cpd["Type"],
-                    }
-                )
-            )
-
-        # Get reaction information
-        for i, rxn in half_expansion['reactions'].items():
-
-            rxn_node_list.append(
-                (
-                    i,
-                    {
-                        "Rule": rxn["Operators"],
-                        "Type": "Reaction",
-                    }
-                )
-            )
-            
-            # Neither starter, (mass source) nor X coreactant (non-mass-contributing source)
-            non_sources = [
-                c_id for _, c_id in rxn["Reactants"]
-                if c_id[0] == 'C' and c_id not in self.starters
-            ]
-
-            mass_sources = [
-                c_id for _, c_id in rxn["Reactants"]
-                if c_id in self.starters
-            ]
-
-            if len(non_sources) == 1: # Other requirements for reaction are all sources
-                edge_list.append((non_sources[0], i))
-            elif len(non_sources) == 0: # Only sources required for reaction
-                for ms in mass_sources:
-                    edge_list.append((ms, i))
-            else: # Currently don't support "extended branching" in synthesis paths
-                pass
-
-            for _, c_id in rxn["Products"]:
-
-                # Don't outlink to non-mass-carrying coproducts
-                # in order to approximately conserve mass along
-                # synthesis paths
-                if c_id[0] == 'X':
-                     continue
-                
-                edge_list.append((i, c_id))
-        
-        # Create Graph
-        DG = nx.DiGraph()  
-        DG.add_nodes_from(cpd_node_list, bipartite=0)
-        DG.add_nodes_from(rxn_node_list, bipartite=1)
-        DG.add_edges_from(edge_list)
-        
-        return DG
-    
-    def prune(self, paths: list[list[list[str], list[str], list[str]]]):
-        '''
-        Prune compounds and reactions to save time
-        e.g., with thermo stuff
-        '''
-        pruned_rxns = {}
-        pruned_cpds = {}
-
-        for _, _, rids in paths:
-            for rid in rids:
-                rxn = self.reactions[rid]
-                pruned_rxns[rid] = rxn
-                for _, cid in rxn['Reactants'] + rxn['Products']:
-                    pruned_cpds[cid] = self.compounds[cid]
-        
-        self.reactions = pruned_rxns
-        self.compounds = pruned_cpds
 
 class EnzymeExistence(Enum):
     PROTEIN = 'Evidence at protein level'
@@ -577,20 +237,330 @@ class PathWrangler:
     #         print("Warning, this path may not have a complete set of known analogues & enzymes!")
 
     #     return p
+
+
+@dataclass
+class PathwayMDF:
+    """
+    Represents a pathway in thermodynamics analysis.
+
+    Attributes:
+        mdf_value (Optional[Q_]): The minimum driving force value.
+        reaction_energies (Dict[str, Q_]): A dictionary of reaction energies.
+        concentrations (Dict[str, Q_]): A dictionary of concentrations.
+        status (str): The status of the pathway.
+        missing_microspecies (List[str]): A list of missing microspecies.
+        uncertainties (Dict[str, Q_]): A dictionary of uncertainties.
+    """
+
+    mdf_value: Optional[Q_] = None
+    reaction_energies: Dict[str, Q_] = field(default_factory=dict)
+    concentrations: Dict[str, Q_] = field(default_factory=dict)
+    status: str = "INITIALIZED"
+    missing_microspecies: List[str] = field(default_factory=list)
+    uncertainties: Dict[str, Q_] = field(default_factory=dict)
+
+
+def calculate_pathway_mdf(reaction_id_list: list[str], lb: float = 1e-6, ub: float = 1e-2) -> PathwayMDF:
+    """
+    Calculates the MDF (Max-Min Driving Force) for a given pickaxe ID pathway.
+
+    Args:
+        reaction_id_list (List[str]): List of reaction IDs.
+        lb (float, optional): Lower bound on concentrations. Defaults to 1e-6.
+        ub (float, optional): Upper bound on concentrations. Defaults to 1e-2.
+
+    Returns:
+        Dict[Union[Q_, None], Dict[str, Q_], Union[Dict[str, Q_], None], str, List[str], Union[Dict[str, Q_], None]]:
+        A dictionary containing the MDF value, reaction energies, concentrations, status, missing microspecies, and uncertainties.
+    """
+    # Define a pathway mdf results object
+    pathway_mdf = PathwayMDF()
+
+    # Get the eQ_reactions from the reaction_id_list
+    pathway_eQ_reactions = [
+        self.eQ_reaction_dict.get(r_id, "NONEXIST") for r_id in reaction_id_list
+    ]
+
+    # Ensure all reactions are generated
+    non_exist_reactions = [
+        r_id
+        for r_id in reaction_id_list
+        if isinstance(self.eQ_reaction_dict.get(r_id, "NONEXIST"), str)
+        and self.eQ_reaction_dict.get(r_id, "NONEXIST") == "NONEXIST"
+    ]
+    if non_exist_reactions:
+        raise ReactionsNotGeneratedError(non_exist_reactions)
+
+    # find any self.eQ_reaction_dict[r_id] is a string instance and return if failed
+    failed_reactions = {
+        r_id: "FAILED"
+        for r_id in reaction_id_list
+        if isinstance(self.eQ_reaction_dict[r_id], str)
+    }
+
+    if failed_reactions:
+        pathway_mdf.status = "FAILED"
+        return pathway_mdf
+
+    # Calculate the standard_dg_prime and standard_dg_prime_uncertainty for MDF setup
+    (
+        standard_dgr_prime,
+        standard_dgr_uncertainty,
+    ) = self.ccont.standard_dg_prime_multi(
+        pathway_eQ_reactions, uncertainty_representation="fullrank"
+    )
+
+    S = self.ccont.create_stoichiometric_matrix_from_reaction_objects(
+        pathway_eQ_reactions
+    )
+
+    # See if any missing microspecies, means ChemAxon bypassed
+    missing_microspecies = []
+    for compound in S.index:
+        if not compound.microspecies:
+            missing_microspecies.append(
+                [
+                    identifier.accession
+                    for identifier in compound.identifiers
+                    if identifier.registry_id == 2
+                    and identifier.accession[0] in ["X", "C", "T"]
+                ][0]
+            )
+
+    # Setup the MDF problem
+    Nc, Nr = S.shape
+    RT = self.ccont.RT
+
+    ln_conc = cvxpy.Variable(
+        shape=Nc, name="metabolite log concentration"
+    )  # vector
+    B = cvxpy.Variable()  # scalar
+    dg_prime = -(
+        standard_dgr_prime.m_as("kJ/mol") + RT.m_as("kJ/mol") * S.values.T @ ln_conc
+    )
+
+    # constraints = [
+    #     np.log(np.ones(Nc) * lb) <= ln_conc,  # lower bound on concentrations
+    #     ln_conc <= np.log(np.ones(Nc) * ub),  # upper bound on concentrations
+    #     np.ones(Nr) * B <= dg_prime,
+    # ]
+    constraints = self.pick_constraints_for_MDF(S, Nc, Nr, ln_conc, dg_prime, B, lb, ub)
+
+    # Solve the MDF problem
+    prob_max = cvxpy.Problem(cvxpy.Maximize(B), constraints)
+    prob_max.solve()
+    pathway_mdf.mdf_value = prob_max.value
+    pathway_mdf.status = prob_max.status
+
+    # Convert the results to the correct units
+    best_case_rxn_energies = [
+        Q_(val, "kilojoule/mole") for val in list(-dg_prime.value)
+    ]
+    best_case_concentrations = [
+        Q_(val, "mole") for val in list(np.exp(ln_conc.value))
+    ]
+    pathway_mdf.concentrations = {
+        [
+            identifier.accession
+            for identifier in compound.identifiers
+            if identifier.registry_id == 2
+            and identifier.accession[0] in ["X", "C", "T"]
+        ][0]: conc
+        for compound, conc in zip(list(S.index), best_case_concentrations)
+    }
+    pathway_mdf.reaction_energies = {
+        rxn_id: dg for rxn_id, dg in zip(reaction_id_list, best_case_rxn_energies)
+    }
+    # define pathway_mdf unc
+    pathway_mdf.uncertainties = {
+        rxn_id: uncertainty[0]
+        for rxn_id, uncertainty in zip(reaction_id_list, standard_dgr_uncertainty)
+    }
+
+    return pathway_mdf
+
+def pick_constraints_for_MDF(
+        self, S: any, Nc: any, Nr: any,
+        ln_conc: any, dg_prime: any, B: any, lb: float, ub: float
+):
+    '''
+    AUTHOR: YASH CHAINANI
+    '''
+    
+    ### Cofactors to track for specific constraints
+    ATP_inchi_key = "ZKHQWZAMYRWXGA-UHFFFAOYSA-N"
+    ADP_inchi_key = "XTWYTFMLZFPYCI-UHFFFAOYSA-N"
+    AMP_inchi_key = "UDMBCSSLTHHNCD-UHFFFAOYSA-N"
+    NADP_plus_inchi_key = "XJLXINKUBYWONI-UHFFFAOYSA-O"
+    NADPH_inchi_key = "ACFIXJIJDZMPPO-UHFFFAOYSA-N"
+    NAD_plus_inchi_key = "BAWFJGJZGIEFAR-UHFFFAOYSA-O"
+    NADH_inchi_key = "BOPGDPNILDQYTO-UHFFFAOYSA-N"
+    PI_inchi_key = "NBIIXXVUZAFLBC-UHFFFAOYSA-L"
+    PPI_inchi_key = "XPPKVPWEQAFLFU-UHFFFAOYSA-K"
+    CoA_inchi_key = "RGJOEKWQDUBAIZ-UHFFFAOYSA-N"
+    NH3_inchi_key = "QGZKDVFQNNGYKY-UHFFFAOYSA-O"
+
+    ### Store the inchi keys of all the compounds in the reaction/ pathway
+    compound_inchi_keys_list = []
+    for compound in list(S.index):
+        compound_inchi_keys_list.append(compound.inchi_key)
+
+    ### Note the various conditions
+
+    # Rules 14, 15, 223, 224, 408, 409
+    ATP_ADP_cofactors = [
+        ATP_inchi_key in compound_inchi_keys_list,
+        ADP_inchi_key in compound_inchi_keys_list,
+    ]
+
+    # Rules 49, 50, 356, 402,
+    ATP_ADP_PI_cofactors = [
+        ATP_inchi_key in compound_inchi_keys_list,
+        ADP_inchi_key in compound_inchi_keys_list,
+        PI_inchi_key in compound_inchi_keys_list,
+    ]
+
+    # Rules 170, 171
+    ATP_ADP_PI_CoA_cofactors = [
+        ATP_inchi_key in compound_inchi_keys_list,
+        ADP_inchi_key in compound_inchi_keys_list,
+        PI_inchi_key in compound_inchi_keys_list,
+        CoA_inchi_key in compound_inchi_keys_list,
+    ]
+
+    ATP_AMP_cofactors = [
+        ATP_inchi_key in compound_inchi_keys_list,
+        AMP_inchi_key in compound_inchi_keys_list,
+    ]
+
+    # Rules 66, 67, 345, 346
+    ATP_AMP_PPI_cofactors = [
+        ATP_inchi_key in compound_inchi_keys_list,
+        AMP_inchi_key in compound_inchi_keys_list,
+        PPI_inchi_key in compound_inchi_keys_list,
+    ]
+
+    ATP_AMP_PPI_CoA_cofactors = [
+        ATP_inchi_key in compound_inchi_keys_list,  # Rules 38, 39
+        AMP_inchi_key in compound_inchi_keys_list,
+        PPI_inchi_key in compound_inchi_keys_list,
+        CoA_inchi_key in compound_inchi_keys_list,
+    ]
+
+    ATP_AMP_PPI_NH3_cofactors = [
+        ATP_inchi_key in compound_inchi_keys_list,  # Rules 385, 386
+        AMP_inchi_key in compound_inchi_keys_list,
+        PPI_inchi_key in compound_inchi_keys_list,
+        NH3_inchi_key in compound_inchi_keys_list,
+    ]
+
+    NADP_NADPH_cofactors = [
+        NADP_plus_inchi_key in compound_inchi_keys_list,
+        NADPH_inchi_key in compound_inchi_keys_list,
+    ]
+
+    NAD_NADH_cofactors = [
+        NAD_plus_inchi_key in compound_inchi_keys_list,
+        NADH_inchi_key in compound_inchi_keys_list,
+    ]
+
+    ### ATP, ADP: phosphate donor/ acceptor rxns (ATP/ ADP = 10)
+    # Rules 14, 15
+    if all(ATP_ADP_cofactors):
+        for i, compound_inchi in enumerate(compound_inchi_keys_list):
+            if compound_inchi == ATP_inchi_key:
+                ATP_index = i
+
+            if compound_inchi == ADP_inchi_key:
+                ADP_index = i
+
+        ATP_ADP_constraints = [
+            np.log(np.ones(Nc) * lb) <= ln_conc,  # lower bound on concentrations
+            ln_conc <= np.log(np.ones(Nc) * ub),  # upper bound on concentrations
+            np.ones(Nr) * B <= dg_prime,
+            (ln_conc[ATP_index] - ln_conc[ADP_index]) <= 2.303,
+            2.300 <= (ln_conc[ATP_index] - ln_conc[ADP_index]),
+        ]
+
+        return ATP_ADP_constraints
+
+    ### ATP, AMP, PPI, CoA: pyrophosphate donor/ acceptor rxns (ATP/ AMP = 10, [pyrophosphate] = 1 mM)
+    # Rules 66, 67, 345, 346
+    if all(ATP_AMP_PPI_cofactors):
+        for i, compound_inchi in enumerate(compound_inchi_keys_list):
+            if compound_inchi == ATP_inchi_key:
+                ATP_index = i
+
+            if compound_inchi == AMP_inchi_key:
+                AMP_index = i
+
+            if compound_inchi == PPI_inchi_key:
+                PPI_index = i
+
+        ATP_AMP_constraints = [
+            np.log(np.ones(Nc) * lb) <= ln_conc,  # lower bound on concentrations
+            ln_conc <= np.log(np.ones(Nc) * ub),  # upper bound on concentrations
+            np.ones(Nr) * B <= dg_prime,
+            (ln_conc[ATP_index] - ln_conc[AMP_index]) <= 2.303,
+            2.303 <= (ln_conc[ATP_index] - ln_conc[AMP_index]),
+            ln_conc[PPI_index] <= -4.6,
+            -4.7 <= ln_conc[PPI_index],
+        ]
+
+        return ATP_AMP_constraints
+
+    ### NADP+ - NADPH reactions (NADPH/ NADP+ = 10)
+    # Rules 2,3..
+    if all(NADP_NADPH_cofactors):
+        for i, compound_inchi in enumerate(compound_inchi_keys_list):
+            if compound_inchi == NADP_plus_inchi_key:
+                NADP_plus_index = i
+
+            if compound_inchi == NADPH_inchi_key:
+                NADPH_index = i
+
+        NADP_NADPH_constraints = [
+            np.log(np.ones(Nc) * lb) <= ln_conc,  # lower bound on concentrations
+            ln_conc <= np.log(np.ones(Nc) * ub),  # upper bound on concentrations
+            np.ones(Nr) * B <= dg_prime,
+            (ln_conc[NADPH_index] - ln_conc[NADP_plus_index]) <= 2.303,
+            2.300 <= (ln_conc[NADPH_index] - ln_conc[NADP_plus_index]),
+        ]
+
+        return NADP_NADPH_constraints
+
+    ### NAD+ - NADH reactions (NADH/ NAD+ = 0.1, i.e NAD+/ NADH = 10):
+    # Rules 2,3,...
+    if all(NAD_NADH_cofactors):
+        for i, compound_inchi in enumerate(compound_inchi_keys_list):
+            if NAD_plus_inchi_key == compound_inchi:
+                NAD_plus_index = i
+
+            if NADH_inchi_key == compound_inchi:
+                NADH_index = i
+
+        NAD_NADH_constraints = [
+            np.log(np.ones(Nc) * lb) <= ln_conc,  # lower bound on concentrations
+            ln_conc <= np.log(np.ones(Nc) * ub),  # upper bound on concentrations
+            np.ones(Nr) * B <= dg_prime,
+            (ln_conc[NAD_plus_index] - ln_conc[NADH_index]) <= 2.303,
+            2.300 <= (ln_conc[NAD_plus_index] - ln_conc[NADH_index]),
+        ]
+        return NAD_NADH_constraints
+
+    ### All others
+    else:
+        reg_constraints = [
+            np.log(np.ones(Nc) * lb) <= ln_conc,  # lower bound on concentrations
+            ln_conc <= np.log(np.ones(Nc) * ub),  # upper bound on concentrations
+            np.ones(Nr) * B <= dg_prime,
+        ]
+
+    return reg_constraints
     
 if __name__ == '__main__':
     from hydra import compose, initialize
     
     with initialize(version_base=None, config_path="conf/filepaths"):
         filepaths = compose(config_name="filepaths")
-    
-    forward = filepaths['raw_expansions'] / "2_steps_pivalic_acid_to_bottle_targets_24_rules_JN3604IMT_rules_co_metacyc_coreactants_sampled_False_pruned_True.pk"
-    expansion = Expansion(forward=forward)
-    paths = expansion.find_paths()
-
-    forward = filepaths['raw_expansions'] / "2_steps_ccm_aa_to_None_rules_JN3604IMT_rules_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk"
-    reverse = filepaths['raw_expansions'] / "2_steps_bottle_targets_24_to_None_rules_JN3604IMT_rules_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_False.pk"
-    imt_reverses = load_json(filepaths['rules'] / "jnimt_reverses.json")
-    expansion = Expansion(forward=forward, reverse=reverse, operator_reverses=imt_reverses)
-    paths = expansion.find_paths()
-    print()

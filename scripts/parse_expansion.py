@@ -8,6 +8,7 @@ from tqdm import tqdm
 from itertools import chain
 from src.network import de_am
 from ergochemics.mapping import rc_to_nest
+from ergochemics.standardize import hash_reaction # TODO remove after testing
 
 def reverse_rules(rules: list[str], rule2rxn: dict[int, str], rxn2rule: dict[str, int], reaction_reverses: dict[str, str]) -> list[str]:
     rules = [int(rule) for rule in rules]
@@ -27,7 +28,7 @@ def parse_reactions(reactions: dict, rule2rxn: dict[int, str], rxn2rule: dict[st
         if 'am_rxn' not in rxn:
             continue
         
-        rules = [elt.split('_')[0] for elt in rxn['Operators']]
+        rules = [int(elt.split('_')[0]) for elt in rxn['Operators']]
         
         if mode == "retro":
             am_smarts = ">>".join(rxn['am_rxn'].split('>>')[::-1])
@@ -37,6 +38,7 @@ def parse_reactions(reactions: dict, rule2rxn: dict[int, str], rxn2rule: dict[st
 
         lhs, rhs = de_am(am_smarts)
         smarts = f"{".".join(lhs)}>>{".".join(rhs)}"
+        rid = hash_reaction(smarts)
         size = max([rule2size.get(rule, 0) for rule in rules])
         rules = [f"{rule_set}:{rule}" for rule in rules]
         rxn_data.append((smarts, am_smarts, rules, size))

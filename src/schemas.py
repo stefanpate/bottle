@@ -45,7 +45,9 @@ path_stats_schema = pl.Schema(
 
 expansion_reactions_schema = pl.Schema(
     {
+        "smarts": pl.String,
         "am_smarts": pl.String,
         "rules": pl.List(pl.String),
+        "size": pl.Int32,
     }
 )

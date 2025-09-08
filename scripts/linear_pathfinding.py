@@ -1,324 +1,230 @@
-'''
-Deprecated
-'''
-
 import hydra
-from omegaconf import DictConfig, OmegaConf
-from tqdm import tqdm
+from omegaconf import DictConfig
 import polars as pl
-from concurrent.futures import ProcessPoolExecutor
-from hydra.utils import instantiate
-from functools import partial
-from itertools import chain
-from ergochemics.mapping import get_reaction_center
+from src.network import ReactionNetwork, SyntheticTree, de_am
+from src.schemas import predicted_reactions_schema, paths_schema, path_stats_schema
+from src.post_processing import hash_path
 from pathlib import Path
-from rdkit import Chem
-from src.post_processing import Expansion, get_path_id
-from src.schemas import found_paths_schema, predicted_reactions_schema
-from src.chem_draw import draw_reaction
-import numpy as np
 from time import perf_counter
-from typing import Any
-from multiprocessing import get_context
-import json
+import logging
 
-def proc_initializer(cfg: DictConfig) -> None:
-    def sma_rc_fp(sma, rc):
-        mol = Chem.MolFromSmiles(sma.split('>>')[0])
-        if mol is None:
-            return None
-        return _fingerprint(mol, rc)
-    
-    print("Initializing process for reaction mapping", flush=True)
-    global dxgb, _fingerprint, mapped_rxns, rxn_reverses
-    dxgb = instantiate(cfg.dxgb)
-    mfper = instantiate(cfg.mfper)
-    _fingerprint = partial(mfper.fingerprint, rc_dist_ub=cfg.rc_dist_ub)
+logger  = logging.getLogger(__name__)
 
-    # Create helper dfs
-    mapped_rxns = []
-    unique_rule_names = set(chain(*cfg.rule_names))
-    unique_rule_names.discard(None)  # Remove None if present
-    for rn in unique_rule_names:
-        df = pl.read_parquet(
-            Path(cfg.filepaths.rxn_x_rule_mapping) / f"mapped_known_reactions_x_{rn}.parquet"
-        )
-        df = df.with_columns(
-            reaction_center=pl.col("am_smarts").map_elements(
-                get_lhs_block_rc, return_dtype=pl.List(pl.Int64)
-            ),
-            rule_id=pl.col("rule_id").map_elements(
-                lambda x: f"{rn}:{x}",
-                return_dtype=pl.String
-            )
-        )
-        df = df.with_columns(
-            pl.struct(["smarts", "reaction_center"]).map_elements(
-                lambda x: sma_rc_fp(x["smarts"], x["reaction_center"]),
-                return_dtype=pl.Object
-            ).alias("mfp")
-        )
-        mapped_rxns.append(df)
-
-    mapped_rxns = pl.concat(mapped_rxns)
-    
-    # Required to look up analogues of reveresed reactions from retro expansions
-    rxn_reverses = pl.scan_parquet(
-        Path(cfg.filepaths.known_reactions)
-    ).select(
-        pl.col("id"),
-        pl.col("reverse")
-    ).collect()
-    rxn_reverses = dict(rxn_reverses.iter_rows())
-
-def get_lhs_block_rc(am_smarts: str) -> list[int]:
-    return get_reaction_center(am_smarts, mode="combined")[0]
-
-def extract_rule_names(fwd_expansions: list[str], reverse_expansions: list[str]) -> str:
-    rule_names = []
-    for fwd, rev in zip(fwd_expansions, reverse_expansions):
-        if fwd is not None and rev is not None:
-            fwd_rules = fwd.split("_rules_")[1]
-            rev_rules = rev.split("_rules_")[1]
-            rule_names.append((f"{fwd_rules}_rules", f"{rev_rules}_rules"))
-        elif rev is None:
-            rules = fwd.split("_rules_")[1]
-            rule_names.append((f"{rules}_rules", None))
-        elif fwd is None:
-            rules = rev.split("_rules_")[1]
-            rule_names.append((None, f"{rules}_rules"))
-        else:
-            raise ValueError("Both forward and reverse expansions are None")
- 
-    return rule_names
-
-OmegaConf.register_new_resolver("extract_rule_names", extract_rule_names)
-
-def process_reaction(reaction: dict[str, Any]) -> dict[str, Any]:
-    reaction = {k: v for k, v in reaction.items()} # Defensive copy
-    query_smarts = reaction["smarts"]
-    query_am_smarts = reaction["am_smarts"]
-    query_lhs_mol = Chem.MolFromSmiles(query_smarts.split('>>')[0])
-    query_lhs_block_rc = get_lhs_block_rc(query_am_smarts)
-
-    if query_lhs_mol is None:
-        return reaction
-    
-    # In case of retro expansion, must get reactions of the reverse direction
-    if reaction["reversed"]:
-        rev_krs = mapped_rxns.filter(
-            pl.col("rule_id").is_in(reaction["rules"])
-        )["rxn_id"]
-        fwd_krs = [rxn_reverses[kr] for kr in rev_krs if kr in rxn_reverses]
-        analogues = mapped_rxns.filter(
-            pl.col("rxn_id").is_in(fwd_krs)
-        )
-    else: # For forward expansions, we can use the rules to look up analogues directly
-        analogues = mapped_rxns.filter(pl.col("rule_id").is_in(reaction["rules"]))
-
-    if analogues.is_empty():
-        srt_sims = []
-        srt_krids = []
+def check_existing(fn: str, schema: pl.Schema):
+    if (Path.cwd() / fn).exists():
+        existing = pl.read_parquet(Path.cwd() / fn)
     else:
-        mfps = np.vstack(analogues["mfp"])
-        query_mfp = _fingerprint(
-            mol=query_lhs_mol,
-            reaction_center=query_lhs_block_rc
-        ).reshape(-1, 1)
-        sims = np.matmul(mfps, query_mfp) / (np.linalg.norm(mfps, axis=1).reshape(-1, 1) * np.linalg.norm(query_mfp))
-        sims = sims.reshape(-1,)
-        srt_sims = sorted(sims, reverse=True)
-        srt_idxs = np.argsort(sims)[::-1]
-        srt_krids = analogues['rxn_id'][srt_idxs].to_list()
+        existing = pl.DataFrame(schema=schema)
+    return existing
 
-    is_feasible = dxgb.predict_label(query_smarts)
-
-    reaction["dxgb_label"] = is_feasible
-    reaction["rxn_sims"] = srt_sims
-    reaction["analogue_ids"] = srt_krids
-    try:
-        reaction.pop("reversed", None) # Don't want to save this
-    except KeyError:
-        pass
-
-    return reaction
-
-@hydra.main(version_base=None, config_path="../conf", config_name="mechanism_processing")
-def main(cfg: DictConfig) -> None:
-    # Check for existing paths and reactions
-    if Path("predicted_reactions.parquet").exists():
-        existing_reactions = pl.scan_parquet(
-            "predicted_reactions.parquet"
-        ).select(
-            pl.col("id")
-        ).collect()
-    else:
-        existing_reactions = pl.DataFrame(schema=predicted_reactions_schema)
-        existing_reactions.write_parquet("predicted_reactions.parquet")
-
-    if Path("found_paths.parquet").exists():
-        existing_paths = pl.scan_parquet(
-            "found_paths.parquet"
-        ).select(
-            pl.col("id")
-        ).collect()
-    else:
-        existing_paths = pl.DataFrame(schema=found_paths_schema)
-        existing_paths.write_parquet("found_paths.parquet")
-    
-    predicted_reactions = {}
-    paths = {}
-    for fwd, rev, (fwd_rules_name, rev_rules_name) in zip(cfg.forward_expansions, cfg.reverse_expansions, cfg.rule_names):
-
-        pk = Expansion(
-            forward=Path(cfg.filepaths.raw_expansions) / fwd if fwd else None,
-            reverse=Path(cfg.filepaths.raw_expansions) / rev if rev else None,
-        )
-        
-        # Find paths
-        print("Searching for paths")
-        tic = perf_counter()
-        this_paths = pk.find_paths()
-        toc = perf_counter()
-        print(f"Path finding completed in  {toc - tic : .2f} seconds")
-        tic = perf_counter()
-        print("Pruning paths")
-        pk.prune(this_paths)
-        toc = perf_counter()
-        
-        print(f"Path pruning completed in {toc - tic : .2f} seconds")
-        if not this_paths:
-            print(f"No paths found for {fwd} and {rev}. Skipping.")
-            continue
-        else:
-            print(f"Found {len(this_paths)} paths for {fwd} and {rev}")
-        
-        for sids, tids, rids in this_paths:
-            path_id = get_path_id(rids)
-
-            if path_id in existing_paths['id']:
-                continue
-
-            # Entering some default values here, to be updated later, 
-            # in order to adhere to the schema
-            paths[path_id] = {
-                "id": path_id,
-                "starters": [pk.starters[sid] for sid in sids],
-                "targets": [pk.targets[tid] for tid in tids],
-                "reactions": rids,
-                "dg_opt": None,
-                "dg_err": None,
-                "starter_ids": sids,
-                "target_ids": tids,
-                "mdf": None,
-                "mean_max_rxn_sim": 0.0,
-                "mean_mean_rxn_sim": 0.0,
-                "min_max_rxn_sim": 0.0,
-                "min_mean_rxn_sim": 0.0,
-                "feasibility_frac": 0.0,
-            }
-        
-        # Collect predicted reactions post-pruning
-        for k, v in pk.reactions.items():
-
-            if k in existing_reactions["id"]:
-                continue
-
-            is_reversed = v["reversed"]
-            rule_name = rev_rules_name if is_reversed else fwd_rules_name
-            predicted_reactions[k] = {
-                "id": k,
-                "smarts": v["Operator_aligned_smarts"],
-                "am_smarts": v["am_rxn"],
-                "dxgb_label": None,
-                "rxn_sims": None,
-                "analogue_ids": None,
-                "rules": [f"{rule_name}:{elt.split('_')[0]}" for elt in v["Operators"]],
-                "reversed": is_reversed,
-            }
-
-    # Process reactions
-    predicted_reactions = list(predicted_reactions.values())
-    chunksize = max(1, int(len(predicted_reactions) / cfg.processes))
-    context = get_context("spawn") # Polars hates fork
-    with ProcessPoolExecutor(max_workers=cfg.processes, initializer=proc_initializer, initargs=(cfg,), mp_context=context) as executor:
-        print("Processing reactions w/ context: ", executor._mp_context)
-        analyzed_reactions = list(
-            tqdm(
-                executor.map(process_reaction, predicted_reactions, chunksize=chunksize),
-                total=len(predicted_reactions),
-                desc="Procesing reactions"
-            )
-        )
-        
-    analyzed_reactions = pl.from_dicts(analyzed_reactions, schema=predicted_reactions_schema)
-
-    # Add reaction-derived summary stats to paths
-    for id, path in paths.items():           
-        rxn = analyzed_reactions.filter(pl.col("id").is_in(path["reactions"])).select(
-            pl.col("dxgb_label"),
-            pl.col("rxn_sims"),
-        )
-
-        # If rxn_sims (& analogue_ids) for a predicted rxn is empty, there are 
-        # no analogues. When calculating summary stats, treat this as rxn_sims = [0.0]
-        # instead of skipping it for example.
-        paths[id]["feasibility_frac"] = rxn["dxgb_label"].mean()
-        paths[id]["mean_max_rxn_sim"] = np.mean([sims.max() or 0 for sims in rxn["rxn_sims"]] or [0])
-        paths[id]["mean_mean_rxn_sim"] = np.mean([sims.mean() or 0 for sims in rxn["rxn_sims"]] or [0])
-        paths[id]["min_max_rxn_sim"] = np.min([sims.max() or 0 for sims in rxn["rxn_sims"]] or [0])
-        paths[id]["min_mean_rxn_sim"] = np.min([sims.mean() or 0 for sims in rxn["rxn_sims"]] or [0])
-    
-    # Save paths
-    paths = pl.from_dicts(list(paths.values()), schema=found_paths_schema)
-    existing_paths = pl.read_parquet("found_paths.parquet")
-    paths = pl.concat((existing_paths, paths))
-    paths.write_parquet("found_paths.parquet")
-
-    # Generate reaction images
-    if not Path("svgs").exists():
-        Path("svgs").mkdir()
-    
-    if not Path("svgs/known").exists():
-        Path("svgs/known").mkdir()
-        existing_kr_svgs = set()
-    else:
-        existing_kr_svgs = set([fn.name.removesuffix(".svg") for fn in Path("svgs/known").glob("*.svg")])
-    
-    if not Path("svgs/predicted").exists():
-        Path("svgs/predicted").mkdir()
+# TODO: delete
+# def tree_to_path_entry(tree: SyntheticTree):
+#     rids, gens, main_pdt_ids = [], [], []
+#     for i, gen in enumerate(tree.generations):
+#         for main_pdt_id, rxn_id in gen.items():
             
-    krids_to_draw = set(chain(*analyzed_reactions["analogue_ids"])) - existing_kr_svgs
-    krs_to_draw = pl.scan_parquet(
-        Path(cfg.filepaths.known_reactions)
-    ).filter(
-        pl.col("id").is_in(krids_to_draw)
-    ).select(
-        pl.col("id"),
-        pl.col("smarts")
-    ).collect()
+#             if rxn_id is None:
+#                 continue
+            
+#             rids.append(rxn_id)
+#             gens.append(i)
+#             main_pdt_ids.append(main_pdt_id)
+#     path_id = hash_path(list(zip(gens, rids)))
+#     target = tree.root
+#     starters = [cid for cid, _ in tree.leaves]
 
+#     return {
+#         "path_id": path_id,
+#         "rxn_ids": rids,
+#         "main_pdt_ids": main_pdt_ids,
+#         "generations": gens,
+#         "starters": starters,
+#         "targets": [target],
+#     }
 
+def path_to_path_entry(path: list[tuple[str, str, str]], source_ids: list[str], target_ids: list[str]):
+    rids, gens, main_pdt_ids = [], [], []
+    starters, targets = [], []
+    for generation, (rct, pdt, rid) in enumerate(path):
+        rids.append(rid)
+        gens.append(generation)
+        main_pdt_ids.append(pdt)
+
+        if rct in source_ids:
+            starters.append(rct)
+        if pdt in target_ids:
+            targets.append(pdt)
+    path_id = hash_path(list(zip(gens, rids)))
+
+    return {
+        "path_id": path_id,
+        "rxn_ids": rids,
+        "main_pdt_ids": main_pdt_ids,
+        "generations": gens,
+        "starters": starters,
+        "targets": targets,
+    }
+
+@hydra.main(version_base=None, config_path="../conf", config_name="linear_pathfinding")
+def main(cfg: DictConfig):
+
+    # Load data for reaction network
+    with open(Path(cfg.expansion_extract) / cfg.helpers, 'r') as f:
+        helpers = [line.strip() for line in f.readlines()]
+
+    with open(Path(cfg.expansion_extract) / cfg.sources, 'r') as f:
+        sources = [line.strip() for line in f.readlines()]
+
+    with open(Path(cfg.expansion_extract) / cfg.targets, 'r') as f:
+        targets = [line.strip() for line in f.readlines()]
+
+    am_rxns = pl.read_parquet(Path(cfg.expansion_extract) / cfg.am_rxns)
+
+    G = ReactionNetwork() # init
+    logger.info("Adding reactions to network...")
     tic = perf_counter()
-    print(f"Drawing {len(krs_to_draw)} known reactions")
-    for row in krs_to_draw.iter_rows(named=True):
-        rxn = draw_reaction(row['smarts'], auto_scl=True)
-        rxn.save(f"svgs/known/{row['id']}.svg")
-    toc = perf_counter()
-    print(f"Drawing known reactions completed in {toc - tic : .2f} seconds")
-
-    tic = perf_counter()
-    print(f"Drawing {len(analyzed_reactions)} predicted reactions")
-    for row in analyzed_reactions.iter_rows(named=True):
-        rxn = draw_reaction(row['smarts'], auto_scl=True)
-        rxn.save(f"svgs/predicted/{row['id']}.svg")
-    toc = perf_counter()
-    print(f"Drawing predicted reactions completed in {toc - tic : .2f} seconds")
+    for row in am_rxns.iter_rows(named=True):
+        try:
+            G.add_reaction(row['am_smarts'], rxn_type='predicted')
+        except:
+            logger.info(f"Failed to add reaction: {row['am_smarts']}")
+            continue
     
-    # Save predicted reactions
-    existing_reactions = pl.read_parquet("predicted_reactions.parquet")
-    analyzed_reactions = pl.concat((analyzed_reactions, existing_reactions))
-    analyzed_reactions.write_parquet("predicted_reactions.parquet")
+    toc = perf_counter()
+    logger.info(f"Added {len(am_rxns)} reactions in {toc - tic:.2f} seconds.")
+
+    logger.info("Setting helpers...")
+    G.set_helpers(smiles=helpers)
+
+    source_ids = [G.get_nodes_by_prop('smiles', s)[0] for s in sources]
+    target_ids = [G.get_nodes_by_prop('smiles', t)[0] for t in targets]
+
+    logger.info("Finding paths...")
+    paths = []
+    tic = perf_counter()
+    for sid in source_ids:
+        paths += G.all_simple_edge_paths(
+            source=sid,
+            targets=target_ids,
+            cutoff=cfg.max_depth
+        )
+
+    toc = perf_counter()
+    logger.info(f"Found {len(paths)} paths in {toc - tic:.2f} seconds.")
+    
+    logger.info("Saving results...")
+
+    # Check for existing paths and reactions
+    existing_reactions = check_existing("predicted_reactions.parquet", predicted_reactions_schema)
+    existing_paths = check_existing("paths.parquet", paths_schema)
+    existing_path_stats = check_existing("path_stats.parquet", path_stats_schema)
+
+    # Lookups to generate new entries
+    smarts_lookup = {}
+    rxn_type_lookup = {}
+    for _, _, k, d in G.edges(keys=True, data=True):
+        smarts_lookup[k] = d['am_smarts']
+        rxn_type_lookup[k] = d['rxn_type']
+
+    rules_lookup = dict(zip(am_rxns['am_smarts'], am_rxns['rules'].to_list()))
+
+    # Collect paths and path stats
+
+    new_paths, new_path_stats = [], []
+    new_rxn_ids = set()
+    for path in paths:
+        path_entry = path_to_path_entry(path)
+        
+        if path_entry['path_id'] in existing_paths['path_id'].to_list():
+            continue
+
+        # One entry per path
+        new_path_stats.append(
+            [
+                path_entry['path_id'],
+                path_entry['starters'], # TODO: come back with names
+                path_entry['targets'], # TODO: come back with names
+                None, # dg_opt
+                None, # dg_err
+                path_entry['starters'], # starter_ids
+                path_entry['targets'], # target_ids
+                None, # mdf
+                None, # mean_max_rxn_sim
+                None, # mean_mean_rxn_sim
+                None, # min_max_rxn_sim
+                None, # min_mean_rxn_sim
+                None, # feasibility_frac
+            ]
+        )
+
+        # One entry per reaction
+        for rxn_id, main_pdt_id, generation in zip(path_entry['rxn_ids'], path_entry['main_pdt_ids'], path_entry['generations']):
+            new_paths.append(
+                [
+                    path_entry['path_id'],
+                    rxn_id,
+                    main_pdt_id,
+                    rxn_type_lookup[rxn_id],
+                    generation
+                ]
+            )
+            new_rxn_ids.add(rxn_id)
+
+    # Concat paths, path_stats
+    
+    paths = pl.concat([
+        existing_paths,
+        pl.DataFrame(
+            new_paths,
+            schema=paths_schema,
+            orient='row'
+        )
+    ])
+
+    path_stats = pl.concat([
+        existing_path_stats,
+        pl.DataFrame(
+            new_path_stats,
+            schema=path_stats_schema,
+            orient='row'
+        )
+    ])
+
+    # Collect new unique predicted reactions
+    new_reactions = []
+    for rxn_id in new_rxn_ids:
+
+        if rxn_type_lookup[rxn_id] == 'predicted' and rxn_id not in existing_reactions['id']:
+            am_rxn = smarts_lookup[rxn_id]
+            rcts, pdts = de_am(am_rxn)
+            de_am_rxn = f"{'.'.join(rcts)}>>{'.'.join(pdts)}"
+            new_reactions.append(
+                [
+                    rxn_id,
+                    de_am_rxn,
+                    am_rxn,
+                    None, # dxgb_label
+                    None, # rxn_sims
+                    None, # analogue_ids
+                    rules_lookup[smarts_lookup[rxn_id]], # rules
+                ]
+            )
+
+    
+    # Concat and save predicted reactions
+    reactions = pl.concat([
+        existing_reactions,
+        pl.DataFrame(
+            new_reactions,
+            schema=predicted_reactions_schema,
+            orient='row'
+        )
+    ])
+
+    # Save
+    paths.write_parquet("paths.parquet")
+    path_stats.write_parquet("path_stats.parquet")
+    reactions.write_parquet("predicted_reactions.parquet")
 
 if __name__ == "__main__":
     main()

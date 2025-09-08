@@ -106,33 +106,6 @@ class ReactionNetwork(nx.MultiDiGraph):
 
     def get_nodes_by_prop(self, prop: str, value: Any) -> list[int]:
         return [x for x, y in self.nodes(data=True) if y[prop] == value]
-        
-    # Deprecated
-    # def shortest_path(self, source: str = None, target: str = None, rm_req_target: bool = True, quiet: bool = False) -> dict | list:
-    #     if source is None and target is None:
-    #         return nx.shortest_path(self)
-    #     elif (source is None) ^ (target is None):
-    #         raise ValueError("Provide both source and target or neither")
-    #     elif rm_req_target: # TODO: remember what this was for
-    #         target_smiles = self.nodes[target]['smiles']
-    #         to_remove = [(i, j) for i, j, props in self.edges(data=True) if target_smiles in props['coreactants']]
-    #         pruned = deepcopy(self)
-    #         pruned.remove_edges_from(to_remove)
-    #     else:
-    #         pruned = self
-        
-    #     try:
-    #         node_path = nx.shortest_path(pruned, source, target)
-    #     except NetworkXNoPath as e:
-    #         if not quiet:
-    #             print(e)
-    #         return [], [] # No path found
-        
-    #     edge_path = []
-    #     for i in range(len(node_path) - 1):
-    #         edge_path.append(pruned.get_edges_between(node_path[i], node_path[i+1]))
-
-    #     return node_path, edge_path
     
     def add_reaction(self, am_rxn: str, rid: str | None = None, rxn_type: str | None = None, smi2name: dict[str, str] = {}) -> None:
         '''

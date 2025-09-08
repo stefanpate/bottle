@@ -2,28 +2,17 @@ defaults:
   - filepaths: filepaths
   - _self_
 
-dxgb:
-  _target_: DORA_XGB.DORA_XGB.feasibility_classifier
-  cofactor_positioning: add_concat
-
-mfper:
-  _target_: ergochemics.similarity.MorganFingerprinter
-  radius: 3
-  length: 1024
-  mol_featurizer:
-    _target_: ergochemics.similarity.MolFeaturizer
-
-rc_dist_ub: 1
-
-forward_expansions:
-  - 2_steps_ccm_aa_to_None_rules_mechinferred_dt_13_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_True.pk
-
-reverse_expansions:
-  - 3_steps_lbnl_targets_to_None_rules_mechinferred_dt_04_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_False.pk
-
-rule_names: ${extract_rule_names:${.forward_expansions}, ${.reverse_expansions}}
-casp_study: lbnl
-processes: 5
+sources: sources.txt
+targets: targets.txt
+helpers: helpers.txt
+am_rxns: am_rxns.parquet
+expansion: ???
+casp_study: ???
+expansion_extract: ${filepaths.interim_data}/expansions/${.expansion}
+max_depth: ???
+pnmc_lb: 0.0
+rnmc_lb: 0.0
+source_augmented_pnmc_lb: 0.0
 
 hydra:
   run:

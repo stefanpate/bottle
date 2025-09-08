@@ -6,6 +6,8 @@ import polars as pl
 from src.schemas import expansion_reactions_schema
 from tqdm import tqdm
 from itertools import chain
+from src.network import de_am
+from ergochemics.mapping import rc_to_nest
 
 def reverse_rules(rules: list[str], rule2rxn: dict[int, str], rxn2rule: dict[str, int], reaction_reverses: dict[str, str]) -> list[str]:
     rules = [int(rule) for rule in rules]
@@ -19,7 +21,7 @@ def reverse_rules(rules: list[str], rule2rxn: dict[int, str], rxn2rule: dict[str
 
     return fwd_rules
 
-def parse_reactions(reactions: dict, rule2rxn: dict[int, str], rxn2rule: dict[str, int], reaction_reverses: dict[str, str], mode: str, rule_set: str) -> list[tuple[str, list[str]]]:
+def parse_reactions(reactions: dict, rule2rxn: dict[int, str], rxn2rule: dict[str, int], rule2size: dict[int, int], reaction_reverses: dict[str, str], mode: str, rule_set: str) -> list[tuple[str, list[str]]]:
     rxn_data = []
     for rxn in tqdm(reactions.values(), desc="Processing reactions", total=len(reactions)):
         if 'am_rxn' not in rxn:
@@ -33,8 +35,11 @@ def parse_reactions(reactions: dict, rule2rxn: dict[int, str], rxn2rule: dict[st
         else:
             am_smarts = rxn['am_rxn']
 
+        lhs, rhs = de_am(am_smarts)
+        smarts = f"{".".join(lhs)}>>{".".join(rhs)}"
+        size = max([rule2size.get(rule, 0) for rule in rules])
         rules = [f"{rule_set}:{rule}" for rule in rules]
-        rxn_data.append((am_smarts, rules))
+        rxn_data.append((smarts, am_smarts, rules, size))
 
     return rxn_data
 
@@ -63,6 +68,16 @@ def main(cfg: DictConfig) -> None:
             Path(cfg.filepaths.raw_expansions) / Path(cfg.fwd_exp)
         )
 
+        mapped_rxns = pl.read_parquet(
+            Path(cfg.filepaths.rxn_x_rule_mapping) / f"mapped_known_reactions_x_{fwd_rule_set}_rules.parquet",
+        )
+
+        rule2size = mapped_rxns.group_by("rule_id").agg(
+            pl.col("template_aidxs").first().map_elements(lambda x: sum(len(elt) for elt in rc_to_nest(x)[0]), return_dtype=pl.Int32).alias("size")
+        )
+
+        rule2size = dict(zip(rule2size["rule_id"], rule2size["size"].to_list()))
+
         sources = []
         for cid, cpd in fwd_exp.compounds.items():
             if cid[0] == 'X':
@@ -85,6 +100,7 @@ def main(cfg: DictConfig) -> None:
             fwd_exp.reactions,
             rule2rxn={},
             rxn2rule={},
+            rule2size=rule2size,
             reaction_reverses={},
             mode="fwd",
             rule_set=fwd_rule_set,
@@ -116,6 +132,11 @@ def main(cfg: DictConfig) -> None:
             pl.col("rxn_id")
         )
 
+        rule2size = mapped_rxns.group_by("rule_id").agg(
+            pl.col("template_aidxs").first().map_elements(lambda x: sum(len(elt) for elt in rc_to_nest(x)[0]), return_dtype=pl.Int32).alias("size")
+        )
+
+        rule2size = dict(zip(rule2size["rule_id"], rule2size["size"].to_list()))
         rule2rxn = dict(zip(rule2rxn["rule_id"], rule2rxn["rxn_id"].to_list()))
         rxn2rule = dict(zip(mapped_rxns["rxn_id"], mapped_rxns["rule_id"].to_list()))
         targets = [cpd['SMILES'] for cpd in rev_exp.compounds.values() if cpd['Type'] == 'Starting Compound']
@@ -141,6 +162,7 @@ def main(cfg: DictConfig) -> None:
             rev_exp.reactions,
             rule2rxn=rule2rxn,
             rxn2rule=rxn2rule,
+            rule2size=rule2size,
             reaction_reverses=reaction_reverses,
             mode="retro",
             rule_set=rev_rule_set,
@@ -156,10 +178,12 @@ def main(cfg: DictConfig) -> None:
         orient="row",
     )
 
-    rxns = rxns.group_by("am_smarts").agg(
-        pl.col("rules").explode().unique().sort()
+    rxns = rxns.sort(
+        "size", descending=True
+    ).unique(
+        subset=['smarts'], keep="first"
     )
-
+    
     rxns.write_parquet(
         Path(exp_name) / "am_rxns.parquet",
     )

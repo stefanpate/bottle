@@ -15,7 +15,7 @@ mfper:
 
 rc_dist_ub: 1
 
-casp_study: test
+casp_study: ???
 processes: 5
 
 hydra:

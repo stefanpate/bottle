@@ -2,7 +2,7 @@ defaults:
   - filepaths: filepaths
   - _self_
 
-casp_study: test
+casp_study: ???
 
 hydra:
   run:

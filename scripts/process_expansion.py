@@ -109,9 +109,9 @@ if __name__ == '__main__':
 
     # dxgb = DORA_XGB.feasibility_classifier(cofactor_positioning='add_concat')
 
-    # if args.do_thermo:
-    #     print("Adding compounds to equilibrator")
-    #     add_compounds_to_eQ(pk)
+    if args.do_thermo:
+        print("Adding compounds to equilibrator")
+        add_compounds_to_eQ(pk)
 
     # # Create new PredictedReaction objects where don't already have
     # print("Creating new predicted reactions")
@@ -252,45 +252,45 @@ if __name__ == '__main__':
                 dG_opt = {}
                 dG_err = {}
 
-            # If it was new, create a new path
-            if pid not in stored_paths:
-                # Add new path
-                new_paths[pid] = Path(
-                    id=pid,
-                    starter=pk.starters[sid],
-                    target=pk.targets[tid],
-                    reactions=prs,
-                    mdf=mdf,
-                    dG_opt=dG_opt,
-                    dG_err=dG_err,
-                    sid=sid,
-                    tid=tid,
-                )
+    #         # If it was new, create a new path
+    #         if pid not in stored_paths:
+    #             # Add new path
+    #             new_paths[pid] = Path(
+    #                 id=pid,
+    #                 starter=pk.starters[sid],
+    #                 target=pk.targets[tid],
+    #                 reactions=prs,
+    #                 mdf=mdf,
+    #                 dG_opt=dG_opt,
+    #                 dG_err=dG_err,
+    #                 sid=sid,
+    #                 tid=tid,
+    #             )
             
-            # If it was missing thermo and old, update stored paths
-            elif stored_paths[pid]['mdf'] is None and args.do_thermo:
-                stored_paths[pid]['mdf'] = mdf
-                stored_paths[pid]['dG_opt'] = dG_opt
-                stored_paths[pid]['dG_err'] = dG_err
+    #         # If it was missing thermo and old, update stored paths
+    #         elif stored_paths[pid]['mdf'] is None and args.do_thermo:
+    #             stored_paths[pid]['mdf'] = mdf
+    #             stored_paths[pid]['dG_opt'] = dG_opt
+    #             stored_paths[pid]['dG_err'] = dG_err
 
-    # Generate rxn svgs
-    svg_dir = stored_fp / 'svgs'
+    # # Generate rxn svgs
+    # svg_dir = stored_fp / 'svgs'
     
-    if not svg_dir.exists():
-        svg_dir.mkdir()
+    # if not svg_dir.exists():
+    #     svg_dir.mkdir()
 
-    write_reaction_images(new_predicted_reactions, svg_dir)
-    write_reaction_images(new_known_reactions, svg_dir)
+    # write_reaction_images(new_predicted_reactions, svg_dir)
+    # write_reaction_images(new_known_reactions, svg_dir)
 
-    # Add new to old
-    new = [new_known_reactions, new_predicted_reactions, new_paths]
-    old = [stored_known_reactions, stored_predicted_reactions, stored_paths]
+    # # Add new to old
+    # new = [new_known_reactions, new_predicted_reactions, new_paths]
+    # old = [stored_known_reactions, stored_predicted_reactions, stored_paths]
 
-    for n, o in zip(new, old):
-        for id, entry in n.items():
-            o[id] = entry.to_dict()
+    # for n, o in zip(new, old):
+    #     for id, entry in n.items():
+    #         o[id] = entry.to_dict()
 
-    # Save
-    save_json(stored_paths, path_filepath)
-    save_json(stored_predicted_reactions, predicted_reactions_filepath)
-    save_json(stored_known_reactions, known_reactions_filepath)
+    # # Save
+    # save_json(stored_paths, path_filepath)
+    # save_json(stored_predicted_reactions, predicted_reactions_filepath)
+    # save_json(stored_known_reactions, known_reactions_filepath)

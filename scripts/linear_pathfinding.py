@@ -8,7 +8,6 @@ from pathlib import Path
 from time import perf_counter
 import logging
 import networkx as nx
-from networkx.exception import NodeNotFound
 
 logger  = logging.getLogger(__name__)
 

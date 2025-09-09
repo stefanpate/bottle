@@ -166,11 +166,13 @@ def main(cfg: DictConfig) -> None:
             standard_dgr_prime.m_as("kJ/mol") + RT.m_as("kJ/mol") * S.values.T @ ln_conc
         )
 
-        constraints = [
-            np.log(np.ones(Nc) * cfg.conc_lb) <= ln_conc,
-            ln_conc <= np.log(np.ones(Nc) * cfg.conc_ub),
-            np.ones(Nr) * B <= dg_prime,
-        ]
+        # TODO: can delete
+        # constraints = [
+        #     np.log(np.ones(Nc) * cfg.conc_lb) <= ln_conc,
+        #     ln_conc <= np.log(np.ones(Nc) * cfg.conc_ub),
+        #     np.ones(Nr) * B <= dg_prime,
+        # ]
+        
         constraints = pick_constraints_for_MDF(S, Nc, Nr, ln_conc, dg_prime, B, cfg.conc_lb, cfg.conc_ub)
 
         # Solve the MDF problem

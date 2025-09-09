@@ -4,6 +4,12 @@ defaults:
 
 casp_study: ???
 eq_cache: ${filepaths.artifacts}/.cache/equilibrator/compounds.sqlite
+p_h: 7.5
+p_mg: 3.0
+ionic_strength: 0.25M
+temperature: 298.15K
+conc_lb: 1e-6 # M ?
+conc_ub: 1e-2 # M ?
 
 hydra:
   run:

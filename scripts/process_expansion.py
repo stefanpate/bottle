@@ -1,57 +1,57 @@
 # TODO: DEPRECATED. Delete after migrating thermo processing to another script.
 
-import pathlib
-import pandas as pd
-from collections import defaultdict
-from argparse import ArgumentParser
-from multiprocessing import set_start_method
-from time import perf_counter
-from tqdm import tqdm
-from src.config import filepaths
+# import pathlib
+# import pandas as pd
+# from collections import defaultdict
+# from argparse import ArgumentParser
+# from multiprocessing import set_start_method
+# from time import perf_counter
+# from tqdm import tqdm
+# from src.config import filepaths
 
-from DORA_XGB import DORA_XGB
+# from DORA_XGB import DORA_XGB
 
-from src.post_processing import (
-    Expansion,
-    Path,
-    PredictedReaction,
-    KnownReaction,
-    Enzyme,
-    DatabaseEntry,
-    get_path_id,
-)
+# from src.post_processing import (
+#     Expansion,
+#     Path,
+#     PredictedReaction,
+#     KnownReaction,
+#     Enzyme,
+#     DatabaseEntry,
+#     get_path_id,
+# )
 
-from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
-from src.operator_mapping import map_rxn2rule
-from src.cheminfo_utils import standardize_smarts_rxn
-from src.utils import load_json, save_json
-from src.chem_draw import draw_reaction
+# from src.rcmcs import extract_operator_patts, calc_lhs_rcmcs
+# from src.operator_mapping import map_rxn2rule
+# from src.cheminfo_utils import standardize_smarts_rxn
+# from src.utils import load_json, save_json
+# from src.chem_draw import draw_reaction
 
-from src.thermo.batch_add_eq_compounds import add_compounds_to_eQ
-from equilibrator_assets.local_compound_cache import LocalCompoundCache
-from equilibrator_cache.compound_cache import CompoundCache
-import sqlalchemy
-from src.thermo.pickaxe_thermodynamics import PickaxeThermodynamics
+# from src.thermo.batch_add_eq_compounds import add_compounds_to_eQ
+# from equilibrator_assets.local_compound_cache import LocalCompoundCache
+# from equilibrator_cache.compound_cache import CompoundCache
+# import sqlalchemy
+# from src.thermo.pickaxe_thermodynamics import PickaxeThermodynamics
 
-def write_reaction_images(d: dict, svg_dir: pathlib.Path):
-    for elt in d.values():
-        sma = elt.smarts
-        id = elt.id
-        elt.image = id
-        rxn = draw_reaction(sma, auto_scl=True)
-        rxn.save(svg_dir / f"{id}.svg")
+# def write_reaction_images(d: dict, svg_dir: pathlib.Path):
+#     for elt in d.values():
+#         sma = elt.smarts
+#         id = elt.id
+#         elt.image = id
+#         rxn = draw_reaction(sma, auto_scl=True)
+#         rxn.save(svg_dir / f"{id}.svg")
 
-if __name__ == '__main__':
-    parser = ArgumentParser(
-        description=('Processes forward & reverse expansions singly or in combination.'
-                     'Finds paths from starters to targets, stores predicted reactions,'
-                     'their known analogues with similarity scores, and thermo calculations.')
-    )
-    parser.add_argument("stored_dir", help="Subdirectory of results/processed_expansions to read & write processed expansions")
-    parser.add_argument("-f", "--forward", default=None, help='Filename of forward expansion (w/o extension)', type=str)
-    parser.add_argument("-r", "--reverse", default=None, help='Filename of reverse expansion (w/o extension)', type=str)
-    parser.add_argument("--do-thermo", action="store_true", help="Does thermo calculations if provided")
-    args = parser.parse_args()
+# if __name__ == '__main__':
+#     parser = ArgumentParser(
+#         description=('Processes forward & reverse expansions singly or in combination.'
+#                      'Finds paths from starters to targets, stores predicted reactions,'
+#                      'their known analogues with similarity scores, and thermo calculations.')
+#     )
+#     parser.add_argument("stored_dir", help="Subdirectory of results/processed_expansions to read & write processed expansions")
+#     parser.add_argument("-f", "--forward", default=None, help='Filename of forward expansion (w/o extension)', type=str)
+#     parser.add_argument("-r", "--reverse", default=None, help='Filename of reverse expansion (w/o extension)', type=str)
+#     parser.add_argument("--do-thermo", action="store_true", help="Does thermo calculations if provided")
+#     args = parser.parse_args()
 
     # imt_reverses = load_json(filepaths['rules'] / "jnimt_reverses.json")
 
@@ -109,9 +109,9 @@ if __name__ == '__main__':
 
     # dxgb = DORA_XGB.feasibility_classifier(cofactor_positioning='add_concat')
 
-    if args.do_thermo:
-        print("Adding compounds to equilibrator")
-        add_compounds_to_eQ(pk)
+    # if args.do_thermo:
+    #     print("Adding compounds to equilibrator")
+    #     add_compounds_to_eQ(pk)
 
     # # Create new PredictedReaction objects where don't already have
     # print("Creating new predicted reactions")
@@ -208,49 +208,49 @@ if __name__ == '__main__':
     # print(f"Analogue analysis took: {toc - tic : .2f} seconds")
     # print(f"{len(unmapped)} predicted reactions left unmapped")
     
-    if args.do_thermo:
-        # Connect to compound cache
-        with open(filepaths['artifacts'] / "eq_uris.uri", "r") as f:
-            URI_EQ = f.read().strip("\n")
+    # if args.do_thermo:
+    #     # Connect to compound cache
+    #     with open(filepaths['artifacts'] / "eq_uris.uri", "r") as f:
+    #         URI_EQ = f.read().strip("\n")
         
-        lcp = LocalCompoundCache()
-        lcp.ccache = CompoundCache(sqlalchemy.create_engine(URI_EQ))
+    #     lcp = LocalCompoundCache()
+    #     lcp.ccache = CompoundCache(sqlalchemy.create_engine(URI_EQ))
     
-        # Create pk thermo and eQ objects
-        print(f"Getting Thermo Values for {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
-        PT = PickaxeThermodynamics(lc=lcp)
-        PT.generate_eQ_compound_dict_from_pickaxe(pk=pk)
-        PT.generate_eQ_reaction_dict_from_pickaxe(pk=pk)
+    #     # Create pk thermo and eQ objects
+    #     print(f"Getting Thermo Values for {len(pk.compounds)} compounds and {len(pk.reactions)} reactions")
+    #     PT = PickaxeThermodynamics(lc=lcp)
+    #     PT.generate_eQ_compound_dict_from_pickaxe(pk=pk)
+    #     PT.generate_eQ_reaction_dict_from_pickaxe(pk=pk)
     
-    # Create Path objects
-    print("Adding new paths (and calculating mdf)")
-    new_paths = {}
-    for sid, tid in paths.keys():
-        for path in paths[(sid, tid)]:
-            pid = get_path_id(path)
+    # # Create Path objects
+    # print("Adding new paths (and calculating mdf)")
+    # new_paths = {}
+    # for sid, tid in paths.keys():
+    #     for path in paths[(sid, tid)]:
+    #         pid = get_path_id(path)
 
-            prs = []
-            for rid in path:
-                if rid in new_predicted_reactions:
-                    prs.append(new_predicted_reactions[rid])
-                else:
-                    prs.append(PredictedReaction.from_dict(stored_predicted_reactions[rid], stored_known_reactions))
+    #         prs = []
+    #         for rid in path:
+    #             if rid in new_predicted_reactions:
+    #                 prs.append(new_predicted_reactions[rid])
+    #             else:
+    #                 prs.append(PredictedReaction.from_dict(stored_predicted_reactions[rid], stored_known_reactions))
 
-            # If new path or missing thermo, and want to do thermo now, do it
-            if (pid not in stored_paths or stored_paths[pid]['mdf'] is None) and args.do_thermo:
-                mdf_res = PT.calculate_pathway_mdf(reaction_id_list=[pr.id for pr in prs])
-                mdf = mdf_res.mdf_value
-                dG_opt = {k : v.magnitude for k,v in mdf_res.reaction_energies.items()}
-                dG_err = {k : v.magnitude for k,v in mdf_res.uncertainties.items()}
+    #         # If new path or missing thermo, and want to do thermo now, do it
+    #         if (pid not in stored_paths or stored_paths[pid]['mdf'] is None) and args.do_thermo:
+    #             mdf_res = PT.calculate_pathway_mdf(reaction_id_list=[pr.id for pr in prs])
+    #             mdf = mdf_res.mdf_value
+    #             dG_opt = {k : v.magnitude for k,v in mdf_res.reaction_energies.items()}
+    #             dG_err = {k : v.magnitude for k,v in mdf_res.uncertainties.items()}
                 
-                if mdf is None:
-                    print(f"Failed mdf for path: {pid}")
+    #             if mdf is None:
+    #                 print(f"Failed mdf for path: {pid}")
             
-            # Otherwise these are the defaults
-            else:
-                mdf = None
-                dG_opt = {}
-                dG_err = {}
+    #         # Otherwise these are the defaults
+    #         else:
+    #             mdf = None
+    #             dG_opt = {}
+    #             dG_err = {}
 
     #         # If it was new, create a new path
     #         if pid not in stored_paths:

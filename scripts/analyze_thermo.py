@@ -7,10 +7,12 @@ from src.schemas import path_stats_schema
 from ergochemics.standardize import hash_compound
 import numpy as np
 from time import perf_counter
-from collections import defaultdict
+from src.post_processing import pick_constraints_for_MDF
 from logging import getLogger
 from equilibrator_assets.local_compound_cache import LocalCompoundCache
-
+from equilibrator_api.phased_reaction import PhasedReaction
+from equilibrator_api import Q_, ComponentContribution
+import cvxpy
 
 def update_table(existing: pl.DataFrame, analyzed: pl.DataFrame, on: str = "id") -> pl.DataFrame:
     updated = existing.join(
@@ -25,10 +27,6 @@ def update_table(existing: pl.DataFrame, analyzed: pl.DataFrame, on: str = "id")
     updated = updated.select(existing.columns)
     return updated
 
-# def proc_initializer(cfg: DictConfig, _mapped_rxns: pl.DataFrame) -> None:
-#     print("", flush=True)
-#     global 
-    
 logger = getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="../conf", config_name="analyze_thermo")
@@ -44,6 +42,8 @@ def main(cfg: DictConfig) -> None:
 
     path_stats_to_do = pl.scan_parquet("path_stats.parquet").filter(
         pl.col("mdf").is_null() | pl.col("dg_opt").is_null() | pl.col("dg_err").is_null()
+    ).select(
+        pl.col('id')
     ).collect()
 
     paths_to_do = pl.scan_parquet("paths.parquet").filter(
@@ -90,8 +90,7 @@ def main(cfg: DictConfig) -> None:
     logger.info(f"{len(unique_cpds)} unique compounds / {len(rxns_to_do)} reactions / {len(path_stats_to_do)} paths to analyze")
 
     logger.info("Adding compounds to local cache...")
-    lc = LocalCompoundCache()
-    lc.load_cache(cfg.eq_cache)
+    lc = LocalCompoundCache(ccache_path=cfg.eq_cache)
     start = perf_counter()
     lc.add_compounds(
         unique_cpds,
@@ -102,35 +101,108 @@ def main(cfg: DictConfig) -> None:
     end = perf_counter()
     logger.info(f"Added {len(unique_cpds)} compounds to local cache in {end - start:.2f} seconds")
 
-    # # Add reaction-derived summary stats to paths
-    # analyzed_path_stats = []
-    # for row in tqdm(paths_to_do.iter_rows(named=True), total=len(paths_to_do), desc="Updating path stats"):
-    #     # If rxn_sims (& analogue_ids) for a predicted rxn is empty, there are 
-    #     # no analogues. When calculating summary stats, treat this as rxn_sims = [0.0]
-    #     # instead of skipping it for example.
+    # Gather required compounds
+    eq_cpds = lc.get_compounds(unique_cpds['struct'].to_list())
+    smiles2cid = dict(zip(unique_cpds['struct'].to_list(), unique_cpds['coco_id'].to_list()))
+    cid_2_eq_cpd = dict(zip(unique_cpds['coco_id'].to_list(), [elt.compound for elt in eq_cpds]))
 
-    #     rxns = req_rxns.filter(
-    #         pl.col("id").is_in(row['rxn_id'])
-    #     ).with_columns(
-    #         pl.col("rxn_sims").list.mean().fill_null(0).alias("mean_rxn_sims"),
-    #         pl.col("rxn_sims").list.max().fill_null(0).alias("max_rxn_sims"),
-    #     )
+    # Gather required reactions
+    eq_cpd_getter = lambda cid: cid_2_eq_cpd.get(cid, None)
+    rid_2_eq_rxn = {}
+    for row in rxns_to_do.iter_rows(named=True):
+        lhs, rhs = [elt.split('.') for elt in row['smarts'].split(">>")]
+        lhs = [smiles2cid[elt] for elt in lhs]
+        rhs = [smiles2cid[elt] for elt in rhs]
+        lhs = " + ".join(lhs)
+        rhs = " + ".join(rhs)
+        rxn_string = f"{lhs} = {rhs}"
+        rid_2_eq_rxn[row['id']] = PhasedReaction.parse_formula(eq_cpd_getter, rxn_string)
 
-    #     analyzed_path_stats.append(
-    #         {
-    #             "id": row['path_id'],
-    #             "feasibility_frac": rxns["dxgb_label"].mean(),
-    #             "mean_max_rxn_sim": rxns["max_rxn_sims"].mean(),
-    #             "mean_mean_rxn_sim": rxns["mean_rxn_sims"].mean(),
-    #             "min_max_rxn_sim": rxns["max_rxn_sims"].min(),
-    #             "min_mean_rxn_sim": rxns["mean_rxn_sims"].min(),
-    #         }
-    #     )
+    # Calculate path mdfs
+    cc = ComponentContribution(ccache=lc.ccache)
+    cc.p_h = Q_(cfg.p_h)
+    cc.p_mg = Q_(cfg.p_mg)
+    cc.ionic_strength = Q_(cfg.ionic_strength)
+    cc.temperature = Q_(cfg.temperature)
 
-    # analyzed_path_stats = pl.from_dicts(analyzed_path_stats, schema=path_stats_schema)
-    # existing_path_stats = pl.read_parquet("path_stats.parquet")
-    # updated_path_stats = update_table(existing_path_stats, analyzed_path_stats)
-    # updated_path_stats.write_parquet("path_stats.parquet")
+    analyzed_path_stats = []
+    for row in tqdm(path_stats_to_do.iter_rows(named=True), total=len(path_stats_to_do), desc="Calculating path MDFs"):
+        rids = paths_to_do.filter(
+            pl.col("path_id") == row['id']
+        ).sort(
+            pl.col("generation"),
+            descending=False
+        )['rxn_id'].to_list()
+        
+        failed_retrieval = False
+        path_eq_rxns = []
+        for rid in rids:
+            eq_rxn = rid_2_eq_rxn.get(rid, None)
+            
+            if eq_rxn is None:
+                failed_retrieval = True
+                break
+            
+            path_eq_rxns.append(eq_rxn)
+        
+        if failed_retrieval:
+            logger.warning(f"Failed to retrieve all reactions for path {row['id']}, skipping MDF calculation")
+            continue
+
+        standard_dgr_prime, standard_dgr_uncertainty = cc.standard_dg_prime_multi(
+            path_eq_rxns,
+            uncertainty_representation="fullrank"
+        )
+
+        S = cc.create_stoichiometric_matrix_from_reaction_objects(path_eq_rxns)
+        Nc, Nr = S.shape
+        RT = cc.RT
+
+        ln_conc = cvxpy.Variable(
+            shape=Nc, name="metabolite log concentration"
+        )
+        B = cvxpy.Variable()
+        dg_prime = -(
+            standard_dgr_prime.m_as("kJ/mol") + RT.m_as("kJ/mol") * S.values.T @ ln_conc
+        )
+
+        constraints = [
+            np.log(np.ones(Nc) * cfg.conc_lb) <= ln_conc,
+            ln_conc <= np.log(np.ones(Nc) * cfg.conc_ub),
+            np.ones(Nr) * B <= dg_prime,
+        ]
+        constraints = pick_constraints_for_MDF(S, Nc, Nr, ln_conc, dg_prime, B, cfg.conc_lb, cfg.conc_ub)
+
+        # Solve the MDF problem
+        prob_max = cvxpy.Problem(cvxpy.Maximize(B), constraints)
+        prob_max.solve()
+
+        if prob_max.value is None:
+            logger.warning(f"Path {row['id']} MDF optimization failed with status {prob_max.status}, skipping")
+            continue
+
+        # Convert the results to the correct units
+        dg_opt = [
+            Q_(val, "kilojoule/mole").magnitude for val in list(-dg_prime.value)
+        ]
+
+        dg_err = [
+            unc[0].magnitude for unc in standard_dgr_uncertainty
+        ]
+
+        analyzed_path_stats.append(
+            {
+                "id": row['id'],
+                "mdf": prob_max.value,
+                "dg_opt": dg_opt,
+                "dg_err": dg_err,
+            }
+        )
+
+    analyzed_path_stats = pl.from_dicts(analyzed_path_stats, schema=path_stats_schema)
+    existing_path_stats = pl.read_parquet("path_stats.parquet")
+    updated_path_stats = update_table(existing_path_stats, analyzed_path_stats)
+    updated_path_stats.write_parquet("path_stats.parquet")
 
 if __name__ == "__main__":
     main()

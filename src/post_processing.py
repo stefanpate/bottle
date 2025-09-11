@@ -47,6 +47,7 @@ class PathWrangler:
         self.path_stats = study / "path_stats.parquet"
         self.known_reactions = known / "known_reactions.parquet"
         self.enzymes = known / "known_enzymes.parquet"
+        self.compounds = study / "compounds.parquet"
 
         sts = pl.scan_parquet(self.path_stats).select(
             pl.col("starter_ids"),
@@ -73,10 +74,12 @@ class PathWrangler:
         self.targets = tuple(targets["targets"])
         self.starter_ids = tuple(starters["starter_ids"])
         self.target_ids = tuple(targets["target_ids"])
+        self.starter_name_to_id = dict(zip(starters["starters"], starters["starter_ids"]))
+        self.target_name_to_id = dict(zip(targets["targets"], targets["target_ids"]))
 
     def get_paths(
             self,
-            starters: Iterable[str] = None, # TODO: switch to using ids
+            starters: Iterable[str] = None,
             targets: Iterable[str] = None,
             sort_by: str | None = None,
             descending: bool = True,
@@ -152,15 +155,27 @@ class PathWrangler:
             raise ValueError(f"Invalid filter_by_enzymes field(s): {filter_by_enzymes}. Must be one of {_enzyme_schema}")
         
         path_stats_lf = pl.scan_parquet(self.path_stats)
-
+        
         if starters:
+            starter_ids = []
+            for s in starters:
+                if s not in self.starter_name_to_id:
+                    raise ValueError(f"Invalid starter name: {s}. Must be one of {self.starters}")
+                starter_ids.append(self.starter_name_to_id[s])
+
             path_stats_lf = path_stats_lf.filter(
-                pl.col("starters").list.eval(pl.element().is_in(starters)).list.all()
+                pl.col("starter_ids").list.eval(pl.element().is_in(starter_ids)).list.all()
             )
         
         if targets:
+            target_ids = []
+            for t in targets:
+                if t not in self.target_name_to_id:
+                    raise ValueError(f"Invalid target name: {t}. Must be one of {self.targets}")
+                target_ids.append(self.target_name_to_id[t])
+
             path_stats_lf = path_stats_lf.filter(
-                pl.col("targets").list.eval(pl.element().is_in(targets)).list.all()
+                pl.col("target_ids").list.eval(pl.element().is_in(target_ids)).list.all()
             )
 
         if lower_bounds:

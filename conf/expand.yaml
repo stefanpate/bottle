@@ -19,9 +19,9 @@ processes: 10
 
 hydra:
   run:
-    dir: ${filepaths.raw_expansions}
+    dir: ${filepaths.raw_data}
   job:
     chdir: True
   sweep:
-    dir: ${filepaths.raw_expansions}
+    dir: ${filepaths.raw_data}
     subdir: .

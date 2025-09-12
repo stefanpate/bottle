@@ -31,6 +31,9 @@ def get_path_snapshot(path_id: str) -> tuple[list[str], list[pl.DataFrame], list
     else:
         prids = st.session_state.paths.filter(
             pl.col("id") == path_id
+        ).sort(
+            by="generation",
+            descending=False
         )["rxn_id"].to_list()
 
         krids_sims = [

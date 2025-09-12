@@ -1,11 +1,9 @@
 # Computationally-assisted synthesis planning for recyclable-by-design polymers
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/p7k/bottle/GH6_binder_deploy_poetry)
-
 ## Description
 Runs network expansions using Pickaxe, finds paths, post-processes, and renders spreadsheet + pdf deliverables.
 
-## Installation. 
+## Installation
 
 ### Use [poetry](https://python-poetry.org/docs/) to install dependencies
 
@@ -40,8 +38,6 @@ lc = LocalCompoundCache()
 lc.generate_local_cache_from_default_zenodo('compounds.sqlite')
 ```
 
-### Convert equilibrator database from sqlite to postgres by following sqlite_to_postgres.ipynb
-
 ### Acquire Chemaxon license 
 
 License must cover pKa calculator and ```cxcalc``` must exist in PATH. See more from [equilibrator docs](https://equilibrator.readthedocs.io/en/latest/local_cache.html)
@@ -52,7 +48,8 @@ License must cover pKa calculator and ```cxcalc``` must exist in PATH. See more 
 3. scripts
 4. notebooks
 5. src (packages and modules)
-6. tests
+6. pathway_viewer
+7. tests
 
 ## Usage
 ### Running a network expansion with Pickaxe
@@ -65,69 +62,62 @@ See conf/expand.yaml for more options
 
 ### Processing network expansion
 
-Expansion processing has three main parts
+0. Parse expansion
+
+Outputs atom-mapped smarts in the `src/schemas.expansion_reactions_schema` schema. The script `parse_expansion.py` can handle forward expansions, retro expansion, or a combination of the two.
+
+Example usage:
+```
+python parse_expansion.py fwd_exp=my_forward_expansion rev_expansion=my_reverse_expansion
+```
 
 1. Path finding
 
-TODO
+There are two separate files available, ```linear_pathfinding.py```and ```retrosynthesis.py```. Both require the location of the parsed expansion, the output location, and maximum depth desired. Each has several more optional arguments.
 
-2. Mechanism processing
+Example usage:
+```
+python linear_pathfinding.py expansion=my/expansion/location casp_study=my/casp/study max_depth=5
+```
 
-Analyzing the likelihood that an existing or engineered enzyme can significantly catalyze the predicted reactions. The main thrust of this is to compare reactant structures to those of characterized enzymatic reactions from [Rhea](https://www.rhea-db.org/) and [UniProt](https://www.uniprot.org/), extracted and formatted according to schemas in [this repository](https://github.com/stefanpate/enz-rxn-data).
+```retrosynthesis.py``` utilizes a network of known enzymatic reactions in addition to predicted reactions from the expansion to find synthetic paths.
 
-3. Thermodynamic calculations
+2. Reaction structural analysis
 
-TODO: calculates thermodynamic values for predicted pathways using eQuilibrator (4) stores processed paths, predicted reactions, and known reaction information to json
+Looks up known reactions similar to the predicted reactions and collects their enzymes. A machine learning model that scores feasibility is used to score the predicted reactions as well.
+
+Example usage:
+```
+python analyze_structures.py casp_study=my/casp/study
+```
+
+3. Thermodynamic calculations (Optional)
+
+Calculates thermodynamic values (e.g., $\Delta G$) for predicted pathways using [eQuilibrator](https://equilibrator.readthedocs.io/en/latest/local_cache.html).
+
+Example usage:
+```
+python analyze_thermo.py casp_study=my/casp/study
+```
+
+Example usage:
+```
+python analyze_thermo.py casp_study=my/casp/study
+```
+
+4. Reaction drawing
+
+Draws reactions to svg
+
+Example usage:
+```
+python draw_reactions.py casp_study=my/casp/study
+```
 
 ### Visualizing processed synthesis paths
 
-## Dev Notes
+Processed paths can be visualized in a path viewer app. Locally, this can be launched running
 
-1. you will need the development requirements
-
-```shell
-poetry install --with dev
 ```
-
-2. running unit tests with coverage
-
-```shell
-poe test
-```
-
-## Building the docker of viola PathViewer to Railway
-
-### Pre-requisites
-- Docker installed and running on your machine
-- Basic knowledge of Docker
-  - https://docs.docker.com/get-started/
-  - https://docs.docker.com/get-started/docker-overview/
-- poetry installed
-  - https://python-poetry.org/docs/
-- poe-the-poet plugin for poetry installed
-  - e.g. `poetry self add 'poethepoet[poetry_plugin]'`
-- Familiarity with environment variables
-  - `BOTTLE_EXPANSION_ASSETS` set and pointing to the directory containing the expansion files
-    - e.g. `export BOTTLE_EXPANSION_ASSETS=/path/to/expansion/assets/2024/11/15`
-    - or defined and activated in your `.env` file (but that's just your convenience)
-
-```shell
-poetry poe build-image
-```
-if want to pass an assets directory bespoke to this particular build, use this:
-```shell
-BOTTLE_EXPANSION_ASSETS=/path/to/expansion/assets/2024/11/15 poetry poe build-image
-```
-## Deploying the docker image to Docker Hub
-
-### Pre-requisites
-- Login to Docker Hub (https://hub.docker.com/u/synbiorox) ( you can guess the password - ask anyone at TyoLab)
-```shell
-docker login -u synbiorox -p <password>
-```
-
-- Poetry, poe (see Docker Build Above)
-
-```shell
-poetry poe push-image
+streamlit run path_viewer/list_view.py
 ```

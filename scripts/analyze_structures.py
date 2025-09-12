@@ -5,14 +5,11 @@ import polars as pl
 from concurrent.futures import ProcessPoolExecutor
 from hydra.utils import instantiate
 from functools import partial
-from itertools import chain
 from ergochemics.mapping import get_reaction_center
 from pathlib import Path
 from rdkit import Chem
 from src.schemas import path_stats_schema, predicted_reactions_schema
-from src.chem_draw import draw_reaction
 import numpy as np
-from time import perf_counter
 from typing import Any
 from multiprocessing import get_context
 from collections import defaultdict

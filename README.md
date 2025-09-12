@@ -84,7 +84,7 @@ python linear_pathfinding.py expansion=my/expansion/location casp_study=my/casp/
 
 2. Reaction structural analysis
 
-Looks up known reactions similar to the predicted reactions and collects their enzymes. A machine learning model that scores feasibility is used to score the predicted reactions as well.
+Looks up known reactions similar to the predicted reactions and collects their enzymes. Feasibility of the predicted reactions is scored with a [machine learning model](https://github.com/tyo-nu/DORA_XGB).
 
 Example usage:
 ```

@@ -4,10 +4,10 @@
 #SBATCH -N 1
 #SBATCH -n 50
 #SBATCH --mem=0
-#SBATCH -t 3:00:00
-#SBATCH --job-name="mech_proc"
-#SBATCH --output=/home/spn1560/bottle/logs/mech_proc/out/%A
-#SBATCH --error=/home/spn1560/bottle/logs/mech_proc/error/%A
+#SBATCH -t 4:00:00
+#SBATCH --job-name="path_proc"
+#SBATCH --output=/home/spn1560/bottle/logs/path_proc/out/%A
+#SBATCH --error=/home/spn1560/bottle/logs/path_proc/error/%A
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=stefan.pate@northwestern.edu
@@ -21,4 +21,6 @@ casp_study=bottle25
 ulimit -c 0
 module purge
 source /home/spn1560/.cache/pypoetry/virtualenvs/bottle-jRVXeMfS-py3.12/bin/activate
-python -u $scripts_dir/mechanism_processing.py processes=$processes casp_study=$casp_study
+python -u $scripts_dir/analyze_structures.py processes=$processes casp_study=$casp_study
+# python -u $scripts_dir/analyze_thermo.py casp_study=$casp_study
+python -u $scripts_dir/draw_reactions.py casp_study=$casp_study

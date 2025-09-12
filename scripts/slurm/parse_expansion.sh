@@ -4,8 +4,8 @@
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH --mem=10GB
-#SBATCH -t 4:00:00
-#SBATCH --job-name="retro"
+#SBATCH -t 2:00:00
+#SBATCH --job-name="parse_exp"
 #SBATCH --output=/home/spn1560/bottle/logs/out/%A
 #SBATCH --error=/home/spn1560/bottle/logs/error/%A
 #SBATCH --mail-type=END
@@ -13,14 +13,12 @@
 #SBATCH --mail-user=stefan.pate@northwestern.edu
 
 # Args
-script=/home/spn1560/bottle/scripts/retrosynthesis.py
-expansion=3_steps_lbnl_targets_to_None_rules_mechinferred_dt_04_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_False
-casp_study=test
-max_depth=5
-max_leaves=3
+script=/home/spn1560/bottle/scripts/parse_expansion.py
+fwd_exp=None
+rev_exp=None
 
 # Commands
 ulimit -c 0
 module purge
 source /home/spn1560/.cache/pypoetry/virtualenvs/bottle-jRVXeMfS-py3.12/bin/activate
-python $script max_depth=$max_depth max_leaves=$max_leaves expansion=$expansion casp_study=$casp_study
+python $script fwd_exp=$fwd_exp rev_exp=$rev_exp

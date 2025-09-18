@@ -4,7 +4,7 @@
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH --mem=10GB
-#SBATCH -t 4:00:00
+#SBATCH -t 1:00:00
 #SBATCH --job-name="lin_path"
 #SBATCH --output=/home/spn1560/bottle/logs/out/%A
 #SBATCH --error=/home/spn1560/bottle/logs/error/%A
@@ -14,9 +14,9 @@
 
 # Args
 script=/home/spn1560/bottle/scripts/linear_pathfinding.py
-expansion=3_steps_lbnl_targets_to_None_rules_mechinferred_dt_04_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_False
-casp_study=test
-max_depth=5
+expansion=3_steps_bottle_targets_25_to_None_rules_mechinferred_dt_04_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_False
+casp_study=perf
+max_depth=3
 
 # Commands
 ulimit -c 0

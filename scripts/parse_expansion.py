@@ -56,7 +56,7 @@ def main(cfg: DictConfig) -> None:
         exp_name = Path(f"{steps}_steps_{starter_name}_to_{target_name}_combo_{fwd_rules}_and_{rev_rules}_rules")
     elif cfg.fwd_exp is not None:
         exp_name = Path(cfg.fwd_exp).stem
-    elif rev_exp is not None:
+    elif cfg.rev_exp is not None:
         exp_name = Path(cfg.rev_exp).stem
   
     if not Path(exp_name).exists():
@@ -71,7 +71,7 @@ def main(cfg: DictConfig) -> None:
         fwd_rule_set = cfg.fwd_exp.split('_rules_')[1]
         fwd_exp = Pickaxe()
         fwd_exp.load_pickled_pickaxe(
-            Path(cfg.filepaths.raw_expansions) / Path(cfg.fwd_exp)
+            Path(cfg.filepaths.raw_data) / Path(cfg.fwd_exp)
         )
 
         mapped_rxns = pl.read_parquet(
@@ -107,13 +107,13 @@ def main(cfg: DictConfig) -> None:
             rule_set=fwd_rule_set,
         )
 
-        del fwd_exp
+        # del fwd_exp #TODO: 
   
     if cfg.rev_exp is not None:
         rev_rule_set = cfg.rev_exp.split('_rules_')[1]
         rev_exp = Pickaxe()
         rev_exp.load_pickled_pickaxe(
-            Path(cfg.filepaths.raw_expansions) / Path(cfg.rev_exp)
+            Path(cfg.filepaths.raw_data) / Path(cfg.rev_exp)
         )
 
         kcs = pl.read_parquet(
@@ -164,6 +164,17 @@ def main(cfg: DictConfig) -> None:
             mode="retro",
             rule_set=rev_rule_set,
         )
+
+    # TODO: remove. for debugging only
+    with open("perf_test_checkpoints.txt", 'r') as f:
+        ckpt_cids = [line.strip() for line in f.readlines()]
+
+    sources = {}
+    for cid in ckpt_cids:
+            cpd = rev_exp.compounds[cid]
+            _id = hash_compound(cpd["SMILES"])
+            sources[_id] = (cpd["SMILES"], cpd.get("ID", None))
+    # END TODO
 
     # User-defined sources and targets override other designations
     # helper designation overrides intermediate designation

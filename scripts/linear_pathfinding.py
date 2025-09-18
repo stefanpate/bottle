@@ -26,10 +26,12 @@ def path_to_path_entry(path: list[tuple[str, str, str]], source_ids: list[str], 
         gens.append(generation)
         main_pdt_ids.append(pdt)
 
+        # Can have multiple starters/targets per path
         if rct in source_ids:
             starters.append(rct)
         if pdt in target_ids:
             targets.append(pdt)
+            
     path_id = hash_path(list(zip(gens, rids)))
 
     return {
@@ -74,6 +76,8 @@ def main(cfg: DictConfig):
     logger.info("Setting helpers...")
     G.set_helpers(ids=helpers)
 
+    logger.info("Pruning network...")
+    G.prune()
     
     logger.info("Finding paths...")
     paths = []
@@ -82,11 +86,23 @@ def main(cfg: DictConfig):
         if not G.has_node(sid):
             logger.info(f"Source {sid} not in network, skipping...")
             continue
+
+        # TODO: dedebug
+        _targets = targets
+        # _targets = [t for t in targets if nx.has_path(G, sid, t)]
+        
+        # if len(_targets) == 0:
+        #     logger.info(f"No paths from source {sid}, skipping...")
+        #     continue
+
+        G = G.reverse(copy=False)
+
+        ## TODO: END
         
         paths += nx.all_simple_edge_paths(
             G=G,
             source=sid,
-            target=targets,
+            target=_targets,
             cutoff=cfg.max_depth
         )
 

@@ -7,7 +7,7 @@ st.set_page_config(layout="wide")
 HASH_UB = 7  # Upper bound for displaying hash prefixes
 
 # TODO: move to env vars / conf file
-study = Path("/home/stef/quest_data/bottle/data/processed/lin_test")
+study = Path("/home/stef/quest_data/bottle/data/processed/perf")
 known = Path("/home/stef/bottle/artifacts/known")
 
 # Callbacks

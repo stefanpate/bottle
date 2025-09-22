@@ -43,7 +43,7 @@ path_stats_schema = pl.Schema(
     }
 )
 
-compound_type = pl.Enum(categories=["source", "target", "intermediate", "helper"])
+compound_type = pl.Enum(categories=["source", "target", "known", "helper", "checkpoint"])
 
 compounds_schema = pl.Schema(
     {
@@ -54,11 +54,21 @@ compounds_schema = pl.Schema(
     }
 )
 
+half_expansion = pl.Enum(categories=["forward", "retro"])
+
 expansion_reactions_schema = pl.Schema(
     {
         "smarts": pl.String,
         "am_smarts": pl.String,
         "rules": pl.List(pl.String),
+        "half_expansion": half_expansion,
         "size": pl.Int32,
+    }
+)
+
+gens_schema = pl.Schema(
+    {
+        "half_expansion": half_expansion,
+        "generation": pl.Int32,
     }
 )

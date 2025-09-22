@@ -8,6 +8,9 @@ from pathlib import Path
 from time import perf_counter
 import logging
 import networkx as nx
+from collections import defaultdict
+from itertools import product
+from functools import wraps
 
 logger  = logging.getLogger(__name__)
 
@@ -43,6 +46,97 @@ def path_to_path_entry(path: list[tuple[str, str, str]], source_ids: list[str], 
         "targets": targets,
     }
 
+
+def timeit(fcn):
+    @wraps(fcn)
+    def wrapper(*args, **kwargs):
+        tic = perf_counter()
+        result = fcn(*args, **kwargs)
+        toc = perf_counter()
+        logger.info(f"Function {fcn.__name__} took {toc - tic:.2f} seconds.")
+        return result
+    return wrapper
+
+@timeit
+def construct_network(am_rxns: pl.DataFrame, helpers: list[str]) -> ReactionNetwork:
+    G = ReactionNetwork() # init
+    logger.info("Adding reactions to network...")
+    for row in am_rxns.iter_rows(named=True):
+        try:
+            G.add_reaction(row['am_smarts'], rxn_type='predicted')
+        except:
+            logger.info(f"Failed to add reaction: {row['am_smarts']}")
+            continue
+    
+    logger.info(f"Added {len(am_rxns)} reactions")
+    
+    logger.info("Setting helpers...")
+    G.set_helpers(ids=helpers)
+
+    logger.info("Pruning network...")
+    G.prune()
+    return G
+
+@timeit
+def find_half_paths(G: nx.MultiDiGraph, sources: list[str], targets: list[str], max_depth: int):
+    targets = [t for t in targets if G.has_node(t)]
+    if len(targets) == 0:
+        logger.info("No valid targets in network, exiting...")
+        return []
+    
+    paths = []
+    for sid in sources:
+        if not G.has_node(sid):
+            logger.info(f"Source {sid} not in network, skipping...")
+            continue
+        
+        paths += nx.all_simple_edge_paths(
+            G=G,
+            source=sid,
+            target=targets,
+            cutoff=max_depth
+        )
+
+    return paths
+
+@timeit
+def find_combo_paths(graphs: list[nx.MultiDiGraph], sources: list[str], checkpoints: list[str], targets: list[str], max_depths: dict[str, int]):
+    if len(graphs) != len(max_depths):
+        raise ValueError("Length of graphs and max_depths must be the same.")
+    
+    # Remove sources from sinks otherwise find paths is ill defined and nx fails
+    # Union w/ targets to catch target reached in half expansion
+    _checkpoints = [c for c in set(checkpoints) | set(targets) if c not in sources]
+    fwd_paths = find_half_paths(graphs[0], sources, _checkpoints, max_depths['forward'])
+
+    # Remove targets from checkpoints otherwise find paths is ill defined and nx fails
+    # Union w/ sources to catch source reached in half expansion
+    _checkpoints = [c for c in set(checkpoints) | set(sources) if c not in targets]
+    rev_paths = find_half_paths(graphs[-1], _checkpoints, targets, max_depths['retro'])
+    
+    all_paths = []
+    fwd_by_checkpoint = defaultdict(list)
+    for fp in fwd_paths:
+        if fp[-1][-1] in targets: # Final product is a target, done
+            all_paths.append(fp)
+        else:
+            fwd_by_checkpoint[fp[-1][-1]].append(fp) # Save to stitch with reverse paths
+
+    rev_by_checkpoint = defaultdict(list)
+    for rp in rev_paths:
+        if rp[0][0] in sources: # Initial reactant is a source, done
+            all_paths.append(rp)
+        else:
+            rev_by_checkpoint[rp[0][0]].append(rp) # Save to stitch with forward paths
+
+    # Stitch together at checkpoints
+    for ckpt in fwd_by_checkpoint.keys() & rev_by_checkpoint.keys():
+        for fp, rp in product(fwd_by_checkpoint[ckpt], rev_by_checkpoint[ckpt]):
+            all_paths.append(fp + rp)
+
+    return all_paths            
+
+
 @hydra.main(version_base=None, config_path="../conf", config_name="linear_pathfinding")
 def main(cfg: DictConfig):
 
@@ -51,63 +145,30 @@ def main(cfg: DictConfig):
     helpers = cpds.filter(pl.col('type') == 'helper')['id'].to_list()
     sources = cpds.filter(pl.col('type') == 'source')['id'].to_list()
     targets = cpds.filter(pl.col('type') == 'target')['id'].to_list()
+    checkpoints = cpds.filter(pl.col('type') == 'checkpoint')['id'].to_list()
     cid2name = dict(zip(cpds['id'].to_list(), cpds['name'].to_list()))
 
     am_rxns = pl.read_parquet(Path(cfg.expansion_extract) / cfg.am_rxns)
+    half_expansions = am_rxns['half_expansion'].unique().to_list()
+    mode = half_expansions[0] if len(half_expansions) == 1 else 'combo'
 
-    G = ReactionNetwork() # init
-    logger.info("Adding reactions to network...")
-    tic = perf_counter()
-    for row in am_rxns.iter_rows(named=True):
-        try:
-            G.add_reaction(row['am_smarts'], rxn_type='predicted')
-        except:
-            logger.info(f"Failed to add reaction: {row['am_smarts']}")
-            continue
-    
-    toc = perf_counter()
-    logger.info(f"Added {len(am_rxns)} reactions in {toc - tic:.2f} seconds.")
+    generations = pl.read_csv(Path(cfg.expansion_extract) / cfg.generations)
+    generations = dict(zip(generations['half_expansion'].to_list(), generations['generation'].to_list()))
 
-    targets = [t for t in targets if G.has_node(t)]
-    if len(targets) == 0:
-        logger.info("No valid targets in network, exiting...")
-        return
-    
-    logger.info("Setting helpers...")
-    G.set_helpers(ids=helpers)
+    logger.info(f"Mode: {mode}")
+    if mode == 'forward' or mode == 'retro':
+        G = construct_network(am_rxns, helpers)
+        logger.info("Finding paths...")
+        paths = find_half_paths(G, sources, targets, generations[mode])
+        Gs = [G]
+    elif mode == 'combo':
+        F = construct_network(am_rxns.filter(pl.col('half_expansion') == 'forward'), helpers)
+        R = construct_network(am_rxns.filter(pl.col('half_expansion') == 'retro'), helpers)
+        Gs = [F, R]
+        logger.info("Finding paths...")
+        paths = find_combo_paths(Gs, sources, checkpoints, targets, generations)
 
-    logger.info("Pruning network...")
-    G.prune()
-    
-    logger.info("Finding paths...")
-    paths = []
-    tic = perf_counter()
-    for sid in sources:
-        if not G.has_node(sid):
-            logger.info(f"Source {sid} not in network, skipping...")
-            continue
-
-        # TODO: dedebug
-        _targets = targets
-        # _targets = [t for t in targets if nx.has_path(G, sid, t)]
-        
-        # if len(_targets) == 0:
-        #     logger.info(f"No paths from source {sid}, skipping...")
-        #     continue
-
-        G = G.reverse(copy=False)
-
-        ## TODO: END
-        
-        paths += nx.all_simple_edge_paths(
-            G=G,
-            source=sid,
-            target=_targets,
-            cutoff=cfg.max_depth
-        )
-
-    toc = perf_counter()
-    logger.info(f"Found {len(paths)} paths in {toc - tic:.2f} seconds.")
+    logger.info(f"Found {len(paths)} paths")
     
     logger.info("Saving results...")
 
@@ -119,9 +180,10 @@ def main(cfg: DictConfig):
     # Lookups to generate new entries
     smarts_lookup = {}
     rxn_type_lookup = {}
-    for _, _, k, d in G.edges(keys=True, data=True):
-        smarts_lookup[k] = d['am_smarts']
-        rxn_type_lookup[k] = d['rxn_type']
+    for G in Gs:
+        for _, _, k, d in G.edges(keys=True, data=True):
+            smarts_lookup[k] = d['am_smarts']
+            rxn_type_lookup[k] = d['rxn_type']
 
     rules_lookup = dict(zip(am_rxns['am_smarts'], am_rxns['rules'].to_list()))
 

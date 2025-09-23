@@ -1,0 +1,17 @@
+defaults:
+  - filepaths: filepaths
+  - sources: default
+  - _self_
+
+mechinformed_mapped: ${filepaths.rxn_x_rule_mapping}/mapped_known_reactions_x_mechinformed_rules.parquet
+rc_plus_0_mapped: ${filepaths.rxn_x_rule_mapping}/mapped_known_reactions_x_rc_plus_0_rules.parquet
+known_compounds: ${filepaths.known}/known_compounds.parquet
+
+hydra:
+  run:
+    dir: ${filepaths.interim_data}
+  job:
+    chdir: True
+  sweep:
+    dir: ${filepaths.interim_data}
+    subdir: .

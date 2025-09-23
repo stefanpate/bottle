@@ -1,0 +1,16 @@
+defaults:
+  - filepaths: filepaths
+  - _self_
+
+fwd_exp: null
+rev_exp: null
+dest: ${filepaths.interim_data}/expansions
+
+hydra:
+  run:
+    dir: ${...dest}
+  job:
+    chdir: True
+  sweep:
+    dir: ${...dest}
+    subdir: .

@@ -1,0 +1,28 @@
+defaults:
+  - filepaths: filepaths
+  - _self_
+
+dxgb:
+  _target_: DORA_XGB.DORA_XGB.feasibility_classifier
+  cofactor_positioning: add_concat
+
+mfper:
+  _target_: ergochemics.similarity.MorganFingerprinter
+  radius: 3
+  length: 1024
+  mol_featurizer:
+    _target_: ergochemics.similarity.MolFeaturizer
+
+rc_dist_ub: 1
+
+casp_study: ???
+processes: 5
+
+hydra:
+  run:
+    dir: ${filepaths.processed_data}/${...casp_study}
+  job:
+    chdir: True
+  sweep:
+    dir: ${filepaths.processed_data}/${...casp_study}
+    subdir: .

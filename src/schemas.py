@@ -1,5 +1,7 @@
 import polars as pl
 
+# Processed data schemas
+
 predicted_reactions_schema = pl.Schema(
     {
         "id": pl.String,
@@ -9,15 +11,27 @@ predicted_reactions_schema = pl.Schema(
         "rxn_sims": pl.List(pl.Float32),
         "analogue_ids": pl.List(pl.String),
         "rules": pl.List(pl.String),
+
     }
 )
 
-found_paths_schema = pl.Schema(
+rxn_type = pl.Enum(categories=["predicted", "known"])
+
+paths_schema = pl.Schema(
+    {
+        "path_id": pl.String,
+        "rxn_id": pl.String,
+        "main_pdt_id": pl.String,
+        "rxn_type": rxn_type,
+        "generation": pl.Int32,
+    }
+)
+
+path_stats_schema = pl.Schema(
     {
         "id": pl.String,
         "starters": pl.List(pl.String),
         "targets": pl.List(pl.String),
-        "reactions": pl.List(pl.String),
         "dg_opt": pl.List(pl.Float32),
         "dg_err": pl.List(pl.Float32),
         "starter_ids": pl.List(pl.String),
@@ -31,9 +45,34 @@ found_paths_schema = pl.Schema(
     }
 )
 
+# Interim data schemas
+
+compound_type = pl.Enum(categories=["source", "target", "known", "helper", "checkpoint"])
+
+compounds_schema = pl.Schema(
+    {
+        "id": pl.String,
+        "smiles": pl.String,
+        "type": compound_type,
+        "name": pl.String,
+    }
+)
+
+half_expansion = pl.Enum(categories=["forward", "retro"])
+
 expansion_reactions_schema = pl.Schema(
     {
+        "smarts": pl.String,
         "am_smarts": pl.String,
         "rules": pl.List(pl.String),
+        "half_expansion": half_expansion,
+        "size": pl.Int32,
+    }
+)
+
+gens_schema = pl.Schema(
+    {
+        "half_expansion": half_expansion,
+        "generation": pl.Int32,
     }
 )

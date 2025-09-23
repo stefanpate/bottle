@@ -1,0 +1,22 @@
+defaults:
+  - filepaths: filepaths
+  - _self_
+
+cpds: compounds.parquet
+am_rxns: am_rxns.parquet
+generations: generations.csv
+expansion: ???
+casp_study: ???
+expansion_extract: ${filepaths.interim_data}/expansions/${.expansion}
+pnmc_lb: 0.0
+rnmc_lb: 0.0
+source_augmented_pnmc_lb: 0.0
+
+hydra:
+  run:
+    dir: ${filepaths.processed_data}/${...casp_study}
+  job:
+    chdir: True
+  sweep:
+    dir: ${filepaths.processed_data}/${...casp_study}
+    subdir: .

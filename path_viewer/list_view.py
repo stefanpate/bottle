@@ -26,7 +26,7 @@ def get_path_tables():
     for k, v in path_tables.items():
         st.session_state[k] = v
     
-    st.session_state['path_ids'] = path_tables['paths']['id'].unique().to_list()
+    st.session_state['path_ids'] = st.session_state.paths.unique(subset=['id'], maintain_order=True)['id'].to_list()
 
 @st.cache_data
 def get_path_snapshot(path_id: str) -> tuple[list[str], list[pl.DataFrame], list[pl.DataFrame]] | None:
@@ -199,44 +199,39 @@ apply = st.sidebar.button(
 
 # Data display panel
 
-# selected_path = st.selectbox(
-#     "Select Path",
-#     options=st.session_state.get('path_ids', []),
-#     index=0 if st.session_state.get('path_ids', []) else None,
-#     key="_selected_path",
-#     on_change=store_value,
-#     args=("selected_path",),
-#     format_func=lambda x: x[:HASH_UB]
-# )
+selected_path = st.selectbox(
+    "Select Path",
+    options=st.session_state.get('path_ids', []),
+    index=0 if st.session_state.get('path_ids', []) else None,
+    key="_selected_path",
+    on_change=store_value,
+    args=("selected_path",),
+    format_func=lambda x: x[:HASH_UB]
+)
 
-# if st.session_state.selected_path:
-#     prids, krids_sims, enzymes = get_path_snapshot(st.session_state.selected_path)
-#     display_path_metrics(st.session_state.selected_path)
+if st.session_state.selected_path:
+    prids, krids_sims, enzymes = get_path_snapshot(st.session_state.selected_path)
+    display_path_metrics(st.session_state.selected_path)
 
-# col1, col2 = st.columns([0.6, 0.4], border=True)
+col1, col2 = st.columns([0.6, 0.4], border=True)
 
-# with col1:
-#     st.header("Predicted Reactions")
-#     if st.session_state.selected_path:
-#         st.write(st.session_state.selected_path)
-#         display_predicted_reactions(prids)
+with col1:
+    st.header("Predicted Reactions")
+    if st.session_state.selected_path:
+        st.write(st.session_state.selected_path)
+        display_predicted_reactions(prids)
       
-#     else:
-#         st.write("No paths found with current criteria.")
+    else:
+        st.write("No paths found with current criteria.")
 
-# with col2:
-#     st.header("Known Analogues")
-#     tab1, tab2 = st.tabs(["Analogues", "Enzymes"])
+with col2:
+    st.header("Known Analogues")
+    tab1, tab2 = st.tabs(["Analogues", "Enzymes"])
     
-#     with tab1:
-#         if st.session_state.selected_path:
-#             display_analogues(krids_sims)
+    with tab1:
+        if st.session_state.selected_path:
+            display_analogues(krids_sims)
 
-#     with tab2:
-#         if st.session_state.selected_path:
-#             display_enzymes(enzymes)
-
-st.write(st.session_state.sort_by)
-st.write(st.session_state.selected_path)
-st.write(st.session_state.paths)
-st.write(st.session_state.path_ids[:5])
+    with tab2:
+        if st.session_state.selected_path:
+            display_enzymes(enzymes)

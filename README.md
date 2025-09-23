@@ -24,11 +24,7 @@ pipx install --python /usr/bin/python3.12 poetry
 
 ### Configure filepaths
 
-This script will create a yaml file with filepaths importable through src.config. Note: should either place data and results directories outside project directory or gitignore them to avoid issues with Github file size limit.
-
-```shell
-python intialize_configs.py /path/to/data /path/to/results
-```
+Create a config file at ```conf/filepaths/filepaths.yaml``` following ```FILEPATHS_TEMPLATE.yaml```
 
 ### Download equilibrator database
 
@@ -119,5 +115,12 @@ python draw_reactions.py casp_study=my/casp/study
 Processed paths can be visualized in a path viewer app. Locally, this can be launched running
 
 ```
-streamlit run path_viewer/list_view.py
+streamlit run path_viewer/list_view.py -- --casp-study my_casp_study
 ```
+where my_casp_study is the name of the subdirectory of ```/my/processed/data``` that contains the processed parquet and svg files.
+
+## Using other network expansion softwares
+
+```parse_expansion.py``` is written to extract from a Pickaxe-generated network expansion...
+
+TODO

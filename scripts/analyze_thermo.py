@@ -5,7 +5,6 @@ import polars as pl
 from pathlib import Path
 from src.schemas import path_stats_schema
 from ergochemics.standardize import hash_compound
-import numpy as np
 from time import perf_counter
 from src.post_processing import pick_constraints_for_MDF
 from logging import getLogger

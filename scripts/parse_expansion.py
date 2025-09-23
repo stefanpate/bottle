@@ -221,7 +221,7 @@ def main(cfg: DictConfig) -> None:
     rxns = rxns.sort(
         "size", descending=True
     ).unique(
-        subset=['smarts'], keep="first"
+        subset=['smarts', 'half_expansion'], keep="first"
     )
     
     rxns.write_parquet(

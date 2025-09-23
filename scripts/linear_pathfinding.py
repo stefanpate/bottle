@@ -11,6 +11,7 @@ import networkx as nx
 from collections import defaultdict
 from itertools import product
 from functools import wraps
+from tqdm import tqdm
 
 logger  = logging.getLogger(__name__)
 
@@ -58,10 +59,10 @@ def timeit(fcn):
     return wrapper
 
 @timeit
-def construct_network(am_rxns: pl.DataFrame, helpers: list[str]) -> ReactionNetwork:
+def construct_network(am_rxns: pl.DataFrame, sources: list[str], helpers: list[str]) -> ReactionNetwork:
     G = ReactionNetwork() # init
     logger.info("Adding reactions to network...")
-    for row in am_rxns.iter_rows(named=True):
+    for row in tqdm(am_rxns.iter_rows(named=True), total=am_rxns.height, desc="Adding reactions"):
         try:
             G.add_reaction(row['am_smarts'], rxn_type='predicted')
         except:
@@ -70,11 +71,12 @@ def construct_network(am_rxns: pl.DataFrame, helpers: list[str]) -> ReactionNetw
     
     logger.info(f"Added {len(am_rxns)} reactions")
     
-    logger.info("Setting helpers...")
+    logger.info("Setting sources & helpers...")
     G.set_helpers(ids=helpers)
+    G.set_sources(ids=sources)
 
     logger.info("Pruning network...")
-    G.prune()
+    G.prune(augmented_pnmc_lb=1.0) # Connect compound to compound if it contributes at least 1.0 PNMC w/ sources+helpers
     return G
 
 @timeit
@@ -117,10 +119,10 @@ def find_combo_paths(graphs: list[nx.MultiDiGraph], sources: list[str], checkpoi
     all_paths = []
     fwd_by_checkpoint = defaultdict(list)
     for fp in fwd_paths:
-        if fp[-1][-1] in targets: # Final product is a target, done
+        if fp[-1][1] in targets: # Final product is a target, done
             all_paths.append(fp)
         else:
-            fwd_by_checkpoint[fp[-1][-1]].append(fp) # Save to stitch with reverse paths
+            fwd_by_checkpoint[fp[-1][1]].append(fp) # Save to stitch with reverse paths
 
     rev_by_checkpoint = defaultdict(list)
     for rp in rev_paths:
@@ -145,25 +147,38 @@ def main(cfg: DictConfig):
     helpers = cpds.filter(pl.col('type') == 'helper')['id'].to_list()
     sources = cpds.filter(pl.col('type') == 'source')['id'].to_list()
     targets = cpds.filter(pl.col('type') == 'target')['id'].to_list()
-    checkpoints = cpds.filter(pl.col('type') == 'checkpoint')['id'].to_list()
+    if 'checkpoint' in cpds['type'].to_list():
+        checkpoints = cpds.filter(pl.col('type') == 'checkpoint')['id'].to_list()
+    else:
+        checkpoints = []
     cid2name = dict(zip(cpds['id'].to_list(), cpds['name'].to_list()))
 
     am_rxns = pl.read_parquet(Path(cfg.expansion_extract) / cfg.am_rxns)
     half_expansions = am_rxns['half_expansion'].unique().to_list()
     mode = half_expansions[0] if len(half_expansions) == 1 else 'combo'
 
+    # # TODO: rm debug
+    # sma_of_i = []
+    # with open('/home/stef/bottle/notebooks/foo.txt', 'r') as f:
+    #     for sma in f.readlines():
+    #         sma_of_i.append(sma.strip())
+
+    # am_rxns = am_rxns.filter(pl.col('smarts').is_in(sma_of_i))
+
+    # # TODO: rm debug END
+
     generations = pl.read_csv(Path(cfg.expansion_extract) / cfg.generations)
     generations = dict(zip(generations['half_expansion'].to_list(), generations['generation'].to_list()))
 
     logger.info(f"Mode: {mode}")
     if mode == 'forward' or mode == 'retro':
-        G = construct_network(am_rxns, helpers)
+        G = construct_network(am_rxns, sources, helpers)
         logger.info("Finding paths...")
         paths = find_half_paths(G, sources, targets, generations[mode])
         Gs = [G]
     elif mode == 'combo':
-        F = construct_network(am_rxns.filter(pl.col('half_expansion') == 'forward'), helpers)
-        R = construct_network(am_rxns.filter(pl.col('half_expansion') == 'retro'), helpers)
+        F = construct_network(am_rxns.filter(pl.col('half_expansion') == 'forward'), sources, helpers)
+        R = construct_network(am_rxns.filter(pl.col('half_expansion') == 'retro'), sources, helpers) # Setting addtl mass sources but still pathfinding from checkpoints to targets
         Gs = [F, R]
         logger.info("Finding paths...")
         paths = find_combo_paths(Gs, sources, checkpoints, targets, generations)

@@ -1,5 +1,4 @@
 import networkx as nx
-from networkx.exception import NetworkXNoPath
 from typing import Any
 from copy import deepcopy, copy
 from dataclasses import dataclass, field
@@ -85,6 +84,67 @@ class SyntheticTree:
         return len(self.leaves)
 
 class ReactionNetwork(nx.MultiDiGraph):
+    '''
+    Subclass of a NetworkX MultiDiGraph to represent a reaction network.
+
+    Methods
+    -------
+    from_json(fp: pathlib.Path | str) -> ReactionNetwork
+        Class method to load a ReactionNetwork saved as a JSON file.
+
+    to_json(fp: pathlib.Path | str) -> None
+        Saves the ReactionNetwork as a JSON file.
+
+    get_nodes_by_prop(prop: str, value: Any) -> list[int]
+        Returns a list of node indices that have a specific property value.
+
+    add_reaction(am_rxn: str, rid: str | None = None, rxn_type: str | None = None, smi2name: dict[str, str] = {}) -> None
+        Adds a reaction to the reaction network.
+    
+    set_sources(smiles: Iterable[str] = None, ids: Iterable[int] = None, quiet: bool = False) -> None
+        Sets the source compounds in the reaction network.
+
+    set_helpers(smiles: Iterable[str] = None, ids: Iterable[int] = None, quiet: bool = False) -> None
+        Sets the helper compounds in the reaction network.
+
+    reset_cpd_types(quiet: bool = False) -> None
+        Resets the types of all compounds in the reaction network to 'intermediate'.
+
+    prune(pnmc_lb: float = 0.0, rnmc_lb: float = 0.0, augmented_pnmc_lb: float = 0.0) -> None
+        Prunes the reaction network based on the provided mass contribution thresholds and
+        'helper' designation.
+    
+    enumerate_synthetic_trees(target: str, max_depth: int, max_leaves: int, tot_rnmc_lb: float = 0.1, quiet: bool = False) -> list[SyntheticTree]
+        Enumerates synthetic trees for a given target compound in a reaction network.
+
+    Node attributes
+    ---------------
+    smiles: str
+        SMILES string of the compound.
+    name: str
+        Name of the compound.
+    type: str
+        Type of the compound, e.g., 'source', 'helper', 'intermediate'.
+            - source: compounds that do not need to be synthesized within the network
+            - helper: compounds that do not need to be synthesized and do not contribute significant mass to products
+            - intermediate: compounds that need to be synthesized within the network
+    grouped_predecessors: dict[str, list[int]]
+        A dictionary mapping all in-edge reaction IDs producing an intermediate to lists of predecessor node indices (reactants).
+    tot_rnmc: dict[str, float]
+        A dictionary mapping all in-edge reaction IDs producing an intermediate to the total fraction of mass from all
+        the reactants in that reaction that is transferred to the product (i.e., yield, atom economy).
+
+    Edge attributes
+    ---------------
+    pnmc: float
+        Product normalized mass contribution, i.e., fraction of all product atoms from the predecessor / reactant.
+    rnmc: float
+        Reaction normalized mass contribution, i.e., fraction of all reactant atoms transferred to the product.
+    am_smarts: str
+        Atom-mapped SMARTS string representing the reaction.
+    rxn_type: str
+        Type of reaction, e.g., "known" or "predicted".    
+    '''
     def __init__(self, incoming_graph_data=None, multigraph_input=None, **attr):
         super().__init__(incoming_graph_data, multigraph_input, **attr)
         self.logger = logging.getLogger(__name__)
@@ -207,7 +267,7 @@ class ReactionNetwork(nx.MultiDiGraph):
                 self.nodes[_id]['type'] = 'source'
                 ct += 1
             else:
-                raise ValueError(f"Node id {_id} not found in the network.")
+                logger.warning(f"Node id {_id} not found in the network.")
             
         if not quiet:
             self.logger.info(f"Set {ct} source compounds in the reaction network.")
@@ -269,7 +329,7 @@ class ReactionNetwork(nx.MultiDiGraph):
         if not quiet:
             self.logger.info(f"Reset {ct} compound types to 'intermediate'.")
    
-    def prune(self, pnmc_lb: float = 0.0, rnmc_lb: float = 0.0, source_augmented_pnmc_lb: float = 0.0) -> None:
+    def prune(self, pnmc_lb: float = 0.0, rnmc_lb: float = 0.0, augmented_pnmc_lb: float = 0.0) -> None:
         '''
         Prunes the reaction network based on the provided mass contribution thresholds and
         'helper' designation. By default, helpers are disconnected from the network.
@@ -280,8 +340,8 @@ class ReactionNetwork(nx.MultiDiGraph):
             Lower bound for product normalized mass contribution.
         rnmc_lb: float
             Lower bound for total reaction normalized mass contribution.
-        source_augmented_pnmc_lb: float
-            Lower bound for augmented product normalized mass contribution from sources.
+        augmented_pnmc_lb: float
+            Lower bound for source-and-helper-augmented product normalized mass contribution.
         '''
         to_remove = set()
         
@@ -298,12 +358,12 @@ class ReactionNetwork(nx.MultiDiGraph):
                         to_remove.add((pred, node, rxn_id))
 
                 # Aggregate source mass contributions for later
-                rxn_sources = set()
+                rxn_sources_helpers = set()
                 for pred in preds:
                     edge_data = self.get_edge_data(pred, node, key=rxn_id)
                     rxn_pnmcs[pred] = edge_data['pnmc']
-                    if self.nodes[pred]['type'] == 'source':
-                        rxn_sources.add(pred)
+                    if self.nodes[pred]['type'] in ['source', 'helper']:
+                        rxn_sources_helpers.add(pred)
 
                 for pred in preds:
                     # Mark for deletion all in-edges from helpers
@@ -316,9 +376,9 @@ class ReactionNetwork(nx.MultiDiGraph):
                         to_remove.add((pred, node, rxn_id))
                         continue
                     
-                    source_mass = sum(rxn_pnmcs[s] for s in rxn_sources if s != pred) # Source contribution, excl pred if it is a source, avoid double counting
+                    mass_augment = sum(rxn_pnmcs[s] for s in rxn_sources_helpers if s != pred) # Source contribution, excl pred if it is a source, avoid double counting
                     # Mark for deletion if fails augmented mass criteria
-                    if rxn_pnmcs[pred] + source_mass < source_augmented_pnmc_lb:
+                    if rxn_pnmcs[pred] + mass_augment < augmented_pnmc_lb:
                         to_remove.add((pred, node, rxn_id))
 
         # Remove from grouped predecessors attr
@@ -426,7 +486,7 @@ def get_mass_contributions(am_rxn: str) -> dict[str, dict[int, dict[int, float]]
                 }
             }
             "tot_rct_normed_mass_contrib": {
-                pdt_smi: sum(rnmc) / sum(rct atoms)
+                pdt_smi: atoms in product / sum(rct atoms)
             }
         }
     de_am_rxn: str
@@ -558,8 +618,8 @@ if __name__ == '__main__':
     rnmc_lb = 0.25
     pnmc_lb = 0.25
     aug_mc_lb = 0.8
-    G.prune(pnmc_lb=pnmc_lb, rnmc_lb=rnmc_lb, source_augmented_pnmc_lb=aug_mc_lb)
-    print(f"Pruned reaction network with pnmc_lb={pnmc_lb}, rnmc_lb={rnmc_lb}, source_augmented_pnmc_lb={aug_mc_lb}.")
+    G.prune(pnmc_lb=pnmc_lb, rnmc_lb=rnmc_lb, augmented_pnmc_lb=aug_mc_lb)
+    print(f"Pruned reaction network with pnmc_lb={pnmc_lb}, rnmc_lb={rnmc_lb}, augmented_pnmc_lb={aug_mc_lb}.")
     print(f"Number of nodes after pruning: {G.number_of_nodes()}, Number of edges: {G.number_of_edges()}")
 
     G = ReactionNetwork.from_json(Path(cfg.interim_data) / 'known_reaction_network.json')
@@ -570,8 +630,8 @@ if __name__ == '__main__':
     rnmc_lb = 0.25
     pnmc_lb = 0.25
     aug_mc_lb = 0.8
-    G.prune(pnmc_lb=pnmc_lb, rnmc_lb=rnmc_lb, source_augmented_pnmc_lb=aug_mc_lb)
-    print(f"Pruned reaction network with pnmc_lb={pnmc_lb}, rnmc_lb={rnmc_lb}, source_augmented_pnmc_lb={aug_mc_lb}, and default sources.")
+    G.prune(pnmc_lb=pnmc_lb, rnmc_lb=rnmc_lb, augmented_pnmc_lb=aug_mc_lb)
+    print(f"Pruned reaction network with pnmc_lb={pnmc_lb}, rnmc_lb={rnmc_lb}, augmented_pnmc_lb={aug_mc_lb}, and default sources.")
     print(f"Number of nodes after pruning: {G.number_of_nodes()}, Number of edges: {G.number_of_edges()}")
 
     G = ReactionNetwork.from_json(Path(cfg.interim_data) / 'known_reaction_network.json')
@@ -582,8 +642,8 @@ if __name__ == '__main__':
     rnmc_lb = 0.25
     pnmc_lb = 0.25
     aug_mc_lb = 0.8
-    G.prune(pnmc_lb=pnmc_lb, rnmc_lb=rnmc_lb, source_augmented_pnmc_lb=aug_mc_lb)
-    print(f"Pruned reaction network with pnmc_lb={pnmc_lb}, rnmc_lb={rnmc_lb}, source_augmented_pnmc_lb={aug_mc_lb}, and default helpers.")
+    G.prune(pnmc_lb=pnmc_lb, rnmc_lb=rnmc_lb, augmented_pnmc_lb=aug_mc_lb)
+    print(f"Pruned reaction network with pnmc_lb={pnmc_lb}, rnmc_lb={rnmc_lb}, augmented_pnmc_lb={aug_mc_lb}, and default helpers.")
     print(f"Number of nodes after pruning: {G.number_of_nodes()}, Number of edges: {G.number_of_edges()}")
 
     G = ReactionNetwork.from_json(Path(cfg.interim_data) / 'known_reaction_network.json')

@@ -3,11 +3,7 @@ from enum import Enum
 import hashlib
 import pathlib
 import polars as pl
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional
-import cvxpy
 import numpy as np
-from equilibrator_api import Q_
 
 def hash_path(rxns: list[tuple[int, str]]) -> str:
     '''
@@ -222,36 +218,8 @@ class PathWrangler:
         return {"paths": paths_df, "predicted_reactions": prxns_df, "known_reactions": krxns_df, "enzymes": enz_df}
 
     # TODO: Reimplement w/ polars
-    # def get_path_with_id(self, pid: str) -> Path:
-    #     '''
-    #     Get path with id pid
-    #     '''
-    #     # Required reaction ids for this path id
-    #     req_prids = set()
-    #     req_krids = set()
-    #     for prid in self.paths[pid]['reactions']:
-    #         req_prids.add(prid)
-    #         for krid in self.predicted_reactions[prid]['analogues']:
-    #             req_krids.add(krid)
-
-    #     # Get known reactions
-    #     krs = {}
-    #     for krid in req_krids:
-    #         kr = KnownReaction.from_dict(self.known_reactions[krid])
-    #         krs[krid] = kr
-
-    #     # Get predicted reactions
-    #     prs = {}
-    #     for prid in req_prids:
-    #         pr = PredictedReaction.from_dict(self.predicted_reactions[prid], krs)
-    #         prs[prid] = pr
-
-    #     p = Path.from_dict(self.paths[pid], prs) # Construct path
-
-    #     if not p.valid:
-    #         print("Warning, this path may not have a complete set of known analogues & enzymes!")
-
-    #     return p
+    def get_path_with_id(self, pid: str) -> dict[str, pl.DataFrame]:
+        pass
 
 def pick_constraints_for_MDF(S: any, Nc: any, Nr: any, ln_conc: any, dg_prime: any, B: any, lb: float, ub: float) -> list:
     '''

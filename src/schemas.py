@@ -1,5 +1,7 @@
 import polars as pl
 
+# Processed data schemas
+
 predicted_reactions_schema = pl.Schema(
     {
         "id": pl.String,
@@ -42,6 +44,8 @@ path_stats_schema = pl.Schema(
         "feasibility_frac": pl.Float32,
     }
 )
+
+# Interim data schemas
 
 compound_type = pl.Enum(categories=["source", "target", "known", "helper", "checkpoint"])
 

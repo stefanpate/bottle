@@ -1,0 +1,18 @@
+root: /to/project/root/dir
+
+# data
+data: /to/project/data/dir
+raw_data: ${.data}/raw
+interim_data: ${.data}/interim
+processed_data: ${.data}/processed
+
+# artifacts
+artifacts: ${.root}/artifacts
+coreactants: ${.artifacts}/coreactants
+rules: ${.artifacts}/rules
+starters_targets: ${.artifacts}/starters_targets
+known: ${.artifacts}/known
+rxn_x_rule_mapping: ${.artifacts}/rxn_x_rule_mapping
+known_compounds: ${.known}/known_compounds.parquet
+known_reactions: ${.known}/known_reactions.parquet
+known_enzymes: ${.known}/known_enzymes.parquet

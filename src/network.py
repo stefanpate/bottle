@@ -329,7 +329,7 @@ class ReactionNetwork(nx.MultiDiGraph):
         if not quiet:
             self.logger.info(f"Reset {ct} compound types to 'intermediate'.")
    
-    def prune(self, pnmc_lb: float = 0.0, rnmc_lb: float = 0.0, augmented_pnmc_lb: float = 0.0) -> None:
+    def prune(self, pnmc_lb: float = 0.01, rnmc_lb: float = 0.01, augmented_pnmc_lb: float = 0.01) -> None:
         '''
         Prunes the reaction network based on the provided mass contribution thresholds and
         'helper' designation. By default, helpers are disconnected from the network.

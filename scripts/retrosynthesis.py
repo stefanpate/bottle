@@ -78,6 +78,10 @@ def main(cfg: DictConfig):
     logger.info("Enumerating synthetic trees...")
     trees = []
     for tid in targets:
+        if not G.has_node(tid):
+            logger.info(f"Target {tid} not in reaction network, skipping...")
+            continue
+
         tic = perf_counter()
         trees += G.enumerate_synthetic_trees(
                 target=tid,
@@ -89,7 +93,6 @@ def main(cfg: DictConfig):
         toc = perf_counter()
         logger.info(f"Tree enumeration for target {tid} took {toc - tic:.2f} seconds.")
     
-    logger.info("Saving results...")
 
     # Check for existing paths and reactions
     existing_reactions = check_existing("predicted_reactions.parquet", predicted_reactions_schema)
@@ -109,9 +112,11 @@ def main(cfg: DictConfig):
 
     new_paths, new_path_stats = [], []
     new_rxn_ids = set()
+    n_existing = 0
     for tree in trees:
         path_entry = tree_to_path_entry(tree)
         if path_entry['path_id'] in existing_paths['path_id'].to_list():
+            n_existing += 1
             continue
 
         # One entry per path
@@ -145,6 +150,9 @@ def main(cfg: DictConfig):
                 ]
             )
             new_rxn_ids.add(rxn_id)
+
+    logger.info(f"{n_existing} / {len(trees)} paths were already stored")
+    logger.info(f"Total # new paths found: {len(new_path_stats)}")
 
     # Concat paths, path_stats
     
@@ -198,6 +206,7 @@ def main(cfg: DictConfig):
     ])
 
     # Save
+    logger.info("Saving results...")
     paths.write_parquet("paths.parquet")
     path_stats.write_parquet("path_stats.parquet")
     reactions.write_parquet("predicted_reactions.parquet")

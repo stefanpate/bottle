@@ -157,16 +157,6 @@ def main(cfg: DictConfig):
     half_expansions = am_rxns['half_expansion'].unique().to_list()
     mode = half_expansions[0] if len(half_expansions) == 1 else 'combo'
 
-    # # TODO: rm debug
-    # sma_of_i = []
-    # with open('/home/stef/bottle/notebooks/foo.txt', 'r') as f:
-    #     for sma in f.readlines():
-    #         sma_of_i.append(sma.strip())
-
-    # am_rxns = am_rxns.filter(pl.col('smarts').is_in(sma_of_i))
-
-    # # TODO: rm debug END
-
     generations = pl.read_csv(Path(cfg.expansion_extract) / cfg.generations)
     generations = dict(zip(generations['half_expansion'].to_list(), generations['generation'].to_list()))
 
@@ -185,7 +175,6 @@ def main(cfg: DictConfig):
 
     logger.info(f"Found {len(paths)} paths")
     
-    logger.info("Saving results...")
 
     # Check for existing paths and reactions
     existing_reactions = check_existing("predicted_reactions.parquet", predicted_reactions_schema)
@@ -205,10 +194,12 @@ def main(cfg: DictConfig):
     # Collect paths and path stats
     new_paths, new_path_stats = [], []
     new_rxn_ids = set()
+    n_existing = 0
     for path in paths:
         path_entry = path_to_path_entry(path, sources, targets)
         
         if path_entry['path_id'] in existing_paths['path_id'].to_list():
+            n_existing += 1
             continue
 
         # One entry per path
@@ -243,25 +234,42 @@ def main(cfg: DictConfig):
             )
             new_rxn_ids.add(rxn_id)
 
+    logger.info(f"{n_existing} / {len(paths)} paths were already stored")
+    logger.info(f"Total # new paths found: {len(new_path_stats)}")
+    
+    # Merge identical new paths
+    to_merge = [
+        'starters',
+        'targets',
+        'starter_ids',
+        'target_ids',
+    ]
+    aggs = []
+    for col in path_stats_schema.names():
+        if col == "id":
+            continue
+        
+        if col in to_merge:
+            aggs.append(pl.col(col).flatten().unique().alias(col))
+        else:
+            aggs.append(pl.col(col).first().alias(col))
+
+    new_path_stats = pl.DataFrame(
+        new_path_stats,
+        schema=path_stats_schema,
+        orient='row'
+    ).group_by("id").agg(aggs)
+
+    new_paths = pl.DataFrame(
+        new_paths,
+        schema=paths_schema,
+        orient='row'
+    ).unique()
+
     # Concat paths, path_stats
     
-    paths = pl.concat([
-        existing_paths,
-        pl.DataFrame(
-            new_paths,
-            schema=paths_schema,
-            orient='row'
-        )
-    ])
-
-    path_stats = pl.concat([
-        existing_path_stats,
-        pl.DataFrame(
-            new_path_stats,
-            schema=path_stats_schema,
-            orient='row'
-        )
-    ])
+    paths = pl.concat([existing_paths, new_paths])
+    path_stats = pl.concat([existing_path_stats, new_path_stats])
 
     # Collect new unique predicted reactions
     new_reactions = []
@@ -295,6 +303,7 @@ def main(cfg: DictConfig):
     ])
 
     # Save
+    logger.info("Saving results...")
     paths.write_parquet("paths.parquet")
     path_stats.write_parquet("path_stats.parquet")
     reactions.write_parquet("predicted_reactions.parquet")

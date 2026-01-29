@@ -8,20 +8,21 @@ tani_filter:
   weight: null
 
 coreactants: metacyc_coreactants
-rules: mechinferred_dt_98_rules_w_coreactants
-starters: alpha_ketoglutarate
-targets: L-glutamine
+rules: mechinferred_dt_13_rules_w_coreactants
+starters: hopa
+targets: alpha_ketoglutarate
 a_plus_b: False
 do_tani_sample: False
-prune_to_targets: True
-generations: 2
+prune_to_targets: False
+generations: 1
 processes: 10
+retro: True
 
 hydra:
   run:
-    dir: ${filepaths.raw_data}
+    dir: ${filepaths.raw_data}/expansions/${now:%Y-%m-%d}/${now:%H-%M-%S}
   job:
     chdir: True
   sweep:
-    dir: ${filepaths.raw_data}
+    dir: ${filepaths.raw_data}/expansions/${now:%Y-%m-%d}/${now:%H-%M-%S}
     subdir: .

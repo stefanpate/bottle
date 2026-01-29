@@ -8,7 +8,7 @@ from rdkit import Chem
 from typing import Iterable
 import pathlib
 import json
-from ergochemics.standardize import hash_compound, hash_reaction
+from ergochemics.standardize import hash_molecule, hash_reaction
 import logging
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class SyntheticTree:
         return SyntheticTree(
             root=self.root,
             generations=deepcopy(self.generations),
-            leaves=copy(self.leaves)
+            leaves=deepcopy(self.leaves),
         )
     
     def __post_init__(self):
@@ -185,7 +185,7 @@ class ReactionNetwork(nx.MultiDiGraph):
         mass_contributions, de_am_rxn = get_mass_contributions(am_rxn)
         rid = rid or hash_reaction(de_am_rxn)
         for pdt_smi, rcts in mass_contributions['pdt_normed_mass_contrib'].items():
-            pdt_id = hash_compound(pdt_smi)
+            pdt_id = hash_molecule(pdt_smi)
 
             # Create new node with all but the grouped predecessors
             if pdt_id not in self.nodes:
@@ -202,7 +202,7 @@ class ReactionNetwork(nx.MultiDiGraph):
            
             grouped_predecessors = []
             for rct_smi, pnmc in rcts.items():
-                rct_id = hash_compound(rct_smi)
+                rct_id = hash_molecule(rct_smi)
 
                 if self.has_edge(rct_id, pdt_id, key=rid):
                     self.logger.warning(f"Edges involving reaction id {rid} already exist. Skipping addition to avoid duplication or overwriting.")                
@@ -304,6 +304,10 @@ class ReactionNetwork(nx.MultiDiGraph):
         ct = 0
         for _id in ids:
             if _id in self.nodes:
+                if self.nodes[_id]['type'] == 'source':
+                    self.logger.warning(f"Node id {_id} is already a source compound; cannot set as helper.")
+                    continue
+
                 self.nodes[_id]['type'] = 'helper'
                 ct += 1
             else:
@@ -412,7 +416,7 @@ class ReactionNetwork(nx.MultiDiGraph):
 
         Returns
         -------
-        list[SyntheticTree]
+        synthetic_trees: list[SyntheticTree]
             A list of synthetic trees enumerated from the reaction network.
         '''
         synthetic_trees = []
@@ -427,7 +431,8 @@ class ReactionNetwork(nx.MultiDiGraph):
             if tree.n_gens > max_depth or tree.n_leaves > max_leaves:
                 continue
             
-            if all([self.nodes[leaf[0]]['type'] == 'source' for leaf in tree.leaves]): # Resolved if all leaves are sources
+            leaves_are_sources = [self.nodes[leaf[0]]['type'] == 'source' for leaf in tree.leaves]
+            if len(leaves_are_sources) > 0 and all(leaves_are_sources): # Resolved if all leaves are sources
                 synthetic_trees.append(tree)
                 continue
 
@@ -453,6 +458,10 @@ class ReactionNetwork(nx.MultiDiGraph):
                 for leaf, rxn in zip(leaf_choices.keys(), choice):
                     rcts = [rct for rct in self.nodes[leaf[0]]['grouped_predecessors'][rxn] if self.nodes[rct]['type'] != 'helper'] # Exclude helpers as reactants
                     new_tree.grow(leaf, rxn, rcts)
+                
+                if len(new_tree.leaves) == 0: # Skips cases e.g., all leaves were "helpers"
+                    continue
+                
                 stack.append(new_tree)
 
         if not quiet:

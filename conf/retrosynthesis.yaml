@@ -4,14 +4,17 @@ defaults:
 
 default_sources: ${filepaths.interim_data}/default_sources.csv
 cpds: compounds.parquet
-am_rxns: am_rxns.parquet
-expansion: ???
+am_rxns: reactions.parquet
+forward_expansion: null
+retro_expansion: null
 casp_study: ???
 known_reaction_network: ${filepaths.interim_data}/known_reaction_network.json
-expansion_extract: ${filepaths.interim_data}/expansions/${.expansion}
-max_depth: ???
-max_leaves: 3
-tot_rnmc_lb: 0.0
+expansion_superdir: ${filepaths.raw_data}/expansions
+fwd_dir: ${expansion_superdir}/${forward_expansion}
+retro_dir: ${expansion_superdir}/${retro_expansion}
+expansion_config: .hydra/config.yaml
+max_leaves: 2
+tot_rnmc_lb: 0.1
 
 hydra:
   run:

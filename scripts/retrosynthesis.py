@@ -1,8 +1,15 @@
 import hydra
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 import polars as pl
 from src.network import ReactionNetwork, SyntheticTree, de_am
-from src.schemas import predicted_reactions_schema, paths_schema, path_stats_schema
+from src.schemas import (
+    predicted_reactions_schema,
+    paths_schema,
+    path_stats_schema,
+    expansion_reactions_schema,
+    compounds_schema,
+    compound_type,
+)
 from src.post_processing import hash_path
 from pathlib import Path
 from time import perf_counter
@@ -45,18 +52,58 @@ def tree_to_path_entry(tree: SyntheticTree):
 def main(cfg: DictConfig):
 
     # Load data for reaction network
-
     G = ReactionNetwork.from_json(Path(cfg.known_reaction_network))
-
     default_sources = pl.read_csv(Path(cfg.default_sources))['smiles'].to_list()
 
-    cpds = pl.read_parquet(Path(cfg.expansion_extract) / cfg.cpds)
+    if cfg.forward_expansion:
+        fwd_rxns = pl.read_parquet(
+            Path(cfg.fwd_dir) / cfg.am_rxns, schema=expansion_reactions_schema
+        ).with_columns(
+            pl.lit('forward').alias('half_expansion')
+        )
+        fwd_cpds = pl.read_parquet(Path(cfg.fwd_dir) / cfg.cpds, schema=compounds_schema)
+    else:
+        fwd_rxns = pl.DataFrame(
+            schema=expansion_reactions_schema
+        ).with_columns(
+            pl.lit('forward').alias('half_expansion')
+        )
+        fwd_cpds = pl.DataFrame(schema=compounds_schema)
+
+    if cfg.retro_expansion:
+        retro_rxns = pl.read_parquet(
+            Path(cfg.retro_dir) / cfg.am_rxns, schema=expansion_reactions_schema
+        ).with_columns(
+            pl.lit('retro').alias('half_expansion')
+        )
+        retro_cpds = pl.read_parquet(Path(cfg.retro_dir) / cfg.cpds, schema=compounds_schema)
+    else:
+        retro_rxns = pl.DataFrame(
+            schema=expansion_reactions_schema
+        ).with_columns(
+            pl.lit('retro').alias('half_expansion')
+        )
+        retro_cpds = pl.DataFrame(schema=compounds_schema)
+
+    am_rxns = pl.concat([fwd_rxns, retro_rxns]).unique()
+    cpds = pl.concat([fwd_cpds, retro_cpds]).unique()
+
     helpers = cpds.filter(pl.col('type') == 'helper')['id'].to_list()
     sources = cpds.filter(pl.col('type') == 'source')['id'].to_list()
     targets = cpds.filter(pl.col('type') == 'target')['id'].to_list()
     cid2name = dict(zip(cpds['id'].to_list(), cpds['name'].to_list()))
 
-    am_rxns = pl.read_parquet(Path(cfg.expansion_extract) / cfg.am_rxns)
+    generations = {}
+    if cfg.forward_expansion:
+        with open(Path(cfg.fwd_dir) / cfg.expansion_config, 'r') as f:
+            fwd_cfg = OmegaConf.load(f)
+            generations['forward'] = fwd_cfg.generations
+
+    if cfg.retro_expansion:
+        with open(Path(cfg.retro_dir) / cfg.expansion_config, 'r') as f:
+            retro_cfg = OmegaConf.load(f)
+            generations['retro'] = retro_cfg.generations
+
 
     logger.info("Adding reactions to network...")
     tic = perf_counter()
@@ -71,8 +118,8 @@ def main(cfg: DictConfig):
     logger.info(f"Added {len(am_rxns)} reactions in {toc - tic:.2f} seconds.")
 
     logger.info("Setting sources...")
-    G.set_sources(smiles=default_sources)
     G.set_sources(ids=sources)
+    G.set_helpers(smiles=default_sources)
     G.set_helpers(ids=helpers)
 
     logger.info("Enumerating synthetic trees...")
@@ -85,7 +132,7 @@ def main(cfg: DictConfig):
         tic = perf_counter()
         trees += G.enumerate_synthetic_trees(
                 target=tid,
-                max_depth=cfg.max_depth,
+                max_depth=sum(generations.values()),
                 max_leaves=cfg.max_leaves,
                 tot_rnmc_lb=cfg.tot_rnmc_lb
             )
@@ -105,8 +152,6 @@ def main(cfg: DictConfig):
     for _, _, k, d in G.edges(keys=True, data=True):
         smarts_lookup[k] = d['am_smarts']
         rxn_type_lookup[k] = d['rxn_type']
-
-    rules_lookup = dict(zip(am_rxns['am_smarts'], am_rxns['rules'].to_list()))
 
     # Collect paths and path stats
 
@@ -180,6 +225,10 @@ def main(cfg: DictConfig):
 
         if rxn_type_lookup[rxn_id] == 'predicted' and rxn_id not in existing_reactions['id']:
             am_rxn = smarts_lookup[rxn_id]
+            tmp = am_rxns.filter(pl.col('am_smarts') == am_rxn)
+            rules = tmp['rule_name'].to_list()
+            rule_sets = tmp['rule_set'].to_list()
+            templates = tmp['rule_template'].to_list()
             rcts, pdts = de_am(am_rxn)
             de_am_rxn = f"{'.'.join(rcts)}>>{'.'.join(pdts)}"
             new_reactions.append(
@@ -190,7 +239,9 @@ def main(cfg: DictConfig):
                     None, # dxgb_label
                     None, # rxn_sims
                     None, # analogue_ids
-                    rules_lookup[smarts_lookup[rxn_id]], # rules
+                    rules, # rule names
+                    templates, # templates
+                    rule_sets, # rule_sets
                 ]
             )
 
@@ -206,7 +257,7 @@ def main(cfg: DictConfig):
     ])
 
     # Save
-    logger.info("Saving results...")
+    logger.info(f"Saving results to {cfg.casp_study}")
     paths.write_parquet("paths.parquet")
     path_stats.write_parquet("path_stats.parquet")
     reactions.write_parquet("predicted_reactions.parquet")

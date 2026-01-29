@@ -31,10 +31,7 @@ def main(cfg: DictConfig) -> None:
     if cfg.prune_to_targets and cfg.targets:
         pk.prune_network_to_targets()
 
-    fn = (f"{cfg.generations}_steps_{cfg.starters}_to_{cfg.targets}_rules_{cfg.rules}"
-          f"_co_{cfg.coreactants}_sampled_{cfg.do_tani_sample}_pruned_{cfg.prune_to_targets}_aplusb_{cfg.a_plus_b}")
-    
-    pk.pickle_pickaxe(f"{fn}.pk") # Save results
+    pk.parquet_pickaxe('.', do_flip=cfg.retro) # Save results
 
 if __name__ == '__main__':
     main()

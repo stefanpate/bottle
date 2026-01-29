@@ -1,8 +1,15 @@
 import hydra
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 import polars as pl
 from src.network import ReactionNetwork, de_am
-from src.schemas import predicted_reactions_schema, paths_schema, path_stats_schema
+from src.schemas import (
+    predicted_reactions_schema,
+    paths_schema,
+    path_stats_schema,
+    expansion_reactions_schema,
+    compounds_schema,
+    compound_type,
+)
 from src.post_processing import hash_path
 from pathlib import Path
 from time import perf_counter
@@ -59,7 +66,7 @@ def timeit(fcn):
     return wrapper
 
 @timeit
-def construct_network(am_rxns: pl.DataFrame, sources: list[str], helpers: list[str]) -> ReactionNetwork:
+def construct_network(am_rxns: pl.DataFrame, sources: list[str], helpers: list[str], source_augmented_pnmc_lb: float) -> ReactionNetwork:
     G = ReactionNetwork() # init
     logger.info("Adding reactions to network...")
     for row in tqdm(am_rxns.iter_rows(named=True), total=am_rxns.height, desc="Adding reactions"):
@@ -76,7 +83,7 @@ def construct_network(am_rxns: pl.DataFrame, sources: list[str], helpers: list[s
     G.set_sources(ids=sources)
 
     logger.info("Pruning network...")
-    G.prune(augmented_pnmc_lb=1.0) # Connect compound to compound if it contributes at least 1.0 PNMC w/ sources+helpers
+    G.prune(augmented_pnmc_lb=source_augmented_pnmc_lb) # Connect compound to compound if it contributes at least 1.0 PNMC w/ sources+helpers
     return G
 
 @timeit
@@ -143,39 +150,95 @@ def find_combo_paths(graphs: list[nx.MultiDiGraph], sources: list[str], checkpoi
 def main(cfg: DictConfig):
 
     # Load data for reaction network
-    cpds = pl.read_parquet(Path(cfg.expansion_extract) / cfg.cpds)
+    if cfg.forward_expansion:
+        fwd_rxns = pl.read_parquet(
+            Path(cfg.fwd_dir) / cfg.am_rxns, schema=expansion_reactions_schema
+        ).with_columns(
+            pl.lit('forward').alias('half_expansion')
+        )
+        fwd_cpds = pl.read_parquet(Path(cfg.fwd_dir) / cfg.cpds, schema=compounds_schema)
+    else:
+        fwd_rxns = pl.DataFrame(
+            schema=expansion_reactions_schema
+        ).with_columns(
+            pl.lit('forward').alias('half_expansion')
+        )
+        fwd_cpds = pl.DataFrame(schema=compounds_schema)
+
+    if cfg.retro_expansion:
+        retro_rxns = pl.read_parquet(
+            Path(cfg.retro_dir) / cfg.am_rxns, schema=expansion_reactions_schema
+        ).with_columns(
+            pl.lit('retro').alias('half_expansion')
+        )
+        retro_cpds = pl.read_parquet(Path(cfg.retro_dir) / cfg.cpds, schema=compounds_schema)
+    else:
+        retro_rxns = pl.DataFrame(
+            schema=expansion_reactions_schema
+        ).with_columns(
+            pl.lit('retro').alias('half_expansion')
+        )
+        retro_cpds = pl.DataFrame(schema=compounds_schema)
+
+    if cfg.forward_expansion and cfg.retro_expansion:
+        checkpoint_ids = fwd_cpds.join(
+            other=retro_cpds,
+            on='id',
+            how='inner'
+        )['id'].to_list()
+    else:
+        checkpoint_ids = []
+
+    am_rxns = pl.concat([fwd_rxns, retro_rxns]).unique()
+    cpds = pl.concat([fwd_cpds, retro_cpds]).with_columns(
+        pl.when(
+            (pl.col('type') == 'intermediate') & (pl.col('id').is_in(checkpoint_ids))
+        ).then(
+            pl.lit('checkpoint')
+        ).otherwise(
+            pl.col('type')
+        ).alias('type').cast(compound_type)
+    )
+
     helpers = cpds.filter(pl.col('type') == 'helper')['id'].to_list()
     sources = cpds.filter(pl.col('type') == 'source')['id'].to_list()
     targets = cpds.filter(pl.col('type') == 'target')['id'].to_list()
-    if 'checkpoint' in cpds['type'].to_list():
-        checkpoints = cpds.filter(pl.col('type') == 'checkpoint')['id'].to_list()
-    else:
-        checkpoints = []
+    checkpoints = cpds.filter(pl.col('type') == 'checkpoint')['id'].to_list()
     cid2name = dict(zip(cpds['id'].to_list(), cpds['name'].to_list()))
 
-    am_rxns = pl.read_parquet(Path(cfg.expansion_extract) / cfg.am_rxns)
-    half_expansions = am_rxns['half_expansion'].unique().to_list()
-    mode = half_expansions[0] if len(half_expansions) == 1 else 'combo'
+    if cfg.forward_expansion and cfg.retro_expansion:
+        mode = 'combo'
+    elif cfg.forward_expansion:
+        mode = 'forward'
+    elif cfg.retro_expansion:
+        mode = 'retro'
 
-    generations = pl.read_csv(Path(cfg.expansion_extract) / cfg.generations)
-    generations = dict(zip(generations['half_expansion'].to_list(), generations['generation'].to_list()))
+    generations = {}
+    if cfg.forward_expansion:
+        with open(Path(cfg.fwd_dir) / cfg.expansion_config, 'r') as f:
+            fwd_cfg = OmegaConf.load(f)
+            generations['forward'] = fwd_cfg.generations
+
+    if cfg.retro_expansion:
+        with open(Path(cfg.retro_dir) / cfg.expansion_config, 'r') as f:
+            retro_cfg = OmegaConf.load(f)
+            generations['retro'] = retro_cfg.generations
 
     logger.info(f"Mode: {mode}")
     if mode == 'forward' or mode == 'retro':
-        G = construct_network(am_rxns, sources, helpers)
+        G = construct_network(am_rxns, sources, helpers, cfg.source_augmented_pnmc_lb)
         logger.info("Finding paths...")
         paths = find_half_paths(G, sources, targets, generations[mode])
         Gs = [G]
     elif mode == 'combo':
-        F = construct_network(am_rxns.filter(pl.col('half_expansion') == 'forward'), sources, helpers)
-        R = construct_network(am_rxns.filter(pl.col('half_expansion') == 'retro'), sources, helpers) # Setting addtl mass sources but still pathfinding from checkpoints to targets
+        F = construct_network(am_rxns.filter(pl.col('half_expansion') == 'forward'), sources, helpers, cfg.source_augmented_pnmc_lb) # Setting addtl mass sources but
+        R = construct_network(am_rxns.filter(pl.col('half_expansion') == 'retro'), sources, helpers, cfg.source_augmented_pnmc_lb) # Setting addtl mass sources but still pathfinding from checkpoints to targets
         Gs = [F, R]
         logger.info("Finding paths...")
         paths = find_combo_paths(Gs, sources, checkpoints, targets, generations)
 
     logger.info(f"Found {len(paths)} paths")
     
-
     # Check for existing paths and reactions
     existing_reactions = check_existing("predicted_reactions.parquet", predicted_reactions_schema)
     existing_paths = check_existing("paths.parquet", paths_schema)
@@ -188,8 +251,6 @@ def main(cfg: DictConfig):
         for _, _, k, d in G.edges(keys=True, data=True):
             smarts_lookup[k] = d['am_smarts']
             rxn_type_lookup[k] = d['rxn_type']
-
-    rules_lookup = dict(zip(am_rxns['am_smarts'], am_rxns['rules'].to_list()))
 
     # Collect paths and path stats
     new_paths, new_path_stats = [], []
@@ -277,6 +338,10 @@ def main(cfg: DictConfig):
 
         if rxn_type_lookup[rxn_id] == 'predicted' and rxn_id not in existing_reactions['id']:
             am_rxn = smarts_lookup[rxn_id]
+            tmp = am_rxns.filter(pl.col('am_smarts') == am_rxn)
+            rules = tmp['rule_name'].to_list()
+            rule_sets = tmp['rule_set'].to_list()
+            templates = tmp['rule_template'].to_list()
             rcts, pdts = de_am(am_rxn)
             de_am_rxn = f"{'.'.join(rcts)}>>{'.'.join(pdts)}"
             new_reactions.append(
@@ -287,7 +352,9 @@ def main(cfg: DictConfig):
                     None, # dxgb_label
                     None, # rxn_sims
                     None, # analogue_ids
-                    rules_lookup[smarts_lookup[rxn_id]], # rules
+                    rules, # rule names
+                    templates, # templates
+                    rule_sets, # rule_sets
                 ]
             )
 
@@ -303,7 +370,7 @@ def main(cfg: DictConfig):
     ])
 
     # Save
-    logger.info("Saving results...")
+    logger.info(f"Saving results to {cfg.casp_study}")
     paths.write_parquet("paths.parquet")
     path_stats.write_parquet("path_stats.parquet")
     reactions.write_parquet("predicted_reactions.parquet")

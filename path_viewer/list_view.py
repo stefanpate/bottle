@@ -108,14 +108,18 @@ def display_path_metrics(path_id: str):
     ).to_dicts()[0]
     
     col1, col2, col3, col4 = st.columns(4)
+    mdf = f"{path_metrics['mdf']:.2f}" if path_metrics['mdf'] is not None else "N/A"
+    mean_max_sim = f"{path_metrics['mean_max_rxn_sim']:.2f}" if path_metrics['mean_max_rxn_sim'] is not None else "N/A"
+    min_max_sim = f"{path_metrics['min_max_rxn_sim']:.2f}" if path_metrics['min_max_rxn_sim'] is not None else "N/A"
+    feasibility_frac = f"{path_metrics['feasibility_frac']:.2f}" if path_metrics['feasibility_frac'] is not None else "N/A"
     with col1:
-        st.metric("Max-min Driving Force (kJ/mol)", f"{path_metrics['mdf']:.2f}")
+        st.metric("Max-min Driving Force (kJ/mol)", mdf)
     with col2:
-        st.metric("Mean Reaction Similarity", f"{path_metrics['mean_max_rxn_sim']:.2f}")
+        st.metric("Mean Reaction Similarity", mean_max_sim)
     with col3:
-        st.metric("Min Reaction Similarity", f"{path_metrics['min_max_rxn_sim']:.2f}")
+        st.metric("Min Reaction Similarity", min_max_sim)
     with col4:
-        st.metric("Feasibility Fraction", f"{path_metrics['feasibility_frac']:.2f}")
+        st.metric("Feasibility Fraction", feasibility_frac)
 
 def handle_user_input():
     get_path_tables()

@@ -2,15 +2,18 @@ defaults:
   - filepaths: filepaths
   - _self_
 
-cpds: compounds.parquet
-am_rxns: am_rxns.parquet
-generations: generations.csv
-expansion: ???
+forward_expansion: null
+retro_expansion: null
 casp_study: ???
-expansion_extract: ${filepaths.interim_data}/expansions/${.expansion}
 pnmc_lb: 0.0
 rnmc_lb: 0.0
-source_augmented_pnmc_lb: 0.0
+source_augmented_pnmc_lb: 1.0
+expansion_superdir: ${filepaths.raw_data}/expansions
+fwd_dir: ${expansion_superdir}/${forward_expansion}
+retro_dir: ${expansion_superdir}/${retro_expansion}
+expansion_config: .hydra/config.yaml
+cpds: compounds.parquet
+am_rxns: reactions.parquet
 
 hydra:
   run:

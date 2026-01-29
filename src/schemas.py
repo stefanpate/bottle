@@ -11,6 +11,8 @@ predicted_reactions_schema = pl.Schema(
         "rxn_sims": pl.List(pl.Float32),
         "analogue_ids": pl.List(pl.String),
         "rules": pl.List(pl.String),
+        "templates": pl.List(pl.String),
+        "rule_sets": pl.List(pl.String),
 
     }
 )
@@ -47,7 +49,7 @@ path_stats_schema = pl.Schema(
 
 # Interim data schemas
 
-compound_type = pl.Enum(categories=["source", "target", "known", "helper", "checkpoint"])
+compound_type = pl.Enum(categories=["source", "target", "known", "helper", "intermediate", "checkpoint"])
 
 compounds_schema = pl.Schema(
     {
@@ -58,21 +60,11 @@ compounds_schema = pl.Schema(
     }
 )
 
-half_expansion = pl.Enum(categories=["forward", "retro"])
-
 expansion_reactions_schema = pl.Schema(
     {
-        "smarts": pl.String,
         "am_smarts": pl.String,
-        "rules": pl.List(pl.String),
-        "half_expansion": half_expansion,
-        "size": pl.Int32,
-    }
-)
-
-gens_schema = pl.Schema(
-    {
-        "half_expansion": half_expansion,
-        "generation": pl.Int32,
+        "rule_name": pl.String,
+        "rule_set": pl.String,
+        "rule_template": pl.String,
     }
 )

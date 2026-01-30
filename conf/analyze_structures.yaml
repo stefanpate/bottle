@@ -9,14 +9,15 @@ dxgb:
 mfper:
   _target_: ergochemics.similarity.MorganFingerprinter
   radius: 3
-  length: 1024
+  length: 2048
   mol_featurizer:
     _target_: ergochemics.similarity.MolFeaturizer
 
-rc_dist_ub: 1
-
-casp_study: ???
+rc_dist_ub: null
+use_rc_in_fingerprints: true
+filter_by_rc: true
 processes: 5
+casp_study: ???
 
 hydra:
   run:

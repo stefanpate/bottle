@@ -4,7 +4,7 @@ from tqdm import tqdm
 import polars as pl
 from pathlib import Path
 from src.schemas import path_stats_schema
-from ergochemics.standardize import hash_compound
+from ergochemics.standardize import hash_molecule
 from time import perf_counter
 from src.post_processing import pick_constraints_for_MDF
 from logging import getLogger
@@ -81,7 +81,7 @@ def main(cfg: DictConfig) -> None:
     unique_cpds = pl.DataFrame(
         {
             "struct": list(unique_cpds),
-            "coco_id": [hash_compound(smi) for smi in unique_cpds],
+            "coco_id": [hash_molecule(smi) for smi in unique_cpds],
             "name": [cid2name.get(smi, "unknown") for smi in unique_cpds],
         }
     ).to_pandas()

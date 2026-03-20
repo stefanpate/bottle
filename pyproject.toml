@@ -43,11 +43,9 @@ equilibrator-api = "^0.6.0"
 equilibrator-assets = "^0.6.0"
 streamlit = "1.48"
 torch-geometric = "^2.7.0"
-torch-scatter = {version = "^2.1.2", source = "torch-wheels"}
-torch-sparse = {version = "^0.6.18", source = "torch-wheels"}
-torch-cluster = {version = "^1.6.3", source = "torch-wheels"}
 py3dmol = "^2.5.3"
 torch = "^2.10.0"
+numpy = ">=1.26,<2"
 
 [tool.poetry.group.dev.dependencies]
 findimports = "^2.5.0"
@@ -63,11 +61,6 @@ ipywidgets = "^8.1.5"
 
 [tool.poetry.scripts]
 bottle = "src.__main__:main"
-
-[[tool.poetry.source]]
-name = "torch-wheels"
-url = "https://data.pyg.org/whl/torch-2.8.0+cu128.html"
-priority = "supplemental"
 
 [tool.poe]
 envfile = ".env"

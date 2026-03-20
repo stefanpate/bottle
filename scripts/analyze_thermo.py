@@ -94,7 +94,7 @@ def main(cfg: DictConfig) -> None:
     lc.add_compounds(
         unique_cpds,
         mol_format="smiles",
-        bypass_chemaxon=True,
+        bypass_chemaxon=True, # Still adds compound even if cxcalc fails
         save_empty_compounds=True,
     )
     end = perf_counter()

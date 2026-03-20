@@ -3142,7 +3142,7 @@ setuptools = ">=70.1.1"
 type = "git"
 url = "https://github.com/stefanpate/pickaxe"
 reference = "py_upgrade"
-resolved_reference = "731cc28fbccd2f1c93bc40e46a3c6e2d93a7863c"
+resolved_reference = "19a516b19d4da6cfad30b26b0283a87d8db26edc"
 
 [[package]]
 name = "mistune"
@@ -6730,37 +6730,6 @@ optree = ["optree (>=0.13.0)"]
 pyyaml = ["pyyaml"]
 
 [[package]]
-name = "torch-cluster"
-version = "1.6.3+pt28cu128"
-description = "PyTorch Extension Library of Optimized Graph Cluster Algorithms"
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "torch_cluster-1.6.3+pt28cu128-cp310-cp310-linux_x86_64.whl", hash = "sha256:544a478a18b944949f363953bb960cc5bc5df313405dd4b0b59a5078bcd0a947"},
-    {file = "torch_cluster-1.6.3+pt28cu128-cp310-cp310-win_amd64.whl", hash = "sha256:22b7a6dafc9451798321fca979af21940dfe70e261bba5765db0ba55ffe5f0b7"},
-    {file = "torch_cluster-1.6.3+pt28cu128-cp311-cp311-linux_x86_64.whl", hash = "sha256:2951c902ce7dc88cf1c54b3c2ffa52da94fe1c9fd7170452d7744dde87782642"},
-    {file = "torch_cluster-1.6.3+pt28cu128-cp311-cp311-win_amd64.whl", hash = "sha256:36593d7fe2f613a61fdec1e45a945f1ab1c78f1ea33026495d814749231d1425"},
-    {file = "torch_cluster-1.6.3+pt28cu128-cp312-cp312-linux_x86_64.whl", hash = "sha256:81da25326077c49c89af5b8b42313fab21ef8f8159ef98d7437553da76c68f98"},
-    {file = "torch_cluster-1.6.3+pt28cu128-cp312-cp312-win_amd64.whl", hash = "sha256:9336c60d228fb9b73ff17cca56fbaab8fc10c329b6145cec00c5ba6f1093ceb7"},
-    {file = "torch_cluster-1.6.3+pt28cu128-cp313-cp313-linux_x86_64.whl", hash = "sha256:a80b3870dd2ceff2b05f751306014e14de469754b862cc2448360d7958a337ca"},
-    {file = "torch_cluster-1.6.3+pt28cu128-cp313-cp313-win_amd64.whl", hash = "sha256:579bfd9e520972c3a37f55bf461fba54cf39f1824e532ccba1d446c3bef122c2"},
-    {file = "torch_cluster-1.6.3+pt28cu128-cp39-cp39-linux_x86_64.whl", hash = "sha256:153da764aa3801ba79994a77b312a395af696feee5297ab3203eec2d100a4f61"},
-    {file = "torch_cluster-1.6.3+pt28cu128-cp39-cp39-win_amd64.whl", hash = "sha256:c7a6e393b31f2f2adb2e66604411419a2e153d366d2fff6a6e9ce451bd946ccc"},
-]
-
-[package.dependencies]
-scipy = "*"
-
-[package.extras]
-test = ["pytest", "pytest-cov"]
-
-[package.source]
-type = "legacy"
-url = "https://data.pyg.org/whl/torch-2.8.0+cu128.html"
-reference = "torch-wheels"
-
-[[package]]
 name = "torch-geometric"
 version = "2.7.0"
 description = "Graph Neural Network Library for PyTorch"
@@ -6791,65 +6760,6 @@ graphgym = ["protobuf (<4.21)", "pytorch-lightning", "yacs"]
 modelhub = ["huggingface_hub"]
 rag = ["accelerate", "datasets", "pandas", "pcst_fast", "sentencepiece", "torchmetrics", "transformers"]
 test = ["onnx", "onnxruntime", "onnxscript", "pytest", "pytest-cov"]
-
-[[package]]
-name = "torch-scatter"
-version = "2.1.2+pt28cu128"
-description = "PyTorch Extension Library of Optimized Scatter Operations"
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "torch_scatter-2.1.2+pt28cu128-cp310-cp310-linux_x86_64.whl", hash = "sha256:367e7040d40d93981c6dff3af4e83b2ae1df5058637a9dfb7821fd8bf7704c29"},
-    {file = "torch_scatter-2.1.2+pt28cu128-cp310-cp310-win_amd64.whl", hash = "sha256:c7eef5b432fd0d07beb1029d6fff325e82f91a53377c04981ab4bbd95a819b9f"},
-    {file = "torch_scatter-2.1.2+pt28cu128-cp311-cp311-linux_x86_64.whl", hash = "sha256:366c8615b94d876e6aa66b4ac450fda6f4e3247c47101ed9cebf40a5c0976674"},
-    {file = "torch_scatter-2.1.2+pt28cu128-cp311-cp311-win_amd64.whl", hash = "sha256:3338b92a1012c7f60b3c9a333e7faa1f389ee7e4d09441748b423469d0fe8b4b"},
-    {file = "torch_scatter-2.1.2+pt28cu128-cp312-cp312-linux_x86_64.whl", hash = "sha256:372005c58c8ab7a96c8e971abe008bfbe5933f5c526d5d3419a48482381d1d47"},
-    {file = "torch_scatter-2.1.2+pt28cu128-cp312-cp312-win_amd64.whl", hash = "sha256:6f5a01b69037eaf8ee59fdc6584b6a3ea7a08254e594c129830160f5ecb8e51a"},
-    {file = "torch_scatter-2.1.2+pt28cu128-cp313-cp313-linux_x86_64.whl", hash = "sha256:869bc2f363bb8723e8a5af7faacf52c88aa9386fa06dc166ecda0de5f9d9ea8d"},
-    {file = "torch_scatter-2.1.2+pt28cu128-cp313-cp313-win_amd64.whl", hash = "sha256:4103478c82c2a89f0179ca80452c6da96cb83885366e4a11fa32fbb1b6b26ab6"},
-    {file = "torch_scatter-2.1.2+pt28cu128-cp39-cp39-linux_x86_64.whl", hash = "sha256:228543ecf1675b2c2a979d9520f08243d665ee1a1f9cb7fbc9d98d976f19fb3f"},
-    {file = "torch_scatter-2.1.2+pt28cu128-cp39-cp39-win_amd64.whl", hash = "sha256:620f7e98e3357e0f28f0297b1ce50734110c95c12913ba351926148aa069f266"},
-]
-
-[package.extras]
-test = ["pytest", "pytest-cov"]
-
-[package.source]
-type = "legacy"
-url = "https://data.pyg.org/whl/torch-2.8.0+cu128.html"
-reference = "torch-wheels"
-
-[[package]]
-name = "torch-sparse"
-version = "0.6.18+pt28cu128"
-description = "PyTorch Extension Library of Optimized Autograd Sparse Matrix Operations"
-optional = false
-python-versions = ">=3.9"
-groups = ["main"]
-files = [
-    {file = "torch_sparse-0.6.18+pt28cu128-cp310-cp310-linux_x86_64.whl", hash = "sha256:34070c9250d2c1280077d42ebe3932c712acfc68161a27f9f7f1fe6f73e8a94c"},
-    {file = "torch_sparse-0.6.18+pt28cu128-cp310-cp310-win_amd64.whl", hash = "sha256:fb9c73e0c7359380469db6b7dbe768729d7ea7d05be96fee3688908ce7c60bb2"},
-    {file = "torch_sparse-0.6.18+pt28cu128-cp311-cp311-linux_x86_64.whl", hash = "sha256:a6d7cbbdc1998dff698f88aafc5dba2b2903650ec7d4ab4659e81af020825076"},
-    {file = "torch_sparse-0.6.18+pt28cu128-cp311-cp311-win_amd64.whl", hash = "sha256:d7b716a009bc8162326e7e04eb72f262a44750aee989d462b7f4438f890a5c0a"},
-    {file = "torch_sparse-0.6.18+pt28cu128-cp312-cp312-linux_x86_64.whl", hash = "sha256:934424bedd882e4380ab5a6bf874f23f862bd7c3496a5a5651c620e8d63c4039"},
-    {file = "torch_sparse-0.6.18+pt28cu128-cp312-cp312-win_amd64.whl", hash = "sha256:1df79b7658d0f1859480ec09803292f448cff145fd89d1f18d53c5b46144dad9"},
-    {file = "torch_sparse-0.6.18+pt28cu128-cp313-cp313-linux_x86_64.whl", hash = "sha256:7687a4bb6c900f67fea02c745eee390ef4047d2dc34ee10e4296bc67cb3a8868"},
-    {file = "torch_sparse-0.6.18+pt28cu128-cp313-cp313-win_amd64.whl", hash = "sha256:6cc24562a486377b077f34fd4cb481948d47602d66c6f18560ee9f1a8f1c8e1c"},
-    {file = "torch_sparse-0.6.18+pt28cu128-cp39-cp39-linux_x86_64.whl", hash = "sha256:6e3694efb867f11beff98a31c18260fda01ba929f98cc6be7d56df21740e1d43"},
-    {file = "torch_sparse-0.6.18+pt28cu128-cp39-cp39-win_amd64.whl", hash = "sha256:2897afcb0c5f87d5068dd631ff5598bd27201581502e1206a2b89b6d3adff3d6"},
-]
-
-[package.dependencies]
-scipy = "*"
-
-[package.extras]
-test = ["pytest", "pytest-cov"]
-
-[package.source]
-type = "legacy"
-url = "https://data.pyg.org/whl/torch-2.8.0+cu128.html"
-reference = "torch-wheels"
 
 [[package]]
 name = "tornado"
@@ -7617,4 +7527,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "~3.12"
-content-hash = "d2729ed6f7b949fa209a55ec899956a6520e7c91c3d3f02a0d83a3399112e7dc"
+content-hash = "d37acf2cd4792e4c724bad2501ee2f53477280b0d395fa1ee60327a9577959bb"

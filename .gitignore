@@ -20,7 +20,7 @@ artifacts/processed_expansions/known_reactions.json
 *ipython/
 
 .env
-
+.claude
 
 # Configs
 config.yaml

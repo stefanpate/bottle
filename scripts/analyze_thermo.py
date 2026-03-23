@@ -3,15 +3,22 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 import polars as pl
 from pathlib import Path
-from src.schemas import path_stats_schema
 from ergochemics.standardize import hash_molecule
 from time import perf_counter
-from src.post_processing import pick_constraints_for_MDF
 from logging import getLogger
 from equilibrator_assets.local_compound_cache import LocalCompoundCache
 from equilibrator_api.phased_reaction import PhasedReaction
 from equilibrator_api import Q_, ComponentContribution
+import equilibrator_assets.chemaxon as _chemaxon
 import cvxpy
+
+from src.schemas import path_stats_schema
+from src.post_processing import pick_constraints_for_MDF
+from src.pka_plugins import MolGPKA
+
+# Monkey patch pka predictor
+_predictor = MolGPKA()
+_chemaxon.get_dissociation_constants = _predictor.get_dissociation_constants
 
 def update_table(existing: pl.DataFrame, analyzed: pl.DataFrame, on: str = "id") -> pl.DataFrame:
     updated = existing.join(
@@ -164,13 +171,6 @@ def main(cfg: DictConfig) -> None:
         dg_prime = -(
             standard_dgr_prime.m_as("kJ/mol") + RT.m_as("kJ/mol") * S.values.T @ ln_conc
         )
-
-        # TODO: can delete
-        # constraints = [
-        #     np.log(np.ones(Nc) * cfg.conc_lb) <= ln_conc,
-        #     ln_conc <= np.log(np.ones(Nc) * cfg.conc_ub),
-        #     np.ones(Nr) * B <= dg_prime,
-        # ]
         
         constraints = pick_constraints_for_MDF(S, Nc, Nr, ln_conc, dg_prime, B, cfg.conc_lb, cfg.conc_ub)
 

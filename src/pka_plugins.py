@@ -14,6 +14,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 
 import pandas as pd
+import numpy as np
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem
 from rdkit.Chem.MolStandardize import rdMolStandardize
@@ -131,6 +132,10 @@ class MolGPKA(BasePkaPredictor):
             # Collect pKas: acids ascending (most acidic first), bases descending
             acid_pkas = sorted(acid_dict.values())[:num_acidic]
             base_pkas = sorted(base_dict.values(), reverse=True)[:num_basic]
+
+            # Pad with nulls if there are fewer than num_acidic/basic sites
+            acid_pkas += [np.nan] * (num_acidic - len(acid_pkas))
+            base_pkas += [np.nan] * (num_basic - len(base_pkas))
 
             row_dict: dict = {f"apKa{i + 1}": v for i, v in enumerate(acid_pkas)}
             row_dict.update({f"bpKa{i + 1}": v for i, v in enumerate(base_pkas)})

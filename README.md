@@ -53,10 +53,6 @@ lc = LocalCompoundCache()
 lc.generate_local_cache_from_default_zenodo('compounds.sqlite')
 ```
 
-#### 3. Acquire ChemAxon License
-
-License must cover pKa calculator and `cxcalc` must exist in PATH. See the [Equilibrator documentation](https://equilibrator.readthedocs.io/en/latest/local_cache.html) for more details.
-
 ## 📁 Project Structure
 
 1. **artifacts** - Ancillary small data files
@@ -80,15 +76,6 @@ See `conf/expand.yaml` for more configuration options.
 ### Processing Network Expansion
 
 The pipeline consists of several sequential steps for processing network expansions:
-
-**0. Parse expansion**
-
-Outputs atom-mapped SMARTS in the `src/schemas.expansion_reactions_schema` schema. The script `parse_expansion.py` can handle forward expansions, retro expansion, or a combination of the two.
-
-**Example usage:**
-```bash
-python parse_expansion.py fwd_exp=my_forward_expansion rev_expansion=my_reverse_expansion
-```
 
 **1. Path finding**
 

@@ -12,6 +12,7 @@ conc_lb: 1e-6 # M ?
 conc_ub: 1e-2 # M ?
 
 hydra:
+  output_subdir: .analyze_thermo
   run:
     dir: ${filepaths.processed_data}/${...casp_study}
   job:

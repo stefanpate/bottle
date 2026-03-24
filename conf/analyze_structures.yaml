@@ -20,6 +20,7 @@ processes: 5
 casp_study: ???
 
 hydra:
+  output_subdir: .analyze_structures
   run:
     dir: ${filepaths.processed_data}/${...casp_study}
   job:

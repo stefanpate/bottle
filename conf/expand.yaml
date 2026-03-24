@@ -19,6 +19,7 @@ processes: 10
 retro: True
 
 hydra:
+  output_subdir: .expand
   run:
     dir: ${filepaths.raw_data}/expansions/${now:%Y-%m-%d}/${now:%H-%M-%S}
   job:

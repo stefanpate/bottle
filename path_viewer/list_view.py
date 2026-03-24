@@ -3,6 +3,8 @@ from pathlib import Path
 from src.post_processing import PathWrangler
 import polars as pl
 import argparse
+from src.chem_draw import draw_reaction
+from collections import defaultdict
 
 parser = argparse.ArgumentParser(description="Process CASP study directory name.")
 parser.add_argument("--casp-study", required=True, help="Name of the CASP study directory")
@@ -65,38 +67,27 @@ def get_path_snapshot(path_id: str) -> tuple[list[str], list[pl.DataFrame], list
 
 
 @st.cache_data
-def display_predicted_reactions(prids: list[str]):
-    for i, prid in enumerate(prids):
-        container = st.container(border=True)
-        with container:
-            st.write(f"Predicted Reaction {i+1}: {prid[:HASH_UB]}")
-            st.image(study / "svgs" / f"{prid}.svg")
+def display_predicted_reaction(i: int, prid: str):
+    st.write(f"Predicted Reaction {i+1}: {prid[:HASH_UB]}")
+    st.image(study / "svgs" / f"{prid}.svg")
 
-def display_analogues(krids_sims: list[pl.DataFrame]):
-    for i, ks in enumerate(krids_sims):
-        container = st.container(border=True)
-        with container:
-            st.write(f"Analogues for Predicted Reaction {i+1}")
-            analogue_select = st.selectbox(
-                "Select Analogue",
-                key=f"_analogue_select_{i}",
-                options=ks["analogue_ids"].to_list(),
-                index=0,
-                on_change=store_value,
-                args=(f"analogue_select_{i}",),
-                format_func=lambda x: x[:HASH_UB]
-                )
-            if analogue_select is not None:
-                sim_value = ks.filter(pl.col("analogue_ids") == analogue_select)["rxn_sims"]
-                st.write(f"Similarity: {sim_value.item():.3f}")
-                st.image(study / "svgs" / f"{analogue_select}.svg")
+def display_analogue(i: int, ks: pl.DataFrame):
+    analogue_select = st.selectbox(
+        "Select Analogue",
+        key=f"_analogue_select_{i}",
+        options=ks["analogue_ids"].to_list(),
+        index=0,
+        on_change=store_value,
+        args=(f"analogue_select_{i}",),
+        format_func=lambda x: x[:HASH_UB] if x else "No analogues"
+    )
+    if analogue_select is not None:
+        sim_value = ks.filter(pl.col("analogue_ids") == analogue_select)["rxn_sims"]
+        st.write(f"Similarity: {sim_value.item():.3f}")
+        st.image(study / "svgs" / f"{analogue_select}.svg")
 
-def display_enzymes(enzymes: list[pl.DataFrame]):
-    for i, enz in enumerate(enzymes):
-        container = st.container(border=True)
-        with container:
-            st.write(f"Enzymes for Predicted Reaction {i+1}")
-            st.dataframe(enz)
+def display_enzymes(i: int, enz: pl.DataFrame):
+    st.dataframe(enz)
 
 def display_path_metrics(path_id: str):
     path_metrics = st.session_state.paths.filter(
@@ -121,6 +112,35 @@ def display_path_metrics(path_id: str):
         st.metric("Min Reaction Similarity", min_max_sim)
     with col4:
         st.metric("Feasibility Fraction", feasibility_frac)
+
+@st.cache_data
+def display_overall_reaction(prids: list[str]):
+    rxns = st.session_state.predicted_reactions.filter(
+        pl.col("id").is_in(prids)
+    )['smarts'].to_list()
+    overall_stoich = defaultdict(int)
+    for rxn in rxns:
+        lhs, rhs = [side.split(".") for side in rxn.split(">>")]
+        for rct in lhs:
+            overall_stoich[rct] -= 1
+
+        for prd in rhs:
+            overall_stoich[prd] += 1
+
+    overall_lhs = []
+    overall_rhs = []
+    for smi, stoich in overall_stoich.items():
+        if stoich < 0:
+            for i in range(-stoich):
+                overall_lhs.append(smi)
+        elif stoich > 0:
+            for i in range(stoich):
+                overall_rhs.append(smi)
+
+    overall_rxn = ".".join(overall_lhs) + ">>" + ".".join(overall_rhs)
+
+    fake = draw_reaction(overall_rxn).to_str().decode("utf-8")
+    st.image(fake)
 
 def handle_user_input():
     get_path_tables()
@@ -217,26 +237,26 @@ selected_path = st.selectbox(
 if st.session_state.selected_path:
     prids, krids_sims, enzymes = get_path_snapshot(st.session_state.selected_path)
     display_path_metrics(st.session_state.selected_path)
+    st.header("Overall Reaction")
+    display_overall_reaction(prids)
 
-col1, col2 = st.columns([0.6, 0.4], border=True)
-
-with col1:
-    st.header("Predicted Reactions")
-    if st.session_state.selected_path:
+if st.session_state.selected_path:
+    header_left, header_right = st.columns([0.6, 0.4])
+    with header_left:
+        st.header("Predicted Reactions")
         st.write(st.session_state.selected_path)
-        display_predicted_reactions(prids)
-      
-    else:
-        st.write("No paths found with current criteria.")
+    with header_right:
+        st.header("Known Analogues")
 
-with col2:
-    st.header("Known Analogues")
-    tab1, tab2 = st.tabs(["Analogues", "Enzymes"])
-    
-    with tab1:
-        if st.session_state.selected_path:
-            display_analogues(krids_sims)
-
-    with tab2:
-        if st.session_state.selected_path:
-            display_enzymes(enzymes)
+    for i, (prid, ks, enz) in enumerate(zip(prids, krids_sims, enzymes)):
+        col_left, col_right = st.columns([0.6, 0.4], border=True)
+        with col_left:
+            display_predicted_reaction(i, prid)
+        with col_right:
+            tab_analogue, tab_enzyme = st.tabs(["Analogues", "Enzymes"])
+            with tab_analogue:
+                display_analogue(i, ks)
+            with tab_enzyme:
+                display_enzymes(i, enz)
+else:
+    st.write("No paths found with current criteria.")

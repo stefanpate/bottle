@@ -86,9 +86,10 @@ def display_analogues(krids_sims: list[pl.DataFrame]):
                 args=(f"analogue_select_{i}",),
                 format_func=lambda x: x[:HASH_UB]
                 )
-            sim_value = ks.filter(pl.col("analogue_ids") == analogue_select)["rxn_sims"].item()
-            st.write(f"Similarity: {sim_value:.3f}")
-            st.image(study / "svgs" / f"{analogue_select}.svg")
+            if analogue_select is not None:
+                sim_value = ks.filter(pl.col("analogue_ids") == analogue_select)["rxn_sims"]
+                st.write(f"Similarity: {sim_value.item():.3f}")
+                st.image(study / "svgs" / f"{analogue_select}.svg")
 
 def display_enzymes(enzymes: list[pl.DataFrame]):
     for i, enz in enumerate(enzymes):

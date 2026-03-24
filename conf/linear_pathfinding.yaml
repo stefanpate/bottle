@@ -2,12 +2,12 @@ defaults:
   - filepaths: filepaths
   - _self_
 
-forward_expansion: null
-retro_expansion: null
-casp_study: ???
-pnmc_lb: 0.0
-rnmc_lb: 0.0
-source_augmented_pnmc_lb: 1.0
+forward_expansion: null # Subdirectory containing reactions and compounds parquet files for forward expansion
+retro_expansion: null # Subdirectory containing reactions and compounds parquet files for retro expansion
+casp_study: ??? # Name of subdirectory where to store outputs for this CASP study
+pnmc_lb: 0.0 # Product-normalized mass contribution lower bound for connecting molecules in known reaction network
+rnmc_lb: 0.0 # Reactant-normalized mass contribution lower bound for connecting molecules in known reaction network
+source_augmented_pnmc_lb: 1.0 # Augmented with source molecules assumed available
 expansion_superdir: ${filepaths.raw_data}/expansions
 fwd_dir: ${expansion_superdir}/${forward_expansion}
 retro_dir: ${expansion_superdir}/${retro_expansion}

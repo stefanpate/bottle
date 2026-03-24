@@ -5,6 +5,7 @@ defaults:
 casp_study: ???
 
 hydra:
+  output_subdir: .draw_reactions
   run:
     dir: ${filepaths.processed_data}/${...casp_study}
   job:

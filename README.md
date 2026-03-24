@@ -11,7 +11,6 @@ This is a computational pipeline designed for biological synthesis planning. The
 - 📊 **Structural Analysis**: Machine learning-based feasibility scoring for predicted reactions
 - ⚡ **Thermodynamic Calculations**: Integration with eQuilibrator for thermodynamic analysis
 - 📈 **Visualization**: Interactive pathway viewer and reaction drawing tools
-- 📋 **Comprehensive Reporting**: Automated generation of analysis reports and deliverables
 
 ## 🚀 Installation
 
@@ -56,12 +55,13 @@ lc.generate_local_cache_from_default_zenodo('compounds.sqlite')
 ## 📁 Project Structure
 
 1. **artifacts** - Ancillary small data files
-2. **logs** - Log files and error tracking
-3. **scripts** - Main executable scripts
-4. **notebooks** - Jupyter notebooks for analysis
-5. **src** - Source packages and modules
-6. **path_viewer** - Visualization tools
-7. **tests** - Test suite
+2. **conf** - Configuration files for the pipeline
+3. **logs** - Log files and error tracking
+4. **scripts** - Main executable scripts
+5. **notebooks** - Jupyter notebooks for analysis
+6. **src** - Source packages and modules
+7. **path_viewer** - Visualization tools
+8. **tests** - Test suite
 
 ## 🔧 Usage
 
@@ -83,7 +83,7 @@ There are two separate files available: `linear_pathfinding.py` and `retrosynthe
 
 **Example usage:**
 ```bash
-python linear_pathfinding.py expansion=my/expansion/location casp_study=my/casp/study max_depth=5
+python linear_pathfinding.py forward_expansion=my/fwd/subdir retro_expansion=my/retro/subdir casp_study=my_casp_study
 ```
 
 > **Note:** `retrosynthesis.py` utilizes a network of known enzymatic reactions in addition to predicted reactions from the expansion to find synthetic paths.
@@ -94,7 +94,7 @@ Looks up known reactions similar to the predicted reactions and collects their e
 
 **Example usage:**
 ```bash
-python analyze_structures.py casp_study=my/casp/study
+python analyze_structures.py casp_study=my_casp_study
 ```
 
 **3. Thermodynamic calculations (Optional)**
@@ -103,7 +103,7 @@ Calculates thermodynamic values (e.g., ΔG) for predicted pathways using [eQuili
 
 **Example usage:**
 ```bash
-python analyze_thermo.py casp_study=my/casp/study
+python analyze_thermo.py casp_study=my_casp_study
 ```
 
 **4. Reaction drawing**
@@ -112,7 +112,7 @@ Draws reactions to SVG format.
 
 **Example usage:**
 ```bash
-python draw_reactions.py casp_study=my/casp/study
+python draw_reactions.py casp_study=my_casp_study
 ```
 
 ### 🖥️ Visualizing Processed Synthesis Paths
@@ -127,7 +127,7 @@ Where `my_casp_study` is the name of the subdirectory in your processed data loc
 
 ## 🔧 Using Other Network Expansion Software
 
-`parse_expansion.py` is written to extract from a Pickaxe-generated network expansion. Users may use different network expansion software upstream of the BOTTLE post-processing pipeline, provided they implement a script analogous to `parse_expansion.py` that outputs data conforming to the three interim data schemas defined in `src/schemas.py`.
+Users may use different network expansion software upstream of the BOTTLE post-processing pipeline, provided they output data adhering to the interim data schemas defined in `src/schemas.py`.
 
 Each schema specifies required columns that must be present in the output files. The expected columns for each schema are:
 
@@ -137,11 +137,10 @@ Each schema specifies required columns that must be present in the output files.
 
 | Column Name       | Description                                                |
 |-------------------|------------------------------------------------------------|
-| `smarts`          | Reaction SMARTS representation                             |
 | `am_smarts`       | Atom-mapped reaction SMARTS                                |
-| `rules`           | List of rule names/IDs that generated the reaction        |
-| `half_expansion`  | Type of expansion: `'forward'` or `'retro'`               |
-| `size`            | Number of atoms specified by the rule(s)                  |
+| `rule_name`       | Name of rule that generated the reaction                  |
+| `rule_set`        | Name of rule set                                            |
+| `rule_template`   | SMARTS-encoded rule template                               |
 
 #### 2. Compounds Schema
 
@@ -151,12 +150,5 @@ Each schema specifies required columns that must be present in the output files.
 | `smiles`    | SMILES string representation of the compound                   |
 | `type`      | Compound type: `'source'`, `'target'`, `'known'`, `'helper'`, or `'checkpoint'` |
 | `name`      | Compound name (optional)                                       |
-
-#### 3. Generations Schema
-
-| Column Name       | Description                                                      |
-|-------------------|------------------------------------------------------------------|
-| `half_expansion`  | Type of expansion: `'forward'` or `'retro'`                     |
-| `generation`      | Number of generations/steps the half expansion was applied for  |
 
 ---

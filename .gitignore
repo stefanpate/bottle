@@ -22,6 +22,7 @@ artifacts/processed_expansions/known_reactions.json
 .env
 .claude
 .vscode
+logs/
 
 # Configs
 config.yaml

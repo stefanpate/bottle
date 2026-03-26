@@ -1,0 +1,30 @@
+id,smiles
+Pyruvate,CC(=O)C(=O)O
+Glycerol,OCC(O)CO
+Propionyl,CCC(=O)
+D-Xylose,OC1COC(O)C(O)C1O
+L-Arginine,NC(N)=NCCCC(N)C(=O)O
+L-Proline,O=C(O)C1CCCN1
+Succinyl,C(=O)CCC(=O)O
+Isoprenol,C=C(C)CCO
+Farnesol,CC(C)=CCCC(C)=CCCC(C)=CCO
+Citrate,O=C(O)CC(O)(CC(=O)O)C(=O)O
+Geraniol,CC(C)=CCCC(C)=CCO
+Prenol,CC(C)=CCO
+Acetyl,CC(=O)
+Malonyl,C(=O)CC(=O)O
+Acetoacetyl,CC(=O)CC(=O)
+2-Ketoisovalerate,CC(C)C(=O)C(=O)O
+Acetolactate,CC(=O)OC(C)C(=O)O
+Chorismate,C=C(OC1C=C(C(=O)O)C=CC1O)C(=O)O
+L-Tyrosine,NC(Cc1ccc(O)cc1)C(=O)O
+Protocatechuic acid,O=C(O)c1ccc(O)c(O)c1
+L-aspartate,NC(CC(=O)O)C(=O)O
+Geranyl diphosphate,CC(C)=CCCC(C)=CCOP(=O)(O)OP(=O)(O)O
+Geranylgeranyl diphosphate,CC(C)=CCCC(C)=CCCC(C)=CCCC(C)=CCOP(=O)(O)OP(=O)(O)O
+Farnesyl diphosphate,CC(C)=CCCC(C)=CCCC(C)=CCOP(=O)(O)OP(=O)(O)O
+L-glutamate,NC(CCC(=O)O)C(=O)O
+Prephenic acid,O=C(O)C(=O)CC1(C(=O)O)C=CC(O)C=C1
+2-Ketobutyric acid,CCC(=O)C(=O)O
+L-lysine,NCCCCC(N)C(=O)O
+Glutaric acid,O=C(O)CCCC(=O)O

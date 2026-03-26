@@ -60,6 +60,24 @@ compounds_schema = pl.Schema(
     }
 )
 
+path_feedback_schema = pl.Schema(
+    {
+        "id": pl.String,
+        "feedback": pl.Int32,
+        "date": pl.Date,
+        "time": pl.Time,
+    }
+)
+
+rxn_feedback_schema = pl.Schema(
+    {
+        "id": pl.String,
+        "feedback": pl.Int32,
+        "date": pl.Date,
+        "time": pl.Time,
+    }
+)
+
 expansion_reactions_schema = pl.Schema(
     {
         "am_smarts": pl.String,

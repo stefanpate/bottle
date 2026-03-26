@@ -5,6 +5,8 @@ import polars as pl
 import argparse
 from src.chem_draw import draw_reaction
 from collections import defaultdict
+from datetime import date, time, datetime
+from src.schemas import path_feedback_schema, rxn_feedback_schema
 
 parser = argparse.ArgumentParser(description="Process CASP study directory name.")
 parser.add_argument("--casp-study", required=True, help="Name of the CASP study directory")
@@ -19,16 +21,27 @@ known = Path("/home/stef/bottle/artifacts/known")
 # Callbacks
 
 def get_path_tables():
+    blacklist_path_ids = [pid for pid, v in st.session_state['path_feedback'].items() if v == 0] or None
+    blacklist_rxn_ids = [prid for prid, v in st.session_state['pred_rxn_feedback'].items() if v == 0] or None
+
     path_tables = st.session_state.pw.get_paths(
         starters=st.session_state.starters,
         targets=st.session_state.targets,
         filter_by_enzymes={'existence': st.session_state['loe']},
         sort_by=st.session_state['sort_by'],
+        blacklist_path_ids=blacklist_path_ids,
+        blacklist_rxn_ids=blacklist_rxn_ids,
     )
     for k, v in path_tables.items():
         st.session_state[k] = v
     
     st.session_state['path_ids'] = st.session_state.paths.unique(subset=['id'], maintain_order=True)['id'].to_list()
+    if st.session_state['path_ids']:
+        st.session_state['_selected_path'] = st.session_state['path_ids'][0]
+        st.session_state['selected_path'] = st.session_state['path_ids'][0]
+    else:
+        st.session_state['_selected_path'] = None
+        st.session_state['selected_path'] = None
 
 @st.cache_data
 def get_path_snapshot(path_id: str) -> tuple[list[str], list[pl.DataFrame], list[pl.DataFrame]] | None:
@@ -68,7 +81,7 @@ def get_path_snapshot(path_id: str) -> tuple[list[str], list[pl.DataFrame], list
 
 @st.cache_data
 def display_predicted_reaction(i: int, prid: str):
-    st.write(f"Predicted Reaction {i+1}: {prid[:HASH_UB]}")
+    st.write(f"Predicted Reaction {i+1} ({prid[:HASH_UB]})")
     st.image(study / "svgs" / f"{prid}.svg")
 
 def display_analogue(i: int, ks: pl.DataFrame):
@@ -139,14 +152,35 @@ def display_overall_reaction(prids: list[str]):
 
     overall_rxn = ".".join(overall_lhs) + ">>" + ".".join(overall_rhs)
 
-    fake = draw_reaction(overall_rxn).to_str().decode("utf-8")
-    st.image(fake)
+    orxn = draw_reaction(overall_rxn).to_str().decode("utf-8")
+    st.image(orxn)
 
 def handle_user_input():
     get_path_tables()
 
 def store_value(key):
     st.session_state[key] = st.session_state["_" + key]
+
+def save_feedback(feedback_dict: dict, filepath: Path, schema: pl.Schema):
+    now = datetime.now()
+    new_rows = pl.DataFrame(
+        [{"id": k, "feedback": v, "date": now.date(), "time": now.time()} for k, v in feedback_dict.items()],
+        schema=schema,
+    )
+    if filepath.exists():
+        existing = pl.read_parquet(filepath)
+        merged = pl.concat([existing, new_rows]).unique(subset=["id"], keep="last")
+    else:
+        merged = new_rows
+    merged.write_parquet(filepath)
+
+def store_pred_rxn_feedback(prid):
+    st.session_state['pred_rxn_feedback'][prid] = st.session_state[f"pred_rxn_feedback_{prid}"]
+    save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", rxn_feedback_schema)
+
+def store_path_feedback(path_id):
+    st.session_state['path_feedback'][path_id] = st.session_state[f"path_feedback_{path_id}"]
+    save_feedback(st.session_state['path_feedback'], study / "path_feedback.parquet", path_feedback_schema)
 
 def load_value(key):
     st.session_state["_" + key] = st.session_state[key]
@@ -177,7 +211,13 @@ defaults = {
     "targets": pw.targets,
     "sort_by": "mean_max_rxn_sim",
     "loe": enz_loe_options[:2],
-    "selected_path": None,
+    # "selected_path": None,
+    "pred_rxn_feedback": dict(zip(
+        *(pl.read_parquet(study / "reaction_feedback.parquet").select("id", "feedback").to_series(i).to_list() for i in range(2))
+    )) if (study / "reaction_feedback.parquet").exists() else {},
+    "path_feedback": dict(zip(
+        *(pl.read_parquet(study / "path_feedback.parquet").select("id", "feedback").to_series(i).to_list() for i in range(2))
+    )) if (study / "path_feedback.parquet").exists() else {},
 }
 
 reinitialize_session_state(defaults)
@@ -222,29 +262,45 @@ apply = st.sidebar.button(
     on_click=handle_user_input
 )
 
-# Data display panel
+liked_paths = [pid for pid, v in st.session_state['path_feedback'].items() if v == 1]
+if liked_paths:
+    st.sidebar.markdown("### My Paths")
+    st.sidebar.dataframe(
+        pl.DataFrame({"Path ID": [pid[:HASH_UB] for pid in liked_paths]}),
+        hide_index=True,
+        use_container_width=True,
+    )
 
+# Data display panel
 selected_path = st.selectbox(
     "Select Path",
     options=st.session_state.get('path_ids', []),
-    index=0 if st.session_state.get('path_ids', []) else None,
     key="_selected_path",
     on_change=store_value,
     args=("selected_path",),
     format_func=lambda x: x[:HASH_UB]
 )
 
-if st.session_state.selected_path:
+if st.session_state.get('selected_path'):
     prids, krids_sims, enzymes = get_path_snapshot(st.session_state.selected_path)
+    st.header("Path Metrics")
     display_path_metrics(st.session_state.selected_path)
+    pid = st.session_state.selected_path
+    if pid in st.session_state['path_feedback']:
+        st.session_state[f"path_feedback_{pid}"] = st.session_state['path_feedback'][pid]
     st.header("Overall Reaction")
     display_overall_reaction(prids)
+    st.feedback(
+        options="thumbs",
+        key=f"path_feedback_{pid}",
+        on_change=store_path_feedback,
+        args=(pid,),
+    )
 
-if st.session_state.selected_path:
+    # Reactions side-by-side with known analogues and enzymes
     header_left, header_right = st.columns([0.6, 0.4])
     with header_left:
         st.header("Predicted Reactions")
-        st.write(st.session_state.selected_path)
     with header_right:
         st.header("Known Analogues")
 
@@ -252,11 +308,21 @@ if st.session_state.selected_path:
         col_left, col_right = st.columns([0.6, 0.4], border=True)
         with col_left:
             display_predicted_reaction(i, prid)
+            if prid in st.session_state['pred_rxn_feedback']:
+                st.session_state[f"pred_rxn_feedback_{prid}"] = st.session_state['pred_rxn_feedback'][prid]
+            st.feedback(
+                options="thumbs",
+                key=f"pred_rxn_feedback_{prid}",
+                on_change=store_pred_rxn_feedback,
+                args=(prid,),
+            )
         with col_right:
             tab_analogue, tab_enzyme = st.tabs(["Analogues", "Enzymes"])
             with tab_analogue:
                 display_analogue(i, ks)
             with tab_enzyme:
                 display_enzymes(i, enz)
+elif st.session_state.get('path_ids') is None:
+    st.write("Please click 'Apply' to load paths based on selected criteria.")
 else:
     st.write("No paths found with current criteria.")

@@ -82,7 +82,9 @@ class PathWrangler:
             lower_bounds: dict[str, float] | None = None,
             upper_bounds: dict[str, float] | None = None,
             filter_by_enzymes: dict[str, Iterable[str]] | None = None,
-            top_k: int = None
+            top_k: int = None,
+            blacklist_path_ids: Iterable[str] | None = None,
+            blacklist_rxn_ids: Iterable[str] | None = None,
         ) -> dict[str, pl.DataFrame]:
         '''
         Get valid paths with options to filter & sort
@@ -182,12 +184,21 @@ class PathWrangler:
             for f, v in upper_bounds.items():
                 path_stats_lf = path_stats_lf.filter(pl.col(f) <= v)
 
+        if blacklist_path_ids:
+            path_stats_lf = path_stats_lf.filter(~pl.col("id").is_in(blacklist_path_ids))
+
         paths_lf = path_stats_lf.join(
             other=pl.scan_parquet(self.paths),
             left_on="id",
             right_on="path_id",
             how="inner"
         )
+
+        if blacklist_rxn_ids:
+            tainted_path_ids = paths_lf.filter(
+                pl.col("rxn_id").is_in(blacklist_rxn_ids)
+            ).select("id").unique()
+            paths_lf = paths_lf.join(tainted_path_ids, on="id", how="anti")
 
         if sort_by:
             paths_lf = paths_lf.sort(sort_by, descending=descending)

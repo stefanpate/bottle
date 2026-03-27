@@ -94,3 +94,4 @@ conf/filepaths/filepaths.yaml
 logs/
 
 .local
+specs/

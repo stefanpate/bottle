@@ -62,6 +62,7 @@ compounds_schema = pl.Schema(
 
 path_feedback_schema = pl.Schema(
     {
+        "username": pl.String,
         "id": pl.String,
         "feedback": pl.Int32,
         "date": pl.Date,
@@ -71,6 +72,7 @@ path_feedback_schema = pl.Schema(
 
 rxn_feedback_schema = pl.Schema(
     {
+        "username": pl.String,
         "id": pl.String,
         "feedback": pl.Int32,
         "date": pl.Date,

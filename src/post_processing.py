@@ -228,9 +228,59 @@ class PathWrangler:
 
         return {"paths": paths_df, "predicted_reactions": prxns_df, "known_reactions": krxns_df, "enzymes": enz_df}
 
-    # TODO: Reimplement w/ polars
-    def get_path_with_id(self, pid: str) -> dict[str, pl.DataFrame]:
-        pass
+    def get_path_with_id(self, pid: str, filter_by_enzymes: dict[str, Iterable[str]] | None = None) -> dict[str, pl.DataFrame]:
+        '''
+        Get full path data for a single path ID.
+
+        Returns the same 4-table dict as get_paths():
+        {"paths", "predicted_reactions", "known_reactions", "enzymes"}
+        '''
+        paths_df = pl.scan_parquet(self.path_stats).filter(
+            pl.col("id") == pid
+        ).join(
+            pl.scan_parquet(self.paths),
+            left_on="id",
+            right_on="path_id",
+            how="inner"
+        ).collect()
+
+        if paths_df.is_empty():
+            return {"paths": paths_df, "predicted_reactions": pl.DataFrame(), "known_reactions": pl.DataFrame(), "enzymes": pl.DataFrame()}
+
+        prids = set(paths_df['rxn_id'])
+        prxns_df = pl.scan_parquet(self.predicted_reactions).filter(pl.col("id").is_in(prids)).collect()
+        prxns_df = prxns_df.with_columns(
+            pl.col("id").map_elements(lambda x: str(self.study / "svgs" / f"{x}.svg"), return_dtype=pl.String).alias("image"),
+        )
+
+        krids = set(prxns_df['analogue_ids'].explode())
+        krxns_df = pl.scan_parquet(self.known_reactions).filter(pl.col("id").is_in(krids)).collect()
+        krxns_df = krxns_df.with_columns(
+            pl.col("id").map_elements(lambda x: str(self.study / "svgs" / f"{x}.svg"), return_dtype=pl.String).alias("image"),
+        )
+
+        enz_ids = set(krxns_df['enzymes'].explode())
+        enz_lf = pl.scan_parquet(self.enzymes).filter(pl.col("id").is_in(enz_ids))
+
+        if filter_by_enzymes:
+            for f, v in filter_by_enzymes.items():
+                enz_lf = enz_lf.filter(pl.col(f).is_in(v))
+
+        enz_df = enz_lf.collect()
+
+        return {"paths": paths_df, "predicted_reactions": prxns_df, "known_reactions": krxns_df, "enzymes": enz_df}
+
+    def count_paths_per_reaction(self, rxn_ids: list[str]) -> dict[str, int]:
+        '''
+        Count how many distinct paths contain each reaction ID.
+        '''
+        counts = pl.scan_parquet(self.paths).filter(
+            pl.col("rxn_id").is_in(rxn_ids)
+        ).group_by("rxn_id").agg(
+            pl.col("path_id").n_unique().alias("path_count")
+        ).collect()
+
+        return dict(zip(counts["rxn_id"].to_list(), counts["path_count"].to_list()))
 
 def pick_constraints_for_MDF(S: any, Nc: any, Nr: any, ln_conc: any, dg_prime: any, B: any, lb: float, ub: float) -> list:
     '''

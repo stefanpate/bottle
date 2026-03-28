@@ -3,7 +3,7 @@ defaults:
   - _self_
 
 casp_study: ???
-eq_cache: ${filepaths.artifacts}/.cache/equilibrator/compounds.sqlite
+eq_cache: ${filepaths.equilibrator_cache}/compounds.sqlite
 p_h: 7.5
 p_mg: 3.0
 ionic_strength: 0.25M

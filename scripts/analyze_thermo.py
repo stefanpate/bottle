@@ -19,8 +19,10 @@ logger = getLogger(__name__)
 
 # 1. Block default Zenodo pull by patching equilibrator_cache.zenodo
 import equilibrator_cache.zenodo as _zenodo
+import equilibrator_cache.api as _api
 from src.eq_patch import get_cached_filepath
-_zenodo.get_cached_filepath = get_cached_filepath
+_zenodo.get_cached_filepath = get_cached_filepath # This gets hit from equilibrator_cache.local_compound_cache, ...possibly others
+_api.get_cached_filepath = get_cached_filepath # This gets hit from equilibrator_api.component_contribution, ...possibly others
 
 # 2. Override CHEMAXON_STATUS to avoid read-only mode
 import equilibrator_assets.local_compound_cache as _lcc

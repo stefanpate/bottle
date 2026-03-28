@@ -46,11 +46,13 @@ Create a config file at `conf/filepaths/filepaths.yaml` following the template i
 
 #### 2. Download Equilibrator Database
 
+The below command will download the eQuilibrator database to a canonical cache location depending on your operating system, e.g., linux: `~/.cache/equilibrator`.
+
 ```python
-from equilibrator_assets.local_compound_cache import LocalCompoundCache
-lc = LocalCompoundCache()
-lc.generate_local_cache_from_default_zenodo('compounds.sqlite')
+import equilibrator_assets.local_compound_cache
 ```
+
+After the download is complete, optionally move the downloaded subdir and configure the     `equilibrator_cache` path in your `filepaths.yaml` appropriately.
 
 ## 📁 Project Structure
 

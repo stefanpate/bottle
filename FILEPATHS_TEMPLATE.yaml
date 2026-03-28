@@ -1,4 +1,5 @@
 root: /to/project/root/dir
+equilibrator_cache: /to/project/equilibrator_cache
 
 # data
 data: /to/project/data/dir

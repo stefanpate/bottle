@@ -18,18 +18,24 @@ logger = getLogger(__name__)
 ######################
 
 # 1. Block default Zenodo pull by patching equilibrator_cache.zenodo
-def get_cached_filepath(*args, **kwargs):
 import equilibrator_cache.zenodo as _zenodo
-_zenodo.get_cached_filepath
+from src.eq_patch import get_cached_filepath
+_zenodo.get_cached_filepath = get_cached_filepath
 
-from src.pka_plugins import MolGPKA
-from equilibrator_api.phased_reaction import PhasedReaction
-from equilibrator_api import Q_, ComponentContribution
+# 2. Override CHEMAXON_STATUS to avoid read-only mode
+import equilibrator_assets.local_compound_cache as _lcc
+_lcc.CHEMAXON_STATUS = 0
+
+# 3. Patch chemaxon pKa predictor to use custom predictor
 import equilibrator_assets.chemaxon as _chemaxon
-from equilibrator_assets.local_compound_cache import LocalCompoundCache
+from src.pka_plugins import MolGPKA
 _predictor = MolGPKA()
 _chemaxon.get_dissociation_constants = _predictor.get_dissociation_constants
-logger.info(f"Using {_predictor.__class__.__name__} as pKa predictor")
+
+# 4. Finish importing from equilibrator_api after patching
+LocalCompoundCache = _lcc.LocalCompoundCache
+from equilibrator_api.phased_reaction import PhasedReaction
+from equilibrator_api import Q_, ComponentContribution
 
 def update_table(existing: pl.DataFrame, analyzed: pl.DataFrame, on: str = "id") -> pl.DataFrame:
     updated = existing.join(
@@ -46,12 +52,12 @@ def update_table(existing: pl.DataFrame, analyzed: pl.DataFrame, on: str = "id")
 
 @hydra.main(version_base=None, config_path="../conf", config_name="analyze_thermo")
 def main(cfg: DictConfig) -> None:
+    logger.info(f"Using {_predictor.__class__.__name__} as pKa predictor")
 
     if not Path("paths.parquet").exists() or not Path("predicted_reactions.parquet").exists() or not Path("path_stats.parquet").exists():
         return
     
     # Load semi-processed data
-
     cpds = pl.read_parquet("compounds.parquet")
     cid2name = dict(zip(cpds['id'].to_list(), cpds['name'].to_list()))
 

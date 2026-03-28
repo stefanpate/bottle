@@ -6,19 +6,30 @@ from pathlib import Path
 from ergochemics.standardize import hash_molecule
 from time import perf_counter
 from logging import getLogger
-from equilibrator_assets.local_compound_cache import LocalCompoundCache
-from equilibrator_api.phased_reaction import PhasedReaction
-from equilibrator_api import Q_, ComponentContribution
-import equilibrator_assets.chemaxon as _chemaxon
 import cvxpy
 
 from src.schemas import path_stats_schema
 from src.post_processing import pick_constraints_for_MDF
-from src.pka_plugins import MolGPKA
 
-# Monkey patch pka predictor
+logger = getLogger(__name__)
+
+######################
+# Equilibrator patch #
+######################
+
+# 1. Block default Zenodo pull by patching equilibrator_cache.zenodo
+def get_cached_filepath(*args, **kwargs):
+import equilibrator_cache.zenodo as _zenodo
+_zenodo.get_cached_filepath
+
+from src.pka_plugins import MolGPKA
+from equilibrator_api.phased_reaction import PhasedReaction
+from equilibrator_api import Q_, ComponentContribution
+import equilibrator_assets.chemaxon as _chemaxon
+from equilibrator_assets.local_compound_cache import LocalCompoundCache
 _predictor = MolGPKA()
 _chemaxon.get_dissociation_constants = _predictor.get_dissociation_constants
+logger.info(f"Using {_predictor.__class__.__name__} as pKa predictor")
 
 def update_table(existing: pl.DataFrame, analyzed: pl.DataFrame, on: str = "id") -> pl.DataFrame:
     updated = existing.join(
@@ -32,8 +43,6 @@ def update_table(existing: pl.DataFrame, analyzed: pl.DataFrame, on: str = "id")
             )
     updated = updated.select(existing.columns)
     return updated
-
-logger = getLogger(__name__)
 
 @hydra.main(version_base=None, config_path="../conf", config_name="analyze_thermo")
 def main(cfg: DictConfig) -> None:

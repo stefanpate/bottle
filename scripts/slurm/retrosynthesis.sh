@@ -3,7 +3,7 @@
 #SBATCH -p short
 #SBATCH -N 1
 #SBATCH -n 1
-#SBATCH --mem=10GB
+#SBATCH --mem=32GB
 #SBATCH -t 4:00:00
 #SBATCH --job-name="retro"
 #SBATCH --output=/home/spn1560/bottle/logs/out/%A
@@ -14,8 +14,8 @@
 
 # Args
 script=/home/spn1560/bottle/scripts/retrosynthesis.py
-expansion=3_steps_lbnl_targets_to_None_rules_mechinferred_dt_04_rules_w_coreactants_co_metacyc_coreactants_sampled_False_pruned_False_aplusb_False
-casp_study=test
+expansion=5_steps_ccm_aa_to_bottle_targets_25_combo_mechinferred_dt_13_and_mechinferred_dt_04_rules
+casp_study=branched_test
 max_depth=5
 max_leaves=3
 

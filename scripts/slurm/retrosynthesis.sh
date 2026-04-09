@@ -18,9 +18,10 @@ expansion=5_steps_ccm_aa_to_bottle_targets_25_combo_mechinferred_dt_13_and_mechi
 casp_study=branched_test
 max_depth=5
 max_leaves=3
+processes=10
 
 # Commands
 ulimit -c 0
 module purge
 source /home/spn1560/.cache/pypoetry/virtualenvs/bottle-jRVXeMfS-py3.12/bin/activate
-python $script max_depth=$max_depth max_leaves=$max_leaves expansion=$expansion casp_study=$casp_study
+python $script max_depth=$max_depth max_leaves=$max_leaves expansion=$expansion casp_study=$casp_study processes=$processes

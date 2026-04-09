@@ -18,7 +18,6 @@ import networkx as nx
 from collections import defaultdict
 from itertools import product
 from functools import wraps
-from tqdm import tqdm
 
 logger  = logging.getLogger(__name__)
 
@@ -66,16 +65,14 @@ def timeit(fcn):
     return wrapper
 
 @timeit
-def construct_network(am_rxns: pl.DataFrame, sources: list[str], helpers: list[str], source_augmented_pnmc_lb: float) -> ReactionNetwork:
+def construct_network(am_rxns: pl.DataFrame, sources: list[str], helpers: list[str], source_augmented_pnmc_lb: float, n_proc: int | None = None) -> ReactionNetwork:
     G = ReactionNetwork() # init
     logger.info("Adding reactions to network...")
-    for row in tqdm(am_rxns.iter_rows(named=True), total=am_rxns.height, desc="Adding reactions"):
-        try:
-            G.add_reaction(row['am_smarts'], rxn_type='predicted')
-        except:
-            logger.info(f"Failed to add reaction: {row['am_smarts']}")
-            continue
-    
+    G.batch_add_reactions(
+        am_rxns=am_rxns['am_smarts'].to_list(),
+        rxn_types=['predicted'] * am_rxns.height,
+        n_proc=n_proc,
+    )
     logger.info(f"Added {len(am_rxns)} reactions")
     
     logger.info("Setting sources & helpers...")
@@ -226,13 +223,13 @@ def main(cfg: DictConfig):
 
     logger.info(f"Mode: {mode}")
     if mode == 'forward' or mode == 'retro':
-        G = construct_network(am_rxns, sources, helpers, cfg.source_augmented_pnmc_lb)
+        G = construct_network(am_rxns, sources, helpers, cfg.source_augmented_pnmc_lb, cfg.processes)
         logger.info("Finding paths...")
         paths = find_half_paths(G, sources, targets, generations[mode])
         Gs = [G]
     elif mode == 'combo':
-        F = construct_network(am_rxns.filter(pl.col('half_expansion') == 'forward'), sources, helpers, cfg.source_augmented_pnmc_lb) # Setting addtl mass sources but
-        R = construct_network(am_rxns.filter(pl.col('half_expansion') == 'retro'), sources, helpers, cfg.source_augmented_pnmc_lb) # Setting addtl mass sources but still pathfinding from checkpoints to targets
+        F = construct_network(am_rxns.filter(pl.col('half_expansion') == 'forward'), sources, helpers, cfg.source_augmented_pnmc_lb, cfg.processes) # Setting addtl mass sources but
+        R = construct_network(am_rxns.filter(pl.col('half_expansion') == 'retro'), sources, helpers, cfg.source_augmented_pnmc_lb, cfg.processes) # Setting addtl mass sources but still pathfinding from checkpoints to targets
         Gs = [F, R]
         logger.info("Finding paths...")
         paths = find_combo_paths(Gs, sources, checkpoints, targets, generations)

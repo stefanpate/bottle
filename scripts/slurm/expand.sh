@@ -2,8 +2,8 @@
 #SBATCH -A b1039
 #SBATCH -p b1039
 #SBATCH -N 1
-#SBATCH -n 50
-#SBATCH --mem=80GB
+#SBATCH -n 25
+#SBATCH --mem=0
 #SBATCH -t 12:00:00
 #SBATCH --job-name="exp"
 #SBATCH --output=/home/spn1560/bottle/logs/expand/out/%A
@@ -17,9 +17,9 @@ scripts_dir=/home/spn1560/bottle/scripts
 starters=3hpa
 targets=null
 generations=3
-processes=50
+processes=25 # Make sure this matches #SBATCH -n
 a_plus_b=False
-rules=mechinferred_dt_112_rules_w_coreactants
+rules=mechinferred_dt_956_rules_w_coreactants
 prune=False
 retro=True
 

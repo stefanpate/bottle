@@ -4,7 +4,7 @@
 #SBATCH -N 1
 #SBATCH -n 10
 #SBATCH --mem=32GB
-#SBATCH -t 8:00:00
+#SBATCH -t 16:00:00
 #SBATCH --job-name="path_proc"
 #SBATCH --output=/home/spn1560/bottle/logs/path_proc/out/%A
 #SBATCH --error=/home/spn1560/bottle/logs/path_proc/error/%A
@@ -21,6 +21,6 @@ casp_study=260327_target_3hpa
 ulimit -c 0
 module purge
 source /home/spn1560/.cache/pypoetry/virtualenvs/bottle-jRVXeMfS-py3.12/bin/activate
-# python -u $scripts_dir/analyze_structures.py processes=$processes casp_study=$casp_study
+python -u $scripts_dir/analyze_structures.py processes=$processes casp_study=$casp_study
 python -u $scripts_dir/analyze_thermo.py casp_study=$casp_study
-# python -u $scripts_dir/draw_reactions.py casp_study=$casp_study
+python -u $scripts_dir/draw_reactions.py casp_study=$casp_study

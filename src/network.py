@@ -8,7 +8,11 @@ from rdkit import Chem
 from typing import Iterable
 import pathlib
 import json
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import get_context
 from ergochemics.standardize import hash_molecule, hash_reaction
+from tqdm import tqdm
 import logging
 logger = logging.getLogger(__name__)
 
@@ -183,6 +187,10 @@ class ReactionNetwork(nx.MultiDiGraph):
             Mapping from SMILES to compound names.
         '''
         mass_contributions, de_am_rxn = get_mass_contributions(am_rxn)
+        self._apply_reaction_to_graph(mass_contributions, de_am_rxn, am_rxn, rid, rxn_type, smi2name)
+
+    def _apply_reaction_to_graph(self, mass_contributions: dict, de_am_rxn: str, am_rxn: str, rid: str | None = None, rxn_type: str | None = None, smi2name: dict[str, str] = {}) -> None:
+        '''Applies precomputed mass contributions to the graph as nodes and edges.'''
         rid = rid or hash_reaction(de_am_rxn)
         for pdt_smi, rcts in mass_contributions['pdt_normed_mass_contrib'].items():
             pdt_id = hash_molecule(pdt_smi)
@@ -199,26 +207,28 @@ class ReactionNetwork(nx.MultiDiGraph):
                 )
             else: # Fill in tot_rnmc for exisiting node, new rxn
                 self.nodes[pdt_id]['tot_rnmc'][rid] = mass_contributions['tot_rct_normed_mass_contrib'][pdt_smi]
-           
+
             grouped_predecessors = []
+            skip_reaction = False
             for rct_smi, pnmc in rcts.items():
                 rct_id = hash_molecule(rct_smi)
 
                 if self.has_edge(rct_id, pdt_id, key=rid):
-                    self.logger.warning(f"Edges involving reaction id {rid} already exist. Skipping addition to avoid duplication or overwriting.")                
-                    return
-                
+                    self.logger.warning(f"Edges involving reaction id {rid} already exist. Skipping addition to avoid duplication or overwriting.")
+                    skip_reaction = True
+                    break
+
                 grouped_predecessors.append(rct_id)
                 rnmc = mass_contributions['rct_normed_mass_contrib'][pdt_smi][rct_smi]
-                
+
                 if rct_id not in self.nodes:
                     rct_attrs = {'smiles': rct_smi, 'name': smi2name.get(rct_smi, "Unknown")}
                     rct_attrs['type'] = 'intermediate'
                     rct_attrs['grouped_predecessors'] = {}
                     rct_attrs['tot_rnmc'] = {}
                     self.add_node(rct_id, **rct_attrs)
-                
-                self.add_edge( # TODO: add way to check if edge already exists
+
+                self.add_edge(
                     rct_id,
                     pdt_id,
                     key=rid,
@@ -230,8 +240,71 @@ class ReactionNetwork(nx.MultiDiGraph):
                     }
                 )
 
+            if skip_reaction:
+                return
+
             # Finally add grouped predecessors
             self.nodes[pdt_id]['grouped_predecessors'][rid] = grouped_predecessors
+
+    def batch_add_reactions(self, am_rxns: Iterable[str], rids: Iterable[str] | None = None, rxn_types: Iterable[str] | None = None, smi2name: dict[str, str] = {}, n_proc: int | None = None) -> None:
+        '''
+        Adds a batch of reactions to the reaction network, parallelizing the
+        expensive get_mass_contributions step across processes and applying
+        graph mutations sequentially.
+
+        Args
+        ----
+        am_rxns: Iterable[str]
+            Atom-mapped reaction strings in the form of "R1.R2.R3>>P1.P2.P3".
+        rids: Iterable[str], optional
+            Reaction IDs. If None, uses hashes of the reaction strings.
+        rxn_types: Iterable[str], optional
+            Types of reactions, e.g., "known" or "predicted".
+        smi2name: dict[str, str], optional
+            Mapping from SMILES to compound names.
+        n_proc: int, optional
+            Number of worker processes. Defaults to os.cpu_count().
+        '''
+        am_rxns_list = list(am_rxns)
+        n = len(am_rxns_list)
+
+        if rids is not None:
+            rids_list = list(rids)
+        else:
+            rids_list = [None] * n
+
+        if rxn_types is not None:
+            rxn_types_list = list(rxn_types)
+        else:
+            rxn_types_list = [None] * n
+
+        if n_proc is None:
+            n_proc = os.cpu_count() or 1
+
+        # Phase 1: Compute mass contributions in parallel
+        results = [None] * n
+        with ProcessPoolExecutor(max_workers=n_proc, mp_context=get_context("spawn")) as executor:
+            futures = {
+                executor.submit(get_mass_contributions, am_rxn): i
+                for i, am_rxn in enumerate(am_rxns_list)
+            }
+            for future in tqdm(as_completed(futures), total=n, desc="Computing mass contributions"):
+                idx = futures[future]
+                try:
+                    results[idx] = future.result()
+                except Exception:
+                    self.logger.info(f"Failed to process reaction: {am_rxns_list[idx]}")
+
+        # Phase 2: Apply graph mutations sequentially
+        for i in range(n):
+            if results[i] is None:
+                continue
+
+            mass_contributions, de_am_rxn = results[i]
+            self._apply_reaction_to_graph(
+                mass_contributions, de_am_rxn, am_rxns_list[i],
+                rids_list[i], rxn_types_list[i], smi2name
+            )
     
     def set_sources(self, smiles: Iterable[str] = None, ids: Iterable[int] = None, quiet: bool = False) -> None:
         '''

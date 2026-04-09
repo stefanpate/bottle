@@ -17,9 +17,10 @@ script=/home/spn1560/bottle/scripts/linear_pathfinding.py
 forward_expansion=2026-03-26/17-52-16
 retro_expansion=2026-03-26/17-54-12
 casp_study=260327_target_3hpa
+processes=10
 
 # Commands
 ulimit -c 0
 module purge
 source /home/spn1560/.cache/pypoetry/virtualenvs/bottle-jRVXeMfS-py3.12/bin/activate
-python $script forward_expansion=$forward_expansion retro_expansion=$retro_expansion casp_study=$casp_study
+python $script forward_expansion=$forward_expansion retro_expansion=$retro_expansion casp_study=$casp_study processes=$processes

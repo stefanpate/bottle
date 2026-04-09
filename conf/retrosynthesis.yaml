@@ -15,6 +15,7 @@ retro_dir: ${expansion_superdir}/${retro_expansion}
 expansion_config: .expand/config.yaml
 max_leaves: 2
 tot_rnmc_lb: 0.1
+processes: null # Number of processes for parallel network construction; null defaults to os.cpu_count()
 
 hydra:
   output_subdir: .retrosynthesis

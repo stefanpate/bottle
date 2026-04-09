@@ -107,13 +107,11 @@ def main(cfg: DictConfig):
 
     logger.info("Adding reactions to network...")
     tic = perf_counter()
-    for row in am_rxns.iter_rows(named=True):
-        try:
-            G.add_reaction(row['am_smarts'], rxn_type='predicted')
-        except:
-            logger.info(f"Failed to add reaction: {row['am_smarts']}")
-            continue
-    
+    G.batch_add_reactions(
+        am_rxns=am_rxns['am_smarts'].to_list(),
+        rxn_types=['predicted'] * len(am_rxns),
+        n_proc=cfg.processes,
+    )
     toc = perf_counter()
     logger.info(f"Added {len(am_rxns)} reactions in {toc - tic:.2f} seconds.")
 

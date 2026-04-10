@@ -54,6 +54,18 @@ def process_reaction(reaction: dict[str, Any]) -> dict[str, Any]:
         srt_idxs = srt_idxs[:first_zero_idx]
         srt_krids = am_krs['rxn_id'][srt_idxs].to_list()
 
+        # De-duplicate, keeping the highest similarity score for each known reaction
+        seen_krids = set()
+        unique_srt_sims = []
+        unique_srt_krids = []
+        for sim, krid in zip(srt_sims, srt_krids):
+            if krid not in seen_krids:
+                unique_srt_sims.append(sim)
+                unique_srt_krids.append(krid)
+                seen_krids.add(krid)
+        srt_sims = unique_srt_sims
+        srt_krids = unique_srt_krids
+
     is_feasible = dxgb.predict_label(query_smarts)
     reaction["dxgb_label"] = is_feasible
     reaction["rxn_sims"] = srt_sims
@@ -199,17 +211,7 @@ def main(cfg: DictConfig) -> None:
             pl.col("am_smarts")
         ).collect()
         
-        am_krs = mechinformed_am_krs.join(
-            other=rc_0_am_krs,
-            on="rxn_id",
-            how="outer",
-            coalesce=True,
-            suffix="_rc0"
-        ).drop_nulls()
-        
-        _am_krs = am_krs.drop(
-            *[col for col in am_krs.columns if col.endswith("_rc0")]
-        ).with_row_index()
+        _am_krs = pl.concat([rc_0_am_krs, mechinformed_am_krs]).with_row_index()
 
         logger.info(f"Computing reaction similarities between {len(pred_rxns_to_do)} predicted reactions and {len(_am_krs)} known reactions.")
         tic = perf_counter()

@@ -30,17 +30,17 @@ def check_existing(fn: str, schema: pl.Schema):
 
 def path_to_path_entry(path: list[tuple[str, str, str]], source_ids: list[str], target_ids: list[str]):
     rids, gens, main_pdt_ids = [], [], []
-    starters, targets = [], []
+    starters, target_ids = [], []
     for generation, (rct, pdt, rid) in enumerate(path):
         rids.append(rid)
         gens.append(generation)
         main_pdt_ids.append(pdt)
 
-        # Can have multiple starters/targets per path
+        # Can have multiple starters/target_ids per path
         if rct in source_ids:
             starters.append(rct)
         if pdt in target_ids:
-            targets.append(pdt)
+            target_ids.append(pdt)
             
     path_id = hash_path(list(zip(gens, rids)))
 
@@ -50,7 +50,7 @@ def path_to_path_entry(path: list[tuple[str, str, str]], source_ids: list[str], 
         "main_pdt_ids": main_pdt_ids,
         "generations": gens,
         "starters": starters,
-        "targets": targets,
+        "target_ids": target_ids,
     }
 
 
@@ -65,7 +65,7 @@ def timeit(fcn):
     return wrapper
 
 @timeit
-def construct_network(am_rxns: pl.DataFrame, sources: list[str], helpers: list[str], source_augmented_pnmc_lb: float, n_proc: int | None = None) -> ReactionNetwork:
+def construct_network(am_rxns: pl.DataFrame, source_ids: list[str], helper_ids: list[str], source_augmented_pnmc_lb: float, n_proc: int | None = None) -> ReactionNetwork:
     G = ReactionNetwork() # init
     logger.info("Adding reactions to network...")
     G.batch_add_reactions(
@@ -75,23 +75,23 @@ def construct_network(am_rxns: pl.DataFrame, sources: list[str], helpers: list[s
     )
     logger.info(f"Added {len(am_rxns)} reactions")
     
-    logger.info("Setting sources & helpers...")
-    G.set_helpers(ids=helpers)
-    G.set_sources(ids=sources)
+    logger.info("Setting source_ids & helper_ids...")
+    G.set_helpers(ids=helper_ids)
+    G.set_sources(ids=source_ids)
 
     logger.info("Pruning network...")
-    G.prune(augmented_pnmc_lb=source_augmented_pnmc_lb) # Connect compound to compound if it contributes at least 1.0 PNMC w/ sources+helpers
+    G.prune(augmented_pnmc_lb=source_augmented_pnmc_lb) # Connect compound to compound if it contributes at least 1.0 PNMC w/ source_ids+helper_ids
     return G
 
 @timeit
-def find_half_paths(G: nx.MultiDiGraph, sources: list[str], targets: list[str], max_depth: int):
-    targets = [t for t in targets if G.has_node(t)]
-    if len(targets) == 0:
-        logger.info("No valid targets in network, exiting...")
+def find_half_paths(G: nx.MultiDiGraph, source_ids: list[str], target_ids: list[str], max_depth: int):
+    target_ids = [t for t in target_ids if G.has_node(t)]
+    if len(target_ids) == 0:
+        logger.info("No valid target_ids in network, exiting...")
         return []
     
     paths = []
-    for sid in sources:
+    for sid in source_ids:
         if not G.has_node(sid):
             logger.info(f"Source {sid} not in network, skipping...")
             continue
@@ -99,43 +99,43 @@ def find_half_paths(G: nx.MultiDiGraph, sources: list[str], targets: list[str], 
         paths += nx.all_simple_edge_paths(
             G=G,
             source=sid,
-            target=targets,
+            target=target_ids,
             cutoff=max_depth
         )
 
     return paths
 
 @timeit
-def find_combo_paths(graphs: list[nx.MultiDiGraph], sources: list[str], checkpoints: list[str], targets: list[str], max_depths: dict[str, int]):
+def find_combo_paths(graphs: list[nx.MultiDiGraph], source_ids: list[str], checkpoint_ids: list[str], target_ids: list[str], max_depths: dict[str, int]):
     if len(graphs) != len(max_depths):
         raise ValueError("Length of graphs and max_depths must be the same.")
     
-    # Remove sources from sinks otherwise find paths is ill defined and nx fails
-    # Union w/ targets to catch target reached in half expansion
-    _checkpoints = [c for c in set(checkpoints) | set(targets) if c not in sources]
-    fwd_paths = find_half_paths(graphs[0], sources, _checkpoints, max_depths['forward'])
+    # Remove source_ids from sinks otherwise find paths is ill defined and nx fails
+    # Union w/ target_ids to catch target reached in half expansion
+    _checkpoint_ids = [c for c in set(checkpoint_ids) | set(target_ids) if c not in source_ids]
+    fwd_paths = find_half_paths(graphs[0], source_ids, _checkpoint_ids, max_depths['forward'])
 
-    # Remove targets from checkpoints otherwise find paths is ill defined and nx fails
-    # Union w/ sources to catch source reached in half expansion
-    _checkpoints = [c for c in set(checkpoints) | set(sources) if c not in targets]
-    rev_paths = find_half_paths(graphs[-1], _checkpoints, targets, max_depths['retro'])
+    # Remove target_ids from checkpoint_ids otherwise find paths is ill defined and nx fails
+    # Union w/ source_ids to catch source reached in half expansion
+    _checkpoint_ids = [c for c in set(checkpoint_ids) | set(source_ids) if c not in target_ids]
+    rev_paths = find_half_paths(graphs[-1], _checkpoint_ids, target_ids, max_depths['retro'])
     
     all_paths = []
     fwd_by_checkpoint = defaultdict(list)
     for fp in fwd_paths:
-        if fp[-1][1] in targets: # Final product is a target, done
+        if fp[-1][1] in target_ids: # Final product is a target, done
             all_paths.append(fp)
         else:
             fwd_by_checkpoint[fp[-1][1]].append(fp) # Save to stitch with reverse paths
 
     rev_by_checkpoint = defaultdict(list)
     for rp in rev_paths:
-        if rp[0][0] in sources: # Initial reactant is a source, done
+        if rp[0][0] in source_ids: # Initial reactant is a source, done
             all_paths.append(rp)
         else:
             rev_by_checkpoint[rp[0][0]].append(rp) # Save to stitch with forward paths
 
-    # Stitch together at checkpoints
+    # Stitch together at checkpoint_ids
     for ckpt in fwd_by_checkpoint.keys() & rev_by_checkpoint.keys():
         for fp, rp in product(fwd_by_checkpoint[ckpt], rev_by_checkpoint[ckpt]):
             all_paths.append(fp + rp)
@@ -197,11 +197,14 @@ def main(cfg: DictConfig):
         ).alias('type').cast(compound_type)
     )
 
-    helpers = cpds.filter(pl.col('type') == 'helper')['id'].to_list()
-    sources = cpds.filter(pl.col('type') == 'source')['id'].to_list()
-    targets = cpds.filter(pl.col('type') == 'target')['id'].to_list()
-    checkpoints = cpds.filter(pl.col('type') == 'checkpoint')['id'].to_list()
-    cid2name = dict(zip(cpds['id'].to_list(), cpds['name'].to_list()))
+    sources = cpds.filter(pl.col('type') == 'source')
+    targets = cpds.filter(pl.col('type') == 'target')
+    helper_ids = cpds.filter(pl.col('type') == 'helper')['id'].to_list()
+    source_ids = sources['id'].to_list()
+    target_ids = targets['id'].to_list()
+    # checkpoint_ids = cpds.filter(pl.col('type') == 'checkpoint')['id'].to_list()
+    sid2name = dict(zip(sources['id'], sources['name']))
+    tid2name = dict(zip(targets['id'], targets['name']))
 
     if cfg.forward_expansion and cfg.retro_expansion:
         mode = 'combo'
@@ -223,16 +226,16 @@ def main(cfg: DictConfig):
 
     logger.info(f"Mode: {mode}")
     if mode == 'forward' or mode == 'retro':
-        G = construct_network(am_rxns, sources, helpers, cfg.source_augmented_pnmc_lb, cfg.processes)
+        G = construct_network(am_rxns, source_ids, helper_ids, cfg.source_augmented_pnmc_lb, cfg.processes)
         logger.info("Finding paths...")
-        paths = find_half_paths(G, sources, targets, generations[mode])
+        paths = find_half_paths(G, source_ids, target_ids, generations[mode])
         Gs = [G]
     elif mode == 'combo':
-        F = construct_network(am_rxns.filter(pl.col('half_expansion') == 'forward'), sources, helpers, cfg.source_augmented_pnmc_lb, cfg.processes) # Setting addtl mass sources but
-        R = construct_network(am_rxns.filter(pl.col('half_expansion') == 'retro'), sources, helpers, cfg.source_augmented_pnmc_lb, cfg.processes) # Setting addtl mass sources but still pathfinding from checkpoints to targets
+        F = construct_network(am_rxns.filter(pl.col('half_expansion') == 'forward'), source_ids, helper_ids, cfg.source_augmented_pnmc_lb, cfg.processes) # Setting addtl mass source_ids but
+        R = construct_network(am_rxns.filter(pl.col('half_expansion') == 'retro'), source_ids, helper_ids, cfg.source_augmented_pnmc_lb, cfg.processes) # Setting addtl mass source_ids but still pathfinding from checkpoint_ids to target_ids
         Gs = [F, R]
         logger.info("Finding paths...")
-        paths = find_combo_paths(Gs, sources, checkpoints, targets, generations)
+        paths = find_combo_paths(Gs, source_ids, checkpoint_ids, target_ids, generations)
 
     logger.info(f"Found {len(paths)} paths")
     
@@ -254,7 +257,7 @@ def main(cfg: DictConfig):
     new_rxn_ids = set()
     n_existing = 0
     for path in paths:
-        path_entry = path_to_path_entry(path, sources, targets)
+        path_entry = path_to_path_entry(path, source_ids, target_ids)
         
         if path_entry['path_id'] in existing_paths['path_id'].to_list():
             n_existing += 1
@@ -264,12 +267,12 @@ def main(cfg: DictConfig):
         new_path_stats.append(
             [
                 path_entry['path_id'],
-                [cid2name.get(sid) for sid in path_entry['starters']],
-                [cid2name.get(tid) for tid in path_entry['targets']],
+                [sid2name.get(sid) for sid in path_entry['starters']],
+                [tid2name.get(tid) for tid in path_entry['target_ids']],
                 None, # dg_opt
                 None, # dg_err
                 path_entry['starters'], # starter_ids
-                path_entry['targets'], # target_ids
+                path_entry['target_ids'], # target_ids
                 None, # mdf
                 None, # mean_max_rxn_sim
                 None, # mean_mean_rxn_sim
@@ -298,7 +301,7 @@ def main(cfg: DictConfig):
     # Merge identical new paths
     to_merge = [
         'starters',
-        'targets',
+        'target_ids',
         'starter_ids',
         'target_ids',
     ]

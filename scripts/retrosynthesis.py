@@ -89,9 +89,12 @@ def main(cfg: DictConfig):
     cpds = pl.concat([fwd_cpds, retro_cpds]).unique()
 
     helpers = cpds.filter(pl.col('type') == 'helper')['id'].to_list()
-    sources = cpds.filter(pl.col('type') == 'source')['id'].to_list()
-    targets = cpds.filter(pl.col('type') == 'target')['id'].to_list()
-    cid2name = dict(zip(cpds['id'].to_list(), cpds['name'].to_list()))
+    sources = cpds.filter(pl.col('type') == 'source')
+    targets = cpds.filter(pl.col('type') == 'target')
+    sid2name = dict(zip(sources['id'].to_list(), sources['name'].to_list()))
+    tid2name = dict(zip(targets['id'].to_list(), targets['name'].to_list()))
+    sources = sources['id'].to_list()
+    targets = targets['id'].to_list()
 
     generations = {}
     if cfg.forward_expansion:
@@ -166,8 +169,8 @@ def main(cfg: DictConfig):
         new_path_stats.append(
             [
                 path_entry['path_id'],
-                [cid2name.get(sid) for sid in path_entry['starters']],
-                [cid2name.get(tid) for tid in path_entry['targets']],
+                [sid2name.get(sid) for sid in path_entry['starters']], # starter names
+                [tid2name.get(tid) for tid in path_entry['targets']], # target names
                 None, # dg_opt
                 None, # dg_err
                 path_entry['starters'], # starter_ids

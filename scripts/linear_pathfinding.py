@@ -30,7 +30,7 @@ def check_existing(fn: str, schema: pl.Schema):
 
 def path_to_path_entry(path: list[tuple[str, str, str]], source_ids: list[str], target_ids: list[str]):
     rids, gens, main_pdt_ids = [], [], []
-    starters, target_ids = [], []
+    starters, targets = [], []
     for generation, (rct, pdt, rid) in enumerate(path):
         rids.append(rid)
         gens.append(generation)
@@ -40,7 +40,7 @@ def path_to_path_entry(path: list[tuple[str, str, str]], source_ids: list[str], 
         if rct in source_ids:
             starters.append(rct)
         if pdt in target_ids:
-            target_ids.append(pdt)
+            targets.append(pdt)
             
     path_id = hash_path(list(zip(gens, rids)))
 
@@ -50,7 +50,7 @@ def path_to_path_entry(path: list[tuple[str, str, str]], source_ids: list[str], 
         "main_pdt_ids": main_pdt_ids,
         "generations": gens,
         "starters": starters,
-        "target_ids": target_ids,
+        "targets": targets,
     }
 
 
@@ -267,12 +267,12 @@ def main(cfg: DictConfig):
         new_path_stats.append(
             [
                 path_entry['path_id'],
-                [sid2name.get(sid) for sid in path_entry['starters']],
-                [tid2name.get(tid) for tid in path_entry['target_ids']],
+                [sid2name.get(sid) for sid in path_entry['starters']], # starter names
+                [tid2name.get(tid) for tid in path_entry['targets']], # target names
                 None, # dg_opt
                 None, # dg_err
                 path_entry['starters'], # starter_ids
-                path_entry['target_ids'], # target_ids
+                path_entry['targets'], # target_ids
                 None, # mdf
                 None, # mean_max_rxn_sim
                 None, # mean_mean_rxn_sim

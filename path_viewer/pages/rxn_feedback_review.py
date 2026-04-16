@@ -52,13 +52,29 @@ selected_rxn = st.selectbox(
 if selected_rxn:
     prid = selected_rxn
 
+    # Load analogue and enzyme data for this reaction
+    prxn_df = pl.scan_parquet(pw.predicted_reactions).filter(pl.col("id") == prid).collect()
+
     # Feedback callback
     def store_review_rxn_feedback(prid):
         st.session_state['pred_rxn_feedback'][prid] = st.session_state[f"rxn_review_fb_{prid}"]
         save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", rxn_feedback_schema, st.session_state["username"])
 
+    # Get pred rxn metrics
+    print(prid)
+    row = prxn_df.filter(pl.col("id") == prid).row(0, named=True)
+    feas_label = "Yes" if row['dxgb_label'] == 1 else "No"
+    max_sim_score = max(row['rxn_sims']) if row['rxn_sims'] else 0.0
+    
     # Path count metric
-    st.metric("Paths containing this reaction", path_counts.get(prid, 0))
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        st.metric("Paths containing this reaction", path_counts.get(prid, 0))
+    with col2:
+        st.metric("Predicted feasible?", feas_label)
+    with col3:
+        st.metric("Max similarity to known analogue", f"{max_sim_score:.3f}")
+        
 
     # Reaction display
     st.header("Predicted Reaction")
@@ -75,8 +91,6 @@ if selected_rxn:
         args=(prid,),
     )
 
-    # Load analogue and enzyme data for this reaction
-    prxn_df = pl.scan_parquet(pw.predicted_reactions).filter(pl.col("id") == prid).collect()
 
     if not prxn_df.is_empty():
         krids_sims = prxn_df.select(

@@ -67,6 +67,7 @@ if selected_rxn:
     # Feedback widget
     if prid in st.session_state['pred_rxn_feedback']:
         st.session_state[f"rxn_review_fb_{prid}"] = st.session_state['pred_rxn_feedback'][prid]
+    st.caption("Like or dislike this predicted reaction based on its plausibility.")
     st.feedback(
         options="thumbs",
         key=f"rxn_review_fb_{prid}",

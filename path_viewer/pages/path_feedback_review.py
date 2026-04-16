@@ -98,6 +98,7 @@ if pid:
 
         st.header("Overall Reaction")
         display_overall_reaction(prids, pred_rxns_smarts, str(study))
+        st.caption("Like or dislike this path based on its overall plausibility and usefulness for your goals.")
         st.feedback(
             options="thumbs",
             key=f"review_path_fb_{pid}",
@@ -118,6 +119,7 @@ if pid:
                 display_predicted_reaction(i, prid, str(study))
                 if prid in st.session_state.get('pred_rxn_feedback', {}):
                     st.session_state[f"review_rxn_fb_{prid}"] = st.session_state['pred_rxn_feedback'][prid]
+                st.caption("Like or dislike this predicted reaction based on its plausibility.")
                 st.feedback(
                     options="thumbs",
                     key=f"review_rxn_fb_{prid}",

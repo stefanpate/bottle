@@ -61,7 +61,6 @@ if selected_rxn:
         save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", rxn_feedback_schema, st.session_state["username"])
 
     # Get pred rxn metrics
-    print(prid)
     row = prxn_df.filter(pl.col("id") == prid).row(0, named=True)
     feas_label = "Yes" if row['dxgb_label'] == 1 else "No"
     max_sim_score = max(row['rxn_sims']) if row['rxn_sims'] else 0.0

@@ -17,6 +17,7 @@ rc_dist_ub: null # Upperbound on distance from RC used for fingerprint
 use_rc_in_fingerprints: true
 filter_by_rc: true # If true, reactions with different RCs get similarity = 0
 processes: 5
+redo_analysis: false
 casp_study: ???
 
 hydra:

@@ -156,12 +156,7 @@ def rcmfp_S(left: pl.DataFrame, right: pl.DataFrame, use_rc: bool, filter_by_rc:
         i += 1
 
     right_fps =  np.vstack(right_fps).astype(np.float32)
-    d = right_fps.shape[1]
-    right_fps_rev = np.concatenate([right_fps[:, d//2:], right_fps[:, :d//2]], axis=1)
-
-    S1 = tani_sim(left_fps, right_fps)
-    S2 = tani_sim(left_fps, right_fps_rev)
-    S = np.maximum(S1, S2)
+    S = tani_sim(left_fps, right_fps)
 
     if filter_by_rc:
         filtered_S = np.zeros_like(S)

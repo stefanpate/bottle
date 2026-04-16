@@ -31,6 +31,7 @@ page_defaults = {
     "targets": pw.targets,
     "sort_by": "mean_max_rxn_sim",
     "loe": enz_loe_options[:2],
+    "mdf_lb": 0.0,
 }
 for k, v in page_defaults.items():
     if k not in st.session_state:
@@ -50,6 +51,7 @@ def get_path_tables():
         targets=st.session_state.targets,
         filter_by_enzymes={'existence': st.session_state['loe']},
         sort_by=st.session_state['sort_by'],
+        lower_bounds={"mdf": st.session_state["mdf_lb"]},
         blacklist_path_ids=blacklist_path_ids,
         blacklist_rxn_ids=blacklist_rxn_ids,
     )
@@ -116,6 +118,13 @@ sort_by = st.sidebar.selectbox(
     args=("sort_by",)
 )
 
+mdf_lb = st.sidebar.number_input(
+    "Max-min Driving Force Lower Bound (kJ/mol)",
+    key="_mdf_lb",
+    on_change=store_value,
+    args=("mdf_lb",),
+)
+
 loe = st.sidebar.multiselect(
     "Enzyme Level of Evidence",
     options=enz_loe_options,
@@ -128,15 +137,6 @@ apply = st.sidebar.button(
     "Apply",
     on_click=handle_user_input
 )
-
-liked_paths = [pid for pid, v in st.session_state['path_feedback'].items() if v == 1]
-if liked_paths:
-    st.sidebar.markdown("### My Paths")
-    st.sidebar.dataframe(
-        pl.DataFrame({"Path ID": [pid[:HASH_UB] for pid in liked_paths]}),
-        hide_index=True,
-        use_container_width=True,
-    )
 
 # Data display panel
 selected_path = st.selectbox(
@@ -172,13 +172,13 @@ if st.session_state.get('selected_path') and 'paths' in st.session_state:
 
         st.header("Overall Reaction")
         display_overall_reaction(prids, pred_rxns_smarts, str(study))
-        st.caption("Like or dislike this path based on its overall plausibility and usefulness for your goals.")
         st.feedback(
             options="thumbs",
             key=f"path_feedback_{pid}",
             on_change=store_path_feedback,
             args=(pid,),
         )
+        st.caption("Like or dislike this path based on its overall plausibility and usefulness for your goals.")
 
         # Reactions side-by-side with known analogues and enzymes
         header_left, header_right = st.columns([0.6, 0.4])
@@ -193,7 +193,7 @@ if st.session_state.get('selected_path') and 'paths' in st.session_state:
                 display_predicted_reaction(i, prid, str(study))
                 if prid in st.session_state['pred_rxn_feedback']:
                     st.session_state[f"pred_rxn_feedback_{prid}"] = st.session_state['pred_rxn_feedback'][prid]
-                fb_col, ban_col, _ = st.columns([1, 2, 10], vertical_alignment="center")
+                fb_col, ban_col, _ = st.columns([1.5, 2, 10], vertical_alignment="center", gap=None)
                 st.caption("Like or dislike this predicted reaction based on its plausibility.")
                 with fb_col:
                     st.feedback(

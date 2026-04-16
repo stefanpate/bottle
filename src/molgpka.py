@@ -6,6 +6,7 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 from copy import deepcopy
+from functools import lru_cache
 from itertools import combinations
 from torch.nn import Linear, BatchNorm1d, Parameter
 from torch_geometric.nn import GlobalAttention
@@ -14,6 +15,7 @@ from torch_geometric.utils import scatter, add_remaining_self_loops
 from torch_geometric.data import Data
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit.Chem.MolStandardize import rdMolStandardize
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +26,14 @@ _MODULE_DIR = Path(__file__).parent
 SMARTS_FILE = _MODULE_DIR / "data" / "smarts_pattern.tsv"
 BASE_MODEL_PATH = _MODULE_DIR / "models" / "weight_base.pth"
 ACID_MODEL_PATH = _MODULE_DIR / "models" / "weight_acid.pth"
+# Optional ModelSeed-trained weights from OPAM2; not required for the stock
+# MolGpKa workflow and are only used by callers that opt into them.
+MODELSEED_BASE_MODEL_PATH = _MODULE_DIR / "models" / "weight_base_modelseed.pth"
+MODELSEED_ACID_MODEL_PATH = _MODULE_DIR / "models" / "weight_acid_modelseed.pth"
+
+# Soft cap used by ``cap_unstable_sites`` when callers want to bound
+# combinatorial protonation enumeration: 2**MAX_UNSTABLE_SITES states max.
+MAX_UNSTABLE_SITES = 8
 
 n_features = 29
 hidden = 1024
@@ -313,12 +323,30 @@ def mol2vec(
 # Model loading and inference
 # ---------------------------------------------------------------------------
 
-def load_model(model_file: Path | str, device: str = "cpu") -> GCNNet:
-    """Load a ``GCNNet`` from a saved state-dict at *model_file*."""
+@lru_cache(maxsize=4)
+def _load_model_cached(model_file: str, device: str) -> GCNNet:
+    """Cached inner loader; keyed on stringified path + device."""
     model = GCNNet().to(device)
-    model.load_state_dict(torch.load(model_file, map_location=device))
+    # ``weights_only=True`` is safe for standard state-dicts and guards
+    # against malicious pickles; matches the OPAM2 refinement.
+    try:
+        state = torch.load(model_file, map_location=device, weights_only=True)
+    except TypeError:
+        # Older PyTorch (< 2.0) does not support weights_only.
+        state = torch.load(model_file, map_location=device)
+    model.load_state_dict(state)
     model.eval()
     return model
+
+
+def load_model(model_file: Path | str, device: str = "cpu") -> GCNNet:
+    """Load a ``GCNNet`` from a saved state-dict at *model_file*.
+
+    Back-compatible with the original MolGpKa flow: returns a freshly-evaluated
+    ``GCNNet``. Underlying deserialisation is cached by ``(path, device)`` so
+    repeated calls do not re-read the ``.pth`` file from disk.
+    """
+    return _load_model_cached(str(model_file), device)
 
 
 def model_pred(mol: Chem.Mol, aid: int, model: GCNNet, device: str = "cpu") -> float:
@@ -537,3 +565,144 @@ def modify_unstable_pka(
         smi = Chem.MolToSmiles(Chem.MolFromSmiles(Chem.MolToSmiles(new_mol)))
         new_unsmis.append(smi)
     return new_unsmis
+
+
+# ---------------------------------------------------------------------------
+# OPAM2 refinements (additive — original callers unaffected)
+# ---------------------------------------------------------------------------
+
+def prepare_mol_for_prediction(mol: Chem.Mol, uncharged: bool = True) -> Chem.Mol:
+    """Normalise *mol* for prediction while preserving heavy-atom indices.
+
+    The older ``predict_for_protonate`` flow ran
+    ``MolFromSmiles(MolToSmiles(mol))`` after uncharging, which canonicalised
+    atom order and broke index-based comparisons against the input.
+    ``Uncharger`` alone preserves atom order, and ``AddHs`` appends hydrogens
+    without renumbering heavy atoms, so heavy-atom indices in the returned
+    mol match those of the input.
+    """
+    if uncharged:
+        mol = rdMolStandardize.Uncharger().uncharge(mol)
+    return AllChem.AddHs(mol)
+
+
+def cap_unstable_sites(
+    unstable_data: list,
+    ph: float,
+    max_sites: int = MAX_UNSTABLE_SITES,
+) -> tuple[list, list]:
+    """Cap combinatorial enumeration by keeping only *max_sites* borderline
+    atoms closest to *ph*.
+
+    Overflow sites are promoted to stable states based on which side of *ph*
+    their pKa falls on; this keeps ``2**len(unstable)`` bounded for highly
+    ionisable molecules.
+
+    Returns
+    -------
+    kept, promoted_stable:
+        ``kept`` is the truncated unstable list; ``promoted_stable`` is the
+        list of overflow sites re-categorised as stable.
+    """
+    if len(unstable_data) <= max_sites:
+        return unstable_data, []
+    sorted_sites = sorted(unstable_data, key=lambda d: abs(d[1] - ph))
+    kept = sorted_sites[:max_sites]
+    overflow = sorted_sites[max_sites:]
+    promoted: list = []
+    for idx, pka, acid_or_basic in overflow:
+        if acid_or_basic == "A" and pka < ph:
+            promoted.append([idx, pka, "A"])
+        elif acid_or_basic == "B" and pka > ph:
+            promoted.append([idx, pka, "B"])
+    return kept, promoted
+
+
+def _mol_to_format(mol: Chem.Mol, fmt: str):
+    """Convert an RDKit ``Mol`` to the requested output format."""
+    if fmt == "inchi":
+        return Chem.MolToInchi(Chem.MolFromSmiles(Chem.MolToSmiles(mol)))
+    if fmt == "smiles":
+        return Chem.MolToSmiles(Chem.MolFromSmiles(Chem.MolToSmiles(mol)))
+    if fmt == "mol":
+        return mol
+    raise ValueError(
+        f"output_format must be one of 'inchi', 'smiles', 'mol'; got {fmt!r}"
+    )
+
+
+def opam_protonate_mol(
+    smi_or_inchi: str,
+    ph: float,
+    tph: float,
+    acid_model: Path | str | None = None,
+    base_model: Path | str | None = None,
+    output_format: str = "inchi",
+    max_unstable_sites: int = MAX_UNSTABLE_SITES,
+    uncharged: bool = True,
+    device: str = "cpu",
+) -> list:
+    """Enumerate protonation microstates at ``ph ± tph`` (OPAM2 entry point).
+
+    Accepts a SMILES *or* an InChI string. Neutralises the input before
+    pKa prediction so pre-charged zwitterions are handled correctly, then
+    re-assigns charges based on predicted pKa vs target pH.
+
+    Reuses the existing :func:`modify_mol`, :func:`get_pKa_data`,
+    :func:`modify_stable_pka`, :func:`modify_unstable_pka`,
+    :func:`get_ionization_aid`, :func:`model_pred`, and :func:`load_model`
+    primitives from this module — only the orchestration is new.
+
+    Caps combinatorial expansion at *max_unstable_sites* borderline sites
+    (default 8 → 256 states) via :func:`cap_unstable_sites`.
+    """
+    omol = Chem.MolFromSmiles(smi_or_inchi)
+    if omol is None:
+        omol = Chem.MolFromInchi(smi_or_inchi)
+    if omol is None:
+        raise ValueError(
+            f"Could not parse input as SMILES or InChI: {smi_or_inchi!r}"
+        )
+
+    omol = prepare_mol_for_prediction(omol, uncharged=uncharged)
+
+    acid_path = acid_model if acid_model is not None else ACID_MODEL_PATH
+    base_path = base_model if base_model is not None else BASE_MODEL_PATH
+    acid_net = load_model(acid_path, device=device)
+    base_net = load_model(base_path, device=device)
+    acid_dict = {
+        aid: model_pred(omol, aid, acid_net, device=device)
+        for aid in get_ionization_aid(omol, acid_or_base="acid")
+    }
+    base_dict = {
+        aid: model_pred(omol, aid, base_net, device=device)
+        for aid in get_ionization_aid(omol, acid_or_base="base")
+    }
+
+    mc = modify_mol(omol, acid_dict, base_dict)
+    stable_data, unstable_data, _pkas = get_pKa_data(mc, ph, tph)
+    unstable_data, promoted = cap_unstable_sites(unstable_data, ph, max_unstable_sites)
+    stable_data = stable_data + promoted
+
+    outputs: list = []
+    n = len(unstable_data)
+    if n == 0:
+        new_mol = deepcopy(mc)
+        modify_stable_pka(new_mol, stable_data)
+        outputs.append(_mol_to_format(new_mol, output_format))
+    else:
+        for k in range(n + 1):
+            new_mol = deepcopy(mc)
+            modify_stable_pka(new_mol, stable_data)
+            new_unsmis = modify_unstable_pka(new_mol, unstable_data, k)
+            if output_format == "inchi":
+                outputs.extend(Chem.MolToInchi(Chem.MolFromSmiles(s)) for s in new_unsmis)
+            elif output_format == "smiles":
+                outputs.extend(new_unsmis)
+            elif output_format == "mol":
+                outputs.extend(Chem.MolFromSmiles(s) for s in new_unsmis)
+            else:
+                raise ValueError(
+                    f"output_format must be 'inchi', 'smiles', or 'mol'; got {output_format!r}"
+                )
+    return outputs

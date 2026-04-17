@@ -97,7 +97,7 @@ if pid:
         ))
 
         st.header("Overall Reaction")
-        display_overall_reaction(prids, pred_rxns_smarts, str(study))
+        display_overall_reaction(prids, pred_rxns_smarts)
         st.caption("Like or dislike this path based on its overall plausibility and usefulness for your goals.")
         st.feedback(
             options="thumbs",

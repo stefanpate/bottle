@@ -82,7 +82,7 @@ def display_path_metrics(path_id: str, paths_df: pl.DataFrame):
         st.metric("Feasibility Fraction", feasibility_frac)
 
 
-def display_overall_reaction(prids: list[str], predicted_reactions_smarts: dict[str, str], study_path: str):
+def display_overall_reaction(prids: list[str], predicted_reactions_smarts: dict[str, str]):
     rxns = [predicted_reactions_smarts[prid] for prid in prids if prid in predicted_reactions_smarts]
     overall_stoich = defaultdict(int)
     for rxn in rxns:

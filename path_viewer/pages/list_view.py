@@ -171,7 +171,7 @@ if st.session_state.get('selected_path') and 'paths' in st.session_state:
         ))
 
         st.header("Overall Reaction")
-        display_overall_reaction(prids, pred_rxns_smarts, str(study))
+        display_overall_reaction(prids, pred_rxns_smarts)
         st.feedback(
             options="thumbs",
             key=f"path_feedback_{pid}",

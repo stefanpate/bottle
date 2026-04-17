@@ -116,7 +116,7 @@ if pid:
         for i, (prid, ks, enz) in enumerate(zip(prids, krids_sims, enzymes)):
             col_left, col_right = st.columns([0.6, 0.4], border=True)
             with col_left:
-                display_predicted_reaction(i, prid, str(study))
+                display_predicted_reaction(i, prid, pred_rxns_smarts[prid])
                 if prid in st.session_state.get('pred_rxn_feedback', {}):
                     st.session_state[f"review_rxn_fb_{prid}"] = st.session_state['pred_rxn_feedback'][prid]
                 st.caption("Like or dislike this predicted reaction based on its plausibility.")
@@ -129,6 +129,6 @@ if pid:
             with col_right:
                 tab_analogue, tab_enzyme = st.tabs(["Analogues", "Enzymes"])
                 with tab_analogue:
-                    display_analogue(i, ks, str(study))
+                    display_analogue(i, ks)
                 with tab_enzyme:
                     display_enzymes(i, enz)

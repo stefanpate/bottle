@@ -190,7 +190,7 @@ if st.session_state.get('selected_path') and 'paths' in st.session_state:
         for i, (prid, ks, enz) in enumerate(zip(prids, krids_sims, enzymes)):
             col_left, col_right = st.columns([0.6, 0.4], border=True)
             with col_left:
-                display_predicted_reaction(i, prid, str(study))
+                display_predicted_reaction(i, prid, pred_rxns_smarts[prid])
                 if prid in st.session_state['pred_rxn_feedback']:
                     st.session_state[f"pred_rxn_feedback_{prid}"] = st.session_state['pred_rxn_feedback'][prid]
                 thumbs_col, dislike_rule_col, _ = st.columns([1.5, 2, 10], vertical_alignment="center", gap=None)
@@ -218,7 +218,7 @@ if st.session_state.get('selected_path') and 'paths' in st.session_state:
             with col_right:
                 tab_analogue, tab_enzyme = st.tabs(["Analogues", "Enzymes"])
                 with tab_analogue:
-                    display_analogue(i, ks, str(study))
+                    display_analogue(i, ks)
                 with tab_enzyme:
                     display_enzymes(i, enz)
 elif st.session_state.get('path_ids') is None:

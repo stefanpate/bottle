@@ -156,12 +156,7 @@ def rcmfp_S(left: pl.DataFrame, right: pl.DataFrame, use_rc: bool, filter_by_rc:
         i += 1
 
     right_fps =  np.vstack(right_fps).astype(np.float32)
-    d = right_fps.shape[1]
-    right_fps_rev = np.concatenate([right_fps[:, d//2:], right_fps[:, :d//2]], axis=1)
-
-    S1 = tani_sim(left_fps, right_fps)
-    S2 = tani_sim(left_fps, right_fps_rev)
-    S = np.maximum(S1, S2)
+    S = tani_sim(left_fps, right_fps)
 
     if filter_by_rc:
         filtered_S = np.zeros_like(S)
@@ -189,9 +184,12 @@ def main(cfg: DictConfig) -> None:
     
     logger.info("Loading predicted reactions to analyze...")
 
-    pred_rxns_to_do = pl.scan_parquet("predicted_reactions.parquet").filter(
-        pl.col("dxgb_label").is_null() | pl.col("rxn_sims").is_null() | pl.col("analogue_ids").is_null()
-    ).collect().with_row_index()
+    scan = pl.scan_parquet("predicted_reactions.parquet")
+    if not cfg.redo_analysis:
+        scan = scan.filter(
+            pl.col("dxgb_label").is_null() | pl.col("rxn_sims").is_null() | pl.col("analogue_ids").is_null()
+        )
+    pred_rxns_to_do = scan.collect().with_row_index()
 
     if not len(pred_rxns_to_do) == 0:
         logger.info(f"Found {len(pred_rxns_to_do)} predicted reactions to analyze.")
@@ -252,11 +250,12 @@ def main(cfg: DictConfig) -> None:
 
     # Retrieve info to update path stats
     logger.info("Updating path statistics...")
-    path_ids_to_do = pl.scan_parquet("path_stats.parquet").filter(
-        pl.col("mean_max_rxn_sim").is_null() | pl.col("mean_mean_rxn_sim").is_null() | pl.col("min_max_rxn_sim").is_null() | pl.col("min_mean_rxn_sim").is_null() | pl.col("feasibility_frac").is_null()
-    ).select(
-        pl.col("id")
-    ).collect()["id"].to_list()
+    scan = pl.scan_parquet("path_stats.parquet")
+    if not cfg.redo_analysis:
+        scan = scan.filter(
+            pl.col("mean_max_rxn_sim").is_null() | pl.col("mean_mean_rxn_sim").is_null() | pl.col("min_max_rxn_sim").is_null() | pl.col("min_mean_rxn_sim").is_null() | pl.col("feasibility_frac").is_null()
+        )
+    path_ids_to_do = scan.select(pl.col("id")).collect()["id"].to_list()
 
     paths_to_do = pl.scan_parquet("paths.parquet").filter(
         pl.col("path_id").is_in(path_ids_to_do)

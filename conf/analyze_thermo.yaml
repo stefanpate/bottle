@@ -10,6 +10,7 @@ ionic_strength: 0.25M
 temperature: 298.15K
 conc_lb: 1e-6 # Molecule concentraiton lower bound (M)
 conc_ub: 1e-2 # Molecule concentration upper bound (M)
+redo_analysis: false
 
 hydra:
   output_subdir: .analyze_thermo

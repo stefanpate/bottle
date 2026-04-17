@@ -14,8 +14,8 @@ def main(cfg: DictConfig) -> None:
     if not Path("svgs").exists():
         Path("svgs").mkdir()
     
-    existing_drawn_reactions = [kr.stem for kr in Path("svgs").glob("*.svg")]
-    
+    existing_drawn_reactions = [kr.stem for kr in Path("svgs").glob("*.svg")] if not cfg.redo_analysis else []
+
     path_rids = pl.scan_parquet("paths.parquet").unique(subset=["rxn_id"]).filter(
         ~pl.col("rxn_id").is_in(existing_drawn_reactions)
     ).select(

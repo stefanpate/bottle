@@ -3,6 +3,7 @@ defaults:
   - _self_
 
 casp_study: ???
+redo_analysis: false
 
 hydra:
   output_subdir: .draw_reactions

@@ -63,11 +63,12 @@ def main(cfg: DictConfig) -> None:
     cpds = pl.read_parquet("compounds.parquet")
     cid2name = dict(zip(cpds['id'].to_list(), cpds['name'].to_list()))
 
-    path_stats_to_do = pl.scan_parquet("path_stats.parquet").filter(
-        pl.col("mdf").is_null() | pl.col("dg_opt").is_null() | pl.col("dg_err").is_null()
-    ).select(
-        pl.col('id')
-    ).collect()
+    scan = pl.scan_parquet("path_stats.parquet")
+    if not cfg.redo_analysis:
+        scan = scan.filter(
+            pl.col("mdf").is_null() | pl.col("dg_opt").is_null() | pl.col("dg_err").is_null()
+        )
+    path_stats_to_do = scan.select(pl.col('id')).collect()
 
     paths_to_do = pl.scan_parquet("paths.parquet").filter(
         pl.col("path_id").is_in(path_stats_to_do["id"].to_list())

@@ -31,6 +31,7 @@ page_defaults = {
     "targets": pw.targets,
     "sort_by": "mean_max_rxn_sim",
     "loe": enz_loe_options[:2],
+    "mdf_lb": 0.0,
 }
 for k, v in page_defaults.items():
     if k not in st.session_state:
@@ -42,7 +43,7 @@ for k, v in page_defaults.items():
 # Callbacks
 
 def get_path_tables():
-    blacklist_path_ids = [pid for pid, v in st.session_state['path_feedback'].items() if v == 0] or None
+    blacklist_path_ids = [pid for pid, v in st.session_state['path_feedback'].items()] or None
     blacklist_rxn_ids = [prid for prid, v in st.session_state['pred_rxn_feedback'].items() if v == 0] or None
 
     path_tables = pw.get_paths(
@@ -50,6 +51,7 @@ def get_path_tables():
         targets=st.session_state.targets,
         filter_by_enzymes={'existence': st.session_state['loe']},
         sort_by=st.session_state['sort_by'],
+        lower_bounds={"mdf": st.session_state["mdf_lb"]},
         blacklist_path_ids=blacklist_path_ids,
         blacklist_rxn_ids=blacklist_rxn_ids,
     )
@@ -74,6 +76,16 @@ def store_pred_rxn_feedback(prid):
     save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", rxn_feedback_schema, st.session_state["username"])
 
 
+def dislike_rules(rule_pairs):
+    rule_pairs_set = set(rule_pairs)
+    prxns = st.session_state.predicted_reactions
+    for row in prxns.iter_rows(named=True):
+        pairs = set(zip(row["rules"], row["rule_sets"]))
+        if pairs & rule_pairs_set:
+            st.session_state['pred_rxn_feedback'][row["id"]] = 0
+    save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", rxn_feedback_schema, st.session_state["username"])
+
+
 def store_path_feedback(path_id):
     st.session_state['path_feedback'][path_id] = st.session_state[f"path_feedback_{path_id}"]
     save_feedback(st.session_state['path_feedback'], study / "path_feedback.parquet", path_feedback_schema, st.session_state["username"])
@@ -83,7 +95,7 @@ def store_path_feedback(path_id):
 
 starters = st.sidebar.multiselect(
     "Starting Compounds",
-    options=st.session_state.starters,
+    options=pw.starters,
     key="_starters",
     on_change=store_value,
     args=("starters",)
@@ -91,7 +103,7 @@ starters = st.sidebar.multiselect(
 
 targets = st.sidebar.multiselect(
     "Target Compounds",
-    options=st.session_state.targets,
+    options=pw.targets,
     key="_targets",
     on_change=store_value,
     args=("targets",)
@@ -106,6 +118,13 @@ sort_by = st.sidebar.selectbox(
     args=("sort_by",)
 )
 
+mdf_lb = st.sidebar.number_input(
+    "Max-min Driving Force Lower Bound (kJ/mol)",
+    key="_mdf_lb",
+    on_change=store_value,
+    args=("mdf_lb",),
+)
+
 loe = st.sidebar.multiselect(
     "Enzyme Level of Evidence",
     options=enz_loe_options,
@@ -118,15 +137,6 @@ apply = st.sidebar.button(
     "Apply",
     on_click=handle_user_input
 )
-
-liked_paths = [pid for pid, v in st.session_state['path_feedback'].items() if v == 1]
-if liked_paths:
-    st.sidebar.markdown("### My Paths")
-    st.sidebar.dataframe(
-        pl.DataFrame({"Path ID": [pid[:HASH_UB] for pid in liked_paths]}),
-        hide_index=True,
-        use_container_width=True,
-    )
 
 # Data display panel
 selected_path = st.selectbox(
@@ -168,6 +178,7 @@ if st.session_state.get('selected_path') and 'paths' in st.session_state:
             on_change=store_path_feedback,
             args=(pid,),
         )
+        st.caption("Like or dislike this path based on its overall plausibility and usefulness for your goals.")
 
         # Reactions side-by-side with known analogues and enzymes
         header_left, header_right = st.columns([0.6, 0.4])
@@ -182,12 +193,28 @@ if st.session_state.get('selected_path') and 'paths' in st.session_state:
                 display_predicted_reaction(i, prid, str(study))
                 if prid in st.session_state['pred_rxn_feedback']:
                     st.session_state[f"pred_rxn_feedback_{prid}"] = st.session_state['pred_rxn_feedback'][prid]
-                st.feedback(
-                    options="thumbs",
-                    key=f"pred_rxn_feedback_{prid}",
-                    on_change=store_pred_rxn_feedback,
-                    args=(prid,),
-                )
+                thumbs_col, dislike_rule_col, _ = st.columns([1.5, 2, 10], vertical_alignment="center", gap=None)
+                st.caption("Like or dislike this predicted reaction based on its plausibility.")
+                with thumbs_col:
+                    st.feedback(
+                        options="thumbs",
+                        key=f"pred_rxn_feedback_{prid}",
+                        on_change=store_pred_rxn_feedback,
+                        args=(prid,),
+                    )
+                with dislike_rule_col:
+                    prxn_row = st.session_state.predicted_reactions.filter(pl.col("id") == prid)
+                    rules = prxn_row["rules"].explode().to_list()
+                    rule_sets = prxn_row["rule_sets"].explode().to_list()
+                    rule_pairs = list(zip(rules, rule_sets))
+                    st.button(
+                        "Rule",
+                        key=f"dislike_rule_{prid}",
+                        icon=":material/thumb_down:",
+                        on_click=dislike_rules,
+                        args=(rule_pairs,),
+                        help="Dislike all reactions generated by this reaction's rule(s)",
+                    )
             with col_right:
                 tab_analogue, tab_enzyme = st.tabs(["Analogues", "Enzymes"])
                 with tab_analogue:

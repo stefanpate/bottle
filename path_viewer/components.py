@@ -82,7 +82,6 @@ def display_path_metrics(path_id: str, paths_df: pl.DataFrame):
         st.metric("Feasibility Fraction", feasibility_frac)
 
 
-@st.cache_data
 def display_overall_reaction(prids: list[str], predicted_reactions_smarts: dict[str, str], study_path: str):
     rxns = [predicted_reactions_smarts[prid] for prid in prids if prid in predicted_reactions_smarts]
     overall_stoich = defaultdict(int)
@@ -108,7 +107,6 @@ def display_overall_reaction(prids: list[str], predicted_reactions_smarts: dict[
     st.image(orxn)
 
 
-@st.cache_data
 def display_predicted_reaction(i: int, prid: str, study_path: str):
     st.write(f"Predicted Reaction {i+1} ({prid[:HASH_UB]})")
     st.image(Path(study_path) / "svgs" / f"{prid}.svg")

@@ -4,7 +4,6 @@ from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
 from src.chem_draw import draw_reaction
-from src.schemas import path_feedback_schema, rxn_feedback_schema
 
 HASH_UB = 7
 

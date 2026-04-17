@@ -1,5 +1,4 @@
 import streamlit as st
-import polars as pl
 from src.schemas import path_feedback_schema, rxn_feedback_schema
 from path_viewer.components import (
     HASH_UB,

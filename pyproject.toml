@@ -17,7 +17,6 @@ networkx = "3.5"
 tqdm = "^4.66.4"
 cvxpy = "^1.5.2"
 sqlalchemy = "^2.0.31"
-lxml = "^5.2.2"
 setuptools = "^70.1.1"
 matplotlib = "^3.9.1"
 svgutils = "^0.3.4"
@@ -46,6 +45,10 @@ memory-profiler = "^0.61.0"
 
 [tool.poetry.group.path_viewer.dependencies]
 streamlit = "1.48"
+polars = "^1.30.0"
+rdkit = "2024.9.5"
+svgutils = "^0.3.4"
+numpy = ">=1.26,<2"
 
 [tool.poetry.scripts]
 bottle = "src.__main__:main"

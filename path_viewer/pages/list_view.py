@@ -92,7 +92,7 @@ def store_path_feedback(path_id):
 
 
 # Sidebar
-
+st.sidebar.markdown("### Fitler & Sort")
 starters = st.sidebar.multiselect(
     "Starting Compounds",
     options=pw.starters,

@@ -57,15 +57,13 @@ bottle = "src.__main__:main"
 envfile = ".env"
 
 [tool.poe.tasks]
-test = "pytest --cov=src"
 build-image.shell = """
-    docker build -t synbiorox/bottle:$(poetry version --short) . \
-        --build-context assets=${BOTTLE_EXPANSION_ASSETS} \
-        --platform=linux/amd64
+    docker build -t stefanpate/path-viewer . \
+        --build-context casp=${CASP_STUDY_ROOT} \
+        --build-context known=${KNOWN_BIOCHEM_ROOT}
 """
-build-image-arm.shell = "docker build -t synbiorox/bottle.arm64:$(poetry version --short) . --platform=linux/arm64"
-push-image.shell = "docker push synbiorox/bottle:$(poetry version --short)"
-run-docker.shell = "docker run --rm -it -e JUPYTER_TOKEN=${JUPYTER_TOKEN} -p 8888:8888 synbiorox/bottle:$(poetry version --short)"
+push-image.shell = "docker push stefanpate/path-viewer"
+run-docker.shell = "docker run -p 8501:8501 stefanpate/path-viewer"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

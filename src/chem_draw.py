@@ -10,7 +10,6 @@ root = Path(__file__).parent.parent
 
 plus = st.fromfile(root / 'artifacts/plus.svg').to_str().decode()
 arrow = st.fromfile(root / 'artifacts/arrow.svg').to_str().decode()
-double_border = st.fromfile(root / 'artifacts/double_border.svg').to_str().decode()
 
 def _add_elt(img: str, movex: int, rxn_img: st.SVGFigure):
         elt = st.fromstring(img)

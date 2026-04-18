@@ -2,7 +2,7 @@
 #SBATCH -A p30041
 #SBATCH -p short
 #SBATCH -N 1
-#SBATCH -n 1
+#SBATCH -n 10
 #SBATCH --mem=32GB
 #SBATCH -t 4:00:00
 #SBATCH --job-name="retro"
@@ -18,7 +18,7 @@ expansion=5_steps_ccm_aa_to_bottle_targets_25_combo_mechinferred_dt_13_and_mechi
 casp_study=branched_test
 max_depth=5
 max_leaves=3
-processes=10
+processes=10 # MAKE SURE THIS MATCHES -n above
 
 # Commands
 ulimit -c 0

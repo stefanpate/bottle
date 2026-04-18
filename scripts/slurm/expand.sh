@@ -14,14 +14,14 @@
 
 # Args
 scripts_dir=/home/spn1560/bottle/scripts
-starters=3hpa
+starters=pivalic_acid
 targets=null
 generations=3
 processes=25 # Make sure this matches #SBATCH -n
-a_plus_b=False
+a_plus_b=True
 rules=mechinferred_dt_956_rules_w_coreactants
 prune=False
-retro=True
+retro=False
 
 # Commands
 ulimit -c 0

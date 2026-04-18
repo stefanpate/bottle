@@ -15,7 +15,7 @@
 # Args
 scripts_dir=/home/spn1560/bottle/scripts
 processes=10 # Make sure this matches #SBATCH -n
-casp_study=260327_target_3hpa
+casp_study=260410_target_3hpa
 
 # Commands
 ulimit -c 0
@@ -23,4 +23,3 @@ module purge
 source /home/spn1560/.cache/pypoetry/virtualenvs/bottle-jRVXeMfS-py3.12/bin/activate
 python -u $scripts_dir/analyze_structures.py processes=$processes casp_study=$casp_study
 python -u $scripts_dir/analyze_thermo.py casp_study=$casp_study
-python -u $scripts_dir/draw_reactions.py casp_study=$casp_study

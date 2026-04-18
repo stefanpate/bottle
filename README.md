@@ -44,6 +44,19 @@ pipx install --python /usr/bin/python3.12 poetry
 
 Create a config file at `conf/filepaths/filepaths.yaml` following the template in `FILEPATHS_TEMPLATE.yaml`.
 
+Additionally, create a `.env` file at the project root by copying `.ENV_TEMPLATE`:
+
+```bash
+cp .ENV_TEMPLATE .env
+```
+
+Then edit `.env` and set both variables to absolute paths on your machine:
+
+- `CASP_STUDY_ROOT` — directory containing your processed CASP study subdirectories (used by the path viewer and baked into the Docker image at build time).
+- `KNOWN_BIOCHEM_ROOT` — directory containing the known biochemistry tables (typically `artifacts/known` in this repo).
+
+These are loaded automatically by `poe` tasks (via `envfile = ".env"` in `pyproject.toml`).
+
 #### 2. Download Equilibrator Database
 
 The below command will download the eQuilibrator database to a canonical cache location depending on your operating system, e.g., linux: `~/.cache/equilibrator`.
@@ -126,6 +139,26 @@ streamlit run path_viewer/list_view.py -- --casp-study my_casp_study
 ```
 
 Where `my_casp_study` is the name of the subdirectory in your processed data location that contains the processed parquet and SVG files.
+
+### 🐳 Containerizing the Path Viewer
+
+The path viewer can be built and run as a Docker image using [poe the poet](https://poethepoet.natn.io/) tasks defined in `pyproject.toml`. `poe` lives in the `dev` dependency group, so install it with:
+
+```bash
+poetry install --with dev
+```
+
+Make sure your `.env` file is set up (see [Configuration Setup](#️-configuration-setup)) — `CASP_STUDY_ROOT` and `KNOWN_BIOCHEM_ROOT` are read at build time and baked into the image.
+
+The main tasks:
+
+```bash
+poetry run poe build-image   # Build the image, baking in CASP and known data
+poetry run poe run-docker    # Run the container, exposing the viewer on :8501
+poetry run poe push-image    # Push the image to the registry
+```
+
+Once running, the viewer is available at <http://localhost:8501>.
 
 ## 🔧 Using Other Network Expansion Software
 

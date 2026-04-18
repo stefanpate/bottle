@@ -1,24 +1,67 @@
+import os
 import streamlit as st
 import polars as pl
 from pathlib import Path
-import argparse
 from src.post_processing import PathWrangler
 from path_viewer.components import HASH_UB, get_existing_usernames, load_user_feedback
 
-parser = argparse.ArgumentParser(description="Process CASP study directory name.")
-parser.add_argument("--casp-study", required=True, help="Name of the CASP study directory")
-args = parser.parse_args()
+CASP_STUDY_ROOT = Path(os.environ.get("CASP_STUDY_ROOT", "/data/processed"))
+KNOWN_BIOCHEM_ROOT = Path(os.environ.get("KNOWN_BIOCHEM_ROOT", "/data/known"))
+
+if not CASP_STUDY_ROOT.is_dir():
+    st.error(f"CASP_STUDY_ROOT does not exist: {CASP_STUDY_ROOT}")
+    st.stop()
+if not KNOWN_BIOCHEM_ROOT.is_dir():
+    st.error(f"KNOWN_BIOCHEM_ROOT does not exist: {KNOWN_BIOCHEM_ROOT}")
+    st.stop()
 
 st.set_page_config(layout="wide")
 
-study = Path(f"/home/stef/quest_data/bottle/data/processed/{args.casp_study}")
-known = Path("/home/stef/bottle/artifacts/known")
+available_studies = sorted(
+    p.name for p in CASP_STUDY_ROOT.iterdir() if p.is_dir()
+)
 
-# Initialize core session state
-if "pw" not in st.session_state:
-    st.session_state["pw"] = PathWrangler(study=study, known=known)
+st.sidebar.markdown("### Select CASP Study")
+if not available_studies:
+    st.sidebar.error("No studies found")
+    st.stop()
+
+selected_study = st.sidebar.selectbox(
+    "Study",
+    options=available_studies,
+    index=(
+        available_studies.index(st.session_state["study"].name)
+        if "study" in st.session_state and st.session_state["study"].name in available_studies
+        else 0
+    ),
+    key="_study_select",
+    label_visibility="collapsed",
+)
+
+st.sidebar.markdown("---")
+
+study = CASP_STUDY_ROOT / selected_study
+known = KNOWN_BIOCHEM_ROOT
+
+study_changed = (
+    "study" not in st.session_state
+    or st.session_state["study"] != study
+)
+if study_changed:
+    for k in (
+        "starters", "_starters",
+        "targets", "_targets",
+        "sort_by", "_sort_by",
+        "loe", "_loe",
+        "mdf_lb", "_mdf_lb",
+        "paths", "predicted_reactions", "known_reactions", "enzymes",
+        "path_ids", "selected_path", "_selected_path",
+    ):
+        st.session_state.pop(k, None)
+
     st.session_state["study"] = study
     st.session_state["known"] = known
+    st.session_state["pw"] = PathWrangler(study=study, known=known)
     st.session_state["username"] = "guest"
     st.session_state["path_feedback"] = {}
     st.session_state["pred_rxn_feedback"] = {}

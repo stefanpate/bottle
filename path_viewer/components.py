@@ -4,7 +4,6 @@ from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
 from src.chem_draw import draw_reaction
-from src.schemas import path_feedback_schema, rxn_feedback_schema
 
 HASH_UB = 7
 
@@ -82,8 +81,7 @@ def display_path_metrics(path_id: str, paths_df: pl.DataFrame):
         st.metric("Feasibility Fraction", feasibility_frac)
 
 
-@st.cache_data
-def display_overall_reaction(prids: list[str], predicted_reactions_smarts: dict[str, str], study_path: str):
+def display_overall_reaction(prids: list[str], predicted_reactions_smarts: dict[str, str]):
     rxns = [predicted_reactions_smarts[prid] for prid in prids if prid in predicted_reactions_smarts]
     overall_stoich = defaultdict(int)
     for rxn in rxns:
@@ -108,13 +106,13 @@ def display_overall_reaction(prids: list[str], predicted_reactions_smarts: dict[
     st.image(orxn)
 
 
-@st.cache_data
-def display_predicted_reaction(i: int, prid: str, study_path: str):
+def display_predicted_reaction(i: int, prid: str, smarts: str):
     st.write(f"Predicted Reaction {i+1} ({prid[:HASH_UB]})")
-    st.image(Path(study_path) / "svgs" / f"{prid}.svg")
+    svg = draw_reaction(smarts).to_str().decode("utf-8")
+    st.image(svg)
 
 
-def display_analogue(i: int, ks: pl.DataFrame, study_path: str):
+def display_analogue(i: int, ks: pl.DataFrame):
     analogue_select = st.selectbox(
         "Select Analogue",
         key=f"_analogue_select_{i}",
@@ -125,9 +123,10 @@ def display_analogue(i: int, ks: pl.DataFrame, study_path: str):
         format_func=lambda x: x[:HASH_UB] if x else "No analogues"
     )
     if analogue_select is not None:
-        sim_value = ks.filter(pl.col("analogue_ids") == analogue_select)["rxn_sims"]
-        st.write(f"Similarity: {sim_value.item():.3f}")
-        st.image(Path(study_path) / "svgs" / f"{analogue_select}.svg")
+        row = ks.filter(pl.col("analogue_ids") == analogue_select)
+        st.write(f"Similarity: {row['rxn_sims'].item():.3f}")
+        svg = draw_reaction(row["smarts"].item()).to_str().decode("utf-8")
+        st.image(svg)
 
 
 def display_enzymes(i: int, enz: pl.DataFrame):
@@ -151,6 +150,11 @@ def get_path_snapshot(path_id: str, paths_df: pl.DataFrame, predicted_reactions_
         ).select(
             pl.col("analogue_ids").explode(),
             pl.col("rxn_sims").explode()
+        ).join(
+            known_reactions_df.select(pl.col("id"), pl.col("smarts")),
+            left_on="analogue_ids",
+            right_on="id",
+            how="left",
         ) for prid in prids
     ]
 

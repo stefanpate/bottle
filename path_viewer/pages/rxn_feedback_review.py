@@ -77,7 +77,7 @@ if selected_rxn:
 
     # Reaction display
     st.header("Predicted Reaction")
-    display_predicted_reaction(0, prid, str(study))
+    display_predicted_reaction(0, prid, row["smarts"])
 
     # Feedback widget
     if prid in st.session_state['pred_rxn_feedback']:
@@ -104,10 +104,17 @@ if selected_rxn:
         enz_ids = krxns_df["enzymes"].explode().unique().to_list()
         enz_df = pl.scan_parquet(pw.enzymes).filter(pl.col("id").is_in(enz_ids)).collect()
 
+        krs = krids_sims.join(
+            krxns_df.select(pl.col("id"), pl.col("smarts")),
+            left_on="analogue_ids",
+            right_on="id",
+            how="left",
+        )
+
         # Analogues and enzymes
         st.header("Known Analogues")
         tab_analogue, tab_enzyme = st.tabs(["Analogues", "Enzymes"])
         with tab_analogue:
-            display_analogue(0, krids_sims, str(study))
+            display_analogue(0, krs)
         with tab_enzyme:
             display_enzymes(0, enz_df)

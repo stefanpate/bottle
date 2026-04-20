@@ -63,7 +63,7 @@ build-image.shell = """
         --build-context known=${KNOWN_BIOCHEM_ROOT}
 """
 push-image.shell = "docker push stefanpate/path-viewer"
-run-docker.shell = "docker run -p 8501:8501 stefanpate/path-viewer"
+run-docker.shell = "docker run -p 8501:8501 -v ${PWD}/.feedback:/feedback stefanpate/path-viewer"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

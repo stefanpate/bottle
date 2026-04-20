@@ -1,9 +1,16 @@
+import logging
 import os
 import streamlit as st
 import polars as pl
 from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 from src.post_processing import PathWrangler
 from path_viewer.components import HASH_UB, get_existing_usernames, load_user_feedback
+from path_viewer.backup_scheduler import start_backup_thread_once
 
 CASP_STUDY_ROOT = Path(os.environ.get("CASP_STUDY_ROOT", "/data/processed"))
 KNOWN_BIOCHEM_ROOT = Path(os.environ.get("KNOWN_BIOCHEM_ROOT", "/data/known"))
@@ -16,6 +23,8 @@ if not KNOWN_BIOCHEM_ROOT.is_dir():
     st.stop()
 
 st.set_page_config(layout="wide")
+
+start_backup_thread_once()
 
 available_studies = sorted(
     p.name for p in CASP_STUDY_ROOT.iterdir() if p.is_dir()

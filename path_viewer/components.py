@@ -1,55 +1,129 @@
+import os
+import sqlite3
 import streamlit as st
 import polars as pl
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict
 from src.chem_draw import draw_reaction
 
 HASH_UB = 7
 
-
-def get_existing_usernames(study: Path) -> list[str]:
-    usernames = set()
-    for fname in ["path_feedback.parquet", "reaction_feedback.parquet"]:
-        p = study / fname
-        if p.exists():
-            df = pl.read_parquet(p, columns=["username"])
-            if "username" in df.columns:
-                usernames.update(df["username"].unique().to_list())
-    return sorted(usernames)
+_FILENAME_TO_TABLE = {
+    "path_feedback.parquet": "path_feedback",
+    "reaction_feedback.parquet": "reaction_feedback",
+}
 
 
-def load_user_feedback(username: str, study: Path) -> tuple[dict, dict]:
-    path_fb, rxn_fb = {}, {}
-    if username == "guest":
-        return path_fb, rxn_fb
-    for fname, fb_dict in [("path_feedback.parquet", path_fb), ("reaction_feedback.parquet", rxn_fb)]:
-        p = study / fname
-        if p.exists():
-            df = pl.read_parquet(p)
-            if "username" in df.columns:
-                df = df.filter(pl.col("username") == username)
-                fb_dict.update(dict(zip(df["id"].to_list(), df["feedback"].to_list())))
-    return path_fb, rxn_fb
+def _db_path() -> Path:
+    return Path(os.environ.get("FEEDBACK_ROOT", "/feedback")) / "feedback.db"
 
 
-def save_feedback(feedback_dict: dict, filepath: Path, schema: pl.Schema, username: str):
-    if username == "guest":
+def _connect(db_path: Path | None = None) -> sqlite3.Connection:
+    path = db_path if db_path is not None else _db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path, isolation_level=None)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    conn.execute("PRAGMA foreign_keys=ON;")
+    for table in ("path_feedback", "reaction_feedback"):
+        conn.execute(
+            f"""CREATE TABLE IF NOT EXISTS {table} (
+                username TEXT NOT NULL,
+                id TEXT NOT NULL,
+                feedback INTEGER NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (username, id)
+            )"""
+        )
+        conn.execute(
+            f"CREATE INDEX IF NOT EXISTS ix_{table}_user ON {table}(username)"
+        )
+    _migrate_legacy_parquets(conn)
+    return conn
+
+
+def _migrate_legacy_parquets(conn: sqlite3.Connection) -> None:
+    counts = {
+        t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+        for t in ("path_feedback", "reaction_feedback")
+    }
+    if any(counts.values()):
         return
-    now = datetime.now()
-    new_rows = pl.DataFrame(
-        [{"username": username, "id": k, "feedback": v, "date": now.date(), "time": now.time()} for k, v in feedback_dict.items()],
-        schema=schema,
-    )
-    if filepath.exists():
-        existing = pl.read_parquet(filepath)
-        if "username" not in existing.columns:
-            merged = new_rows
-        else:
-            merged = pl.concat([existing, new_rows]).unique(subset=["username", "id"], keep="last")
-    else:
-        merged = new_rows
-    merged.write_parquet(filepath)
+    study_root = Path(os.environ.get("CASP_STUDY_ROOT", "/data/processed"))
+    if not study_root.is_dir():
+        return
+    for study_dir in study_root.iterdir():
+        if not study_dir.is_dir():
+            continue
+        for fname, table in _FILENAME_TO_TABLE.items():
+            p = study_dir / fname
+            if not p.exists():
+                continue
+            try:
+                df = pl.read_parquet(p)
+            except Exception:
+                continue
+            if "username" not in df.columns or "id" not in df.columns or "feedback" not in df.columns:
+                continue
+            rows = [
+                (r["username"], r["id"], int(r["feedback"]), _iso_from_row(r))
+                for r in df.iter_rows(named=True)
+            ]
+            if rows:
+                conn.executemany(
+                    f"INSERT OR IGNORE INTO {table} (username, id, feedback, updated_at) VALUES (?, ?, ?, ?)",
+                    rows,
+                )
+
+
+def _iso_from_row(row: dict) -> str:
+    d = row.get("date")
+    t = row.get("time")
+    if d is not None and t is not None:
+        return f"{d}T{t}"
+    return datetime.now(timezone.utc).isoformat()
+
+
+def get_existing_usernames(study: Path | None = None) -> list[str]:
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT username FROM path_feedback "
+            "UNION SELECT username FROM reaction_feedback"
+        ).fetchall()
+    return sorted({r[0] for r in rows})
+
+
+def load_user_feedback(username: str, study: Path | None = None) -> tuple[dict, dict]:
+    if username == "guest":
+        return {}, {}
+    with _connect() as conn:
+        path_rows = conn.execute(
+            "SELECT id, feedback FROM path_feedback WHERE username = ?", (username,)
+        ).fetchall()
+        rxn_rows = conn.execute(
+            "SELECT id, feedback FROM reaction_feedback WHERE username = ?", (username,)
+        ).fetchall()
+    return dict(path_rows), dict(rxn_rows)
+
+
+def save_feedback(feedback_dict: dict, filepath: Path, schema: object, username: str):
+    if username == "guest" or not feedback_dict:
+        return
+    table = _FILENAME_TO_TABLE.get(Path(filepath).name)
+    if table is None:
+        raise ValueError(f"Unknown feedback filepath: {filepath}")
+    now = datetime.now(timezone.utc).isoformat()
+    rows = [(username, k, int(v), now) for k, v in feedback_dict.items()]
+    with _connect() as conn:
+        conn.executemany(
+            f"""INSERT INTO {table} (username, id, feedback, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(username, id) DO UPDATE SET
+                    feedback = excluded.feedback,
+                    updated_at = excluded.updated_at""",
+            rows,
+        )
 
 
 def store_value(key):

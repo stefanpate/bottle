@@ -23,12 +23,15 @@ ENV VIRTUAL_ENV=/app/.venv \
     PATH="/app/.venv/bin:$PATH" \
     CASP_STUDY_ROOT=/data/processed \
     KNOWN_BIOCHEM_ROOT=/data/known \
+    FEEDBACK_ROOT=/feedback \
     PYTHONPATH=/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libxext6 \
     libexpat1 \
+    rclone \
+    sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -38,12 +41,15 @@ COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 # Code
 COPY path_viewer ./path_viewer
 COPY src ./src
+COPY scripts ./scripts
 
 # CASP and known data
 COPY --from=casp . ${CASP_STUDY_ROOT}
 COPY --from=known . ${KNOWN_BIOCHEM_ROOT}
 COPY artifacts/plus.svg ./artifacts/plus.svg
 COPY artifacts/arrow.svg ./artifacts/arrow.svg
+
+RUN mkdir -p ${FEEDBACK_ROOT}
 
 EXPOSE 8501
 

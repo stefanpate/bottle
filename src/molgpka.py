@@ -14,6 +14,7 @@ from torch_geometric.utils import scatter, add_remaining_self_loops
 from torch_geometric.data import Data
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit.Chem.MolStandardize import rdMolStandardize
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +25,14 @@ _MODULE_DIR = Path(__file__).parent
 SMARTS_FILE = _MODULE_DIR / "data" / "smarts_pattern.tsv"
 BASE_MODEL_PATH = _MODULE_DIR / "models" / "weight_base.pth"
 ACID_MODEL_PATH = _MODULE_DIR / "models" / "weight_acid.pth"
+# Optional ModelSeed-trained weights from OPAM2; not required for the stock
+# MolGpKa workflow and are only used by callers that opt into them.
+MODELSEED_BASE_MODEL_PATH = _MODULE_DIR / "models" / "weight_base_modelseed.pth"
+MODELSEED_ACID_MODEL_PATH = _MODULE_DIR / "models" / "weight_acid_modelseed.pth"
+
+# Soft cap used by ``cap_unstable_sites`` when callers want to bound
+# combinatorial protonation enumeration: 2**MAX_UNSTABLE_SITES states max.
+MAX_UNSTABLE_SITES = 8
 
 n_features = 29
 hidden = 1024
@@ -537,3 +546,56 @@ def modify_unstable_pka(
         smi = Chem.MolToSmiles(Chem.MolFromSmiles(Chem.MolToSmiles(new_mol)))
         new_unsmis.append(smi)
     return new_unsmis
+
+
+# ---------------------------------------------------------------------------
+# OPAM2 refinements (additive — original callers unaffected)
+# ---------------------------------------------------------------------------
+
+def prepare_mol_for_prediction(mol: Chem.Mol, uncharged: bool = True) -> Chem.Mol:
+    """Normalise *mol* for prediction while preserving heavy-atom indices.
+
+    The older ``predict_for_protonate`` flow ran
+    ``MolFromSmiles(MolToSmiles(mol))`` after uncharging, which canonicalised
+    atom order and broke index-based comparisons against the input.
+    ``Uncharger`` alone preserves atom order, and ``AddHs`` appends hydrogens
+    without renumbering heavy atoms, so heavy-atom indices in the returned
+    mol match those of the input.
+    """
+    if uncharged:
+        mol = rdMolStandardize.Uncharger().uncharge(mol)
+    return AllChem.AddHs(mol)
+
+
+def cap_unstable_sites(
+    unstable_data: list,
+    ph: float,
+    max_sites: int = MAX_UNSTABLE_SITES,
+) -> tuple[list, list]:
+    """Cap combinatorial enumeration by keeping only *max_sites* borderline
+    atoms closest to *ph*.
+
+    Overflow sites are promoted to stable states based on which side of *ph*
+    their pKa falls on; this keeps ``2**len(unstable)`` bounded for highly
+    ionisable molecules.
+
+    Returns
+    -------
+    kept, promoted_stable:
+        ``kept`` is the truncated unstable list; ``promoted_stable`` is the
+        list of overflow sites re-categorised as stable.
+    """
+    if len(unstable_data) <= max_sites:
+        return unstable_data, []
+    sorted_sites = sorted(unstable_data, key=lambda d: abs(d[1] - ph))
+    kept = sorted_sites[:max_sites]
+    overflow = sorted_sites[max_sites:]
+    promoted: list = []
+    for idx, pka, acid_or_basic in overflow:
+        if acid_or_basic == "A" and pka < ph:
+            promoted.append([idx, pka, "A"])
+        elif acid_or_basic == "B" and pka > ph:
+            promoted.append([idx, pka, "B"])
+    return kept, promoted
+
+

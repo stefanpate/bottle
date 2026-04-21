@@ -30,14 +30,15 @@ def _connect(db_path: Path | None = None) -> sqlite3.Connection:
         conn.execute(
             f"""CREATE TABLE IF NOT EXISTS {table} (
                 username TEXT NOT NULL,
+                casp_study TEXT NOT NULL,
                 id TEXT NOT NULL,
                 feedback INTEGER NOT NULL,
                 updated_at TEXT NOT NULL,
-                PRIMARY KEY (username, id)
+                PRIMARY KEY (username, casp_study, id)
             )"""
         )
         conn.execute(
-            f"CREATE INDEX IF NOT EXISTS ix_{table}_user ON {table}(username)"
+            f"CREATE INDEX IF NOT EXISTS ix_{table}_user_study ON {table}(username, casp_study)"
         )
     _migrate_legacy_parquets(conn)
     return conn
@@ -67,12 +68,12 @@ def _migrate_legacy_parquets(conn: sqlite3.Connection) -> None:
             if "username" not in df.columns or "id" not in df.columns or "feedback" not in df.columns:
                 continue
             rows = [
-                (r["username"], r["id"], int(r["feedback"]), _iso_from_row(r))
+                (r["username"], study_dir.name, r["id"], int(r["feedback"]), _iso_from_row(r))
                 for r in df.iter_rows(named=True)
             ]
             if rows:
                 conn.executemany(
-                    f"INSERT OR IGNORE INTO {table} (username, id, feedback, updated_at) VALUES (?, ?, ?, ?)",
+                    f"INSERT OR IGNORE INTO {table} (username, casp_study, id, feedback, updated_at) VALUES (?, ?, ?, ?, ?)",
                     rows,
                 )
 
@@ -85,7 +86,7 @@ def _iso_from_row(row: dict) -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def get_existing_usernames(study: Path | None = None) -> list[str]:
+def get_existing_usernames() -> list[str]:
     with _connect() as conn:
         rows = conn.execute(
             "SELECT username FROM path_feedback "
@@ -94,32 +95,36 @@ def get_existing_usernames(study: Path | None = None) -> list[str]:
     return sorted({r[0] for r in rows})
 
 
-def load_user_feedback(username: str, study: Path | None = None) -> tuple[dict, dict]:
+def load_user_feedback(username: str, casp_study: str) -> tuple[dict, dict]:
     if username == "guest":
         return {}, {}
     with _connect() as conn:
         path_rows = conn.execute(
-            "SELECT id, feedback FROM path_feedback WHERE username = ?", (username,)
+            "SELECT id, feedback FROM path_feedback "
+            "WHERE username = ? AND casp_study = ?",
+            (username, casp_study),
         ).fetchall()
         rxn_rows = conn.execute(
-            "SELECT id, feedback FROM reaction_feedback WHERE username = ?", (username,)
+            "SELECT id, feedback FROM reaction_feedback "
+            "WHERE username = ? AND casp_study = ?",
+            (username, casp_study),
         ).fetchall()
     return dict(path_rows), dict(rxn_rows)
 
 
-def save_feedback(feedback_dict: dict, filepath: Path, schema: object, username: str):
+def save_feedback(feedback_dict: dict, filepath: Path, schema: object, username: str, casp_study: str):
     if username == "guest" or not feedback_dict:
         return
     table = _FILENAME_TO_TABLE.get(Path(filepath).name)
     if table is None:
         raise ValueError(f"Unknown feedback filepath: {filepath}")
     now = datetime.now(timezone.utc).isoformat()
-    rows = [(username, k, int(v), now) for k, v in feedback_dict.items()]
+    rows = [(username, casp_study, k, int(v), now) for k, v in feedback_dict.items()]
     with _connect() as conn:
         conn.executemany(
-            f"""INSERT INTO {table} (username, id, feedback, updated_at)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(username, id) DO UPDATE SET
+            f"""INSERT INTO {table} (username, casp_study, id, feedback, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(username, casp_study, id) DO UPDATE SET
                     feedback = excluded.feedback,
                     updated_at = excluded.updated_at""",
             rows,

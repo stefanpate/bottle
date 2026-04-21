@@ -9,7 +9,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 from src.post_processing import PathWrangler
-from path_viewer.components import HASH_UB, get_existing_usernames, load_user_feedback
+from path_viewer.components import HASH_UB, get_existing_usernames, load_user_feedback, store_value
 from path_viewer.backup_scheduler import start_backup_thread_once
 
 CASP_STUDY_ROOT = Path(os.environ.get("CASP_STUDY_ROOT", "/data/processed"))
@@ -35,27 +35,31 @@ if not available_studies:
     st.sidebar.error("No studies found")
     st.stop()
 
-selected_study = st.sidebar.selectbox(
+if "study_select" not in st.session_state:
+    st.session_state["study_select"] = available_studies[0] if available_studies else None
+
+if "_study_select" not in st.session_state:
+    st.session_state["_study_select"] = available_studies[0] if available_studies else None
+
+st.sidebar.selectbox(
     "Study",
     options=available_studies,
-    index=(
-        available_studies.index(st.session_state["study"].name)
-        if "study" in st.session_state and st.session_state["study"].name in available_studies
-        else 0
-    ),
     key="_study_select",
     label_visibility="collapsed",
+    on_change=store_value,
+    args=("study_select",),
 )
 
 st.sidebar.markdown("---")
 
+selected_study = st.session_state["study_select"]
 study = CASP_STUDY_ROOT / selected_study
 known = KNOWN_BIOCHEM_ROOT
 
-study_changed = (
-    "study" not in st.session_state
-    or st.session_state["study"] != study
-)
+st.session_state["casp_study_root"] = CASP_STUDY_ROOT
+st.session_state["known"] = known
+
+study_changed = st.session_state.get("_pw_study") != selected_study
 if study_changed:
     for k in (
         "starters", "_starters",
@@ -68,12 +72,13 @@ if study_changed:
     ):
         st.session_state.pop(k, None)
 
-    st.session_state["study"] = study
-    st.session_state["known"] = known
+    prev_username = st.session_state.get("username", "guest")
+    st.session_state["_pw_study"] = selected_study
     st.session_state["pw"] = PathWrangler(study=study, known=known)
-    st.session_state["username"] = "guest"
-    st.session_state["path_feedback"] = {}
-    st.session_state["pred_rxn_feedback"] = {}
+    st.session_state["username"] = prev_username
+    path_fb, rxn_fb = load_user_feedback(prev_username, selected_study)
+    st.session_state["path_feedback"] = path_fb
+    st.session_state["pred_rxn_feedback"] = rxn_fb
 
 # Navigation
 pages = [
@@ -86,7 +91,7 @@ nav = st.navigation(pages)
 nav.run()
 
 # Login UI (sidebar, below Apply button added by page scripts)
-existing_users = get_existing_usernames(study)
+existing_users = get_existing_usernames()
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Login")
@@ -102,7 +107,7 @@ if existing_users:
     if st.sidebar.button("Log in", key="login_select_btn"):
         if selected_user:
             st.session_state["username"] = selected_user
-            path_fb, rxn_fb = load_user_feedback(selected_user, study)
+            path_fb, rxn_fb = load_user_feedback(selected_user, selected_study)
             st.session_state["path_feedback"] = path_fb
             st.session_state["pred_rxn_feedback"] = rxn_fb
             st.rerun()
@@ -114,7 +119,7 @@ if st.sidebar.button("Log in", key="login_new_btn"):
     if new_user and new_user.strip():
         username = new_user.strip()
         st.session_state["username"] = username
-        path_fb, rxn_fb = load_user_feedback(username, study)
+        path_fb, rxn_fb = load_user_feedback(username, selected_study)
         st.session_state["path_feedback"] = path_fb
         st.session_state["pred_rxn_feedback"] = rxn_fb
         st.rerun()

@@ -10,7 +10,8 @@ from path_viewer.components import (
 )
 
 pw = st.session_state["pw"]
-study = st.session_state["study"]
+selected_study = st.session_state["study_select"]
+study = st.session_state["casp_study_root"] / selected_study
 
 st.title("Reaction Feedback Review")
 
@@ -58,7 +59,7 @@ if selected_rxn:
     # Feedback callback
     def store_review_rxn_feedback(prid):
         st.session_state['pred_rxn_feedback'][prid] = st.session_state[f"rxn_review_fb_{prid}"]
-        save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", rxn_feedback_schema, st.session_state["username"])
+        save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", rxn_feedback_schema, st.session_state["username"], selected_study)
 
     # Get pred rxn metrics
     row = prxn_df.filter(pl.col("id") == prid).row(0, named=True)

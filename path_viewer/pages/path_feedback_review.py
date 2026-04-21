@@ -1,5 +1,4 @@
 import streamlit as st
-from src.schemas import path_feedback_schema, rxn_feedback_schema
 from path_viewer.components import (
     HASH_UB,
     save_feedback,
@@ -76,12 +75,12 @@ if pid:
         # Feedback callback for this page
         def store_review_path_feedback(path_id):
             st.session_state['path_feedback'][path_id] = st.session_state[f"review_path_fb_{path_id}"]
-            save_feedback(st.session_state['path_feedback'], study / "path_feedback.parquet", path_feedback_schema, st.session_state["username"], selected_study)
+            save_feedback(st.session_state['path_feedback'], study / "path_feedback.parquet", st.session_state["username"], selected_study)
 
         def store_review_rxn_feedback(prid):
             st.session_state['pred_rxn_feedback'][prid] = st.session_state[f"review_rxn_fb_{prid}"]
             save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet",
-                          rxn_feedback_schema, st.session_state["username"], selected_study)
+                          st.session_state["username"], selected_study)
 
         # Path metrics
         st.header("Path Metrics")

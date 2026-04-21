@@ -17,8 +17,8 @@ def feedback_env(tmp_path, monkeypatch):
 
 def test_save_and_load_roundtrip(feedback_env):
     _, study = feedback_env
-    components.save_feedback({"path_a": 1, "path_b": 0}, study / "path_feedback.parquet", None, "alice", "my_study")
-    components.save_feedback({"rxn_a": 1}, study / "reaction_feedback.parquet", None, "alice", "my_study")
+    components.save_feedback({"path_a": 1, "path_b": 0}, study / "path_feedback.parquet", "alice", "my_study")
+    components.save_feedback({"rxn_a": 1}, study / "reaction_feedback.parquet", "alice", "my_study")
 
     path_fb, rxn_fb = components.load_user_feedback("alice", "my_study")
     assert path_fb == {"path_a": 1, "path_b": 0}
@@ -27,8 +27,8 @@ def test_save_and_load_roundtrip(feedback_env):
 
 def test_upsert_updates_existing_row(feedback_env):
     _, study = feedback_env
-    components.save_feedback({"path_a": 1}, study / "path_feedback.parquet", None, "alice", "my_study")
-    components.save_feedback({"path_a": 0}, study / "path_feedback.parquet", None, "alice", "my_study")
+    components.save_feedback({"path_a": 1}, study / "path_feedback.parquet", "alice", "my_study")
+    components.save_feedback({"path_a": 0}, study / "path_feedback.parquet", "alice", "my_study")
 
     path_fb, _ = components.load_user_feedback("alice", "my_study")
     assert path_fb == {"path_a": 0}
@@ -36,23 +36,23 @@ def test_upsert_updates_existing_row(feedback_env):
 
 def test_usernames_aggregated_across_tables(feedback_env):
     _, study = feedback_env
-    components.save_feedback({"path_a": 1}, study / "path_feedback.parquet", None, "alice", "my_study")
-    components.save_feedback({"rxn_a": 1}, study / "reaction_feedback.parquet", None, "bob", "my_study")
+    components.save_feedback({"path_a": 1}, study / "path_feedback.parquet", "alice", "my_study")
+    components.save_feedback({"rxn_a": 1}, study / "reaction_feedback.parquet", "bob", "my_study")
 
     assert components.get_existing_usernames() == ["alice", "bob"]
 
 
 def test_guest_is_noop(feedback_env):
     _, study = feedback_env
-    components.save_feedback({"path_a": 1}, study / "path_feedback.parquet", None, "guest", "my_study")
+    components.save_feedback({"path_a": 1}, study / "path_feedback.parquet", "guest", "my_study")
     assert components.load_user_feedback("guest", "my_study") == ({}, {})
     assert components.get_existing_usernames() == []
 
 
 def test_feedback_isolated_per_user(feedback_env):
     _, study = feedback_env
-    components.save_feedback({"path_a": 1}, study / "path_feedback.parquet", None, "alice", "my_study")
-    components.save_feedback({"path_a": 0}, study / "path_feedback.parquet", None, "bob", "my_study")
+    components.save_feedback({"path_a": 1}, study / "path_feedback.parquet", "alice", "my_study")
+    components.save_feedback({"path_a": 0}, study / "path_feedback.parquet", "bob", "my_study")
 
     alice_fb, _ = components.load_user_feedback("alice", "my_study")
     bob_fb, _ = components.load_user_feedback("bob", "my_study")
@@ -62,8 +62,8 @@ def test_feedback_isolated_per_user(feedback_env):
 
 def test_feedback_isolated_per_study(feedback_env):
     _, study = feedback_env
-    components.save_feedback({"path_a": 1}, study / "path_feedback.parquet", None, "alice", "study_a")
-    components.save_feedback({"path_a": 0}, study / "path_feedback.parquet", None, "alice", "study_b")
+    components.save_feedback({"path_a": 1}, study / "path_feedback.parquet", "alice", "study_a")
+    components.save_feedback({"path_a": 0}, study / "path_feedback.parquet", "alice", "study_b")
 
     a_fb, _ = components.load_user_feedback("alice", "study_a")
     b_fb, _ = components.load_user_feedback("alice", "study_b")
@@ -77,7 +77,7 @@ def test_feedback_isolated_per_study(feedback_env):
 def test_unknown_filepath_raises(feedback_env):
     _, study = feedback_env
     with pytest.raises(ValueError):
-        components.save_feedback({"x": 1}, study / "bogus.parquet", None, "alice", "my_study")
+        components.save_feedback({"x": 1}, study / "bogus.parquet", "alice", "my_study")
 
 
 def test_legacy_parquet_migration(feedback_env):
@@ -104,7 +104,7 @@ def test_legacy_parquet_migration(feedback_env):
 
 def test_migration_skipped_when_db_nonempty(feedback_env):
     _, study_root = feedback_env
-    components.save_feedback({"path_a": 1}, study_root / "path_feedback.parquet", None, "alice", "my_study")
+    components.save_feedback({"path_a": 1}, study_root / "path_feedback.parquet", "alice", "my_study")
 
     study = study_root / "my_study"
     study.mkdir()

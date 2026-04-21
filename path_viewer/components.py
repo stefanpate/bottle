@@ -112,7 +112,7 @@ def load_user_feedback(username: str, casp_study: str) -> tuple[dict, dict]:
     return dict(path_rows), dict(rxn_rows)
 
 
-def save_feedback(feedback_dict: dict, filepath: Path, schema: object, username: str, casp_study: str):
+def save_feedback(feedback_dict: dict, filepath: Path, username: str, casp_study: str):
     if username == "guest" or not feedback_dict:
         return
     table = _FILENAME_TO_TABLE.get(Path(filepath).name)

@@ -1,6 +1,5 @@
 import streamlit as st
 import polars as pl
-from src.schemas import path_feedback_schema, rxn_feedback_schema
 from path_viewer.components import (
     HASH_UB,
     save_feedback,
@@ -74,7 +73,7 @@ def handle_user_input():
 
 def store_pred_rxn_feedback(prid):
     st.session_state['pred_rxn_feedback'][prid] = st.session_state[f"pred_rxn_feedback_{prid}"]
-    save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", rxn_feedback_schema, st.session_state["username"], selected_study)
+    save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", st.session_state["username"], selected_study)
 
 
 def dislike_rules(rule_pairs):
@@ -84,12 +83,12 @@ def dislike_rules(rule_pairs):
         pairs = set(zip(row["rules"], row["rule_sets"]))
         if pairs & rule_pairs_set:
             st.session_state['pred_rxn_feedback'][row["id"]] = 0
-    save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", rxn_feedback_schema, st.session_state["username"], selected_study)
+    save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", st.session_state["username"], selected_study)
 
 
 def store_path_feedback(path_id):
     st.session_state['path_feedback'][path_id] = st.session_state[f"path_feedback_{path_id}"]
-    save_feedback(st.session_state['path_feedback'], study / "path_feedback.parquet", path_feedback_schema, st.session_state["username"], selected_study)
+    save_feedback(st.session_state['path_feedback'], study / "path_feedback.parquet", st.session_state["username"], selected_study)
 
 
 # Sidebar

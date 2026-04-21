@@ -1,6 +1,5 @@
 import streamlit as st
 import polars as pl
-from src.schemas import rxn_feedback_schema
 from path_viewer.components import (
     HASH_UB,
     save_feedback,
@@ -59,7 +58,7 @@ if selected_rxn:
     # Feedback callback
     def store_review_rxn_feedback(prid):
         st.session_state['pred_rxn_feedback'][prid] = st.session_state[f"rxn_review_fb_{prid}"]
-        save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", rxn_feedback_schema, st.session_state["username"], selected_study)
+        save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", st.session_state["username"], selected_study)
 
     # Get pred rxn metrics
     row = prxn_df.filter(pl.col("id") == prid).row(0, named=True)

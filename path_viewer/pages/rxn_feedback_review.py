@@ -2,7 +2,7 @@ import streamlit as st
 import polars as pl
 from path_viewer.components import (
     HASH_UB,
-    save_feedback,
+    apply_feedback_change,
     display_predicted_reaction,
     display_analogue,
     display_enzymes,
@@ -11,6 +11,7 @@ from path_viewer.components import (
 pw = st.session_state["pw"]
 selected_study = st.session_state["study_select"]
 study = st.session_state["casp_study_root"] / selected_study
+feedback_disabled = not st.user.is_logged_in
 
 st.title("Reaction Feedback Review")
 
@@ -57,8 +58,14 @@ if selected_rxn:
 
     # Feedback callback
     def store_review_rxn_feedback(prid):
-        st.session_state['pred_rxn_feedback'][prid] = st.session_state[f"rxn_review_fb_{prid}"]
-        save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet", st.session_state["username"], selected_study)
+        apply_feedback_change(
+            st.session_state['pred_rxn_feedback'],
+            prid,
+            st.session_state[f"rxn_review_fb_{prid}"],
+            study / "reaction_feedback.parquet",
+            st.session_state["username"],
+            selected_study,
+        )
 
     # Get pred rxn metrics
     row = prxn_df.filter(pl.col("id") == prid).row(0, named=True)
@@ -88,7 +95,10 @@ if selected_rxn:
         key=f"rxn_review_fb_{prid}",
         on_change=store_review_rxn_feedback,
         args=(prid,),
+        disabled=feedback_disabled,
     )
+    if feedback_disabled:
+        st.caption("Sign in to leave feedback.")
 
 
     if not prxn_df.is_empty():

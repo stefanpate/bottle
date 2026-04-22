@@ -86,13 +86,30 @@ def _iso_from_row(row: dict) -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def get_existing_usernames() -> list[str]:
-    with _connect() as conn:
-        rows = conn.execute(
-            "SELECT username FROM path_feedback "
-            "UNION SELECT username FROM reaction_feedback"
-        ).fetchall()
-    return sorted({r[0] for r in rows})
+@st.dialog("Sign in")
+def _sign_in_dialog():
+    st.write("Choose a provider to continue:")
+    if st.button("Continue with Google", key="signin_google", use_container_width=True):
+        st.session_state["_pending_login_provider"] = "google"
+        st.rerun()
+
+
+def render_auth_header():
+    pending = st.session_state.pop("_pending_login_provider", None)
+    if pending:
+        st.login(pending)
+        return
+
+    _, right = st.columns([0.8, 0.2])
+    with right:
+        if st.user.is_logged_in:
+            display = getattr(st.user, "name", None) or getattr(st.user, "email", None) or "user"
+            st.markdown(f"Logged in as **{display}**")
+            if st.button("Log out", key="auth_logout"):
+                st.logout()
+        else:
+            if st.button("Sign in", key="auth_signin", use_container_width=False):
+                _sign_in_dialog()
 
 
 def load_user_feedback(username: str, casp_study: str) -> tuple[dict, dict]:
@@ -112,12 +129,17 @@ def load_user_feedback(username: str, casp_study: str) -> tuple[dict, dict]:
     return dict(path_rows), dict(rxn_rows)
 
 
-def save_feedback(feedback_dict: dict, filepath: Path, username: str, casp_study: str):
-    if username == "guest" or not feedback_dict:
-        return
+def _table_for(filepath: Path) -> str:
     table = _FILENAME_TO_TABLE.get(Path(filepath).name)
     if table is None:
         raise ValueError(f"Unknown feedback filepath: {filepath}")
+    return table
+
+
+def save_feedback(feedback_dict: dict, filepath: Path, username: str, casp_study: str):
+    if username == "guest" or not feedback_dict:
+        return
+    table = _table_for(filepath)
     now = datetime.now(timezone.utc).isoformat()
     rows = [(username, casp_study, k, int(v), now) for k, v in feedback_dict.items()]
     with _connect() as conn:
@@ -129,6 +151,36 @@ def save_feedback(feedback_dict: dict, filepath: Path, username: str, casp_study
                     updated_at = excluded.updated_at""",
             rows,
         )
+
+
+def delete_feedback(ids, filepath: Path, username: str, casp_study: str):
+    ids = list(ids)
+    if username == "guest" or not ids:
+        return
+    table = _table_for(filepath)
+    placeholders = ",".join("?" * len(ids))
+    with _connect() as conn:
+        conn.execute(
+            f"DELETE FROM {table} WHERE username = ? AND casp_study = ? AND id IN ({placeholders})",
+            (username, casp_study, *ids),
+        )
+
+
+def apply_feedback_change(
+    store_dict: dict,
+    feedback_id: str,
+    new_value,
+    filepath: Path,
+    username: str,
+    casp_study: str,
+) -> None:
+    if new_value is None:
+        store_dict.pop(feedback_id, None)
+        delete_feedback([feedback_id], filepath, username, casp_study)
+    else:
+        v = int(new_value)
+        store_dict[feedback_id] = v
+        save_feedback({feedback_id: v}, filepath, username, casp_study)
 
 
 def store_value(key):

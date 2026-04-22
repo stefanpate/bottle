@@ -49,6 +49,7 @@ polars = "^1.30.0"
 rdkit = "2024.9.5"
 svgutils = "^0.3.4"
 numpy = ">=1.26,<2"
+authlib = "1.6.5"
 
 [tool.poetry.scripts]
 bottle = "src.__main__:main"

@@ -1,7 +1,7 @@
 import streamlit as st
 from path_viewer.components import (
     HASH_UB,
-    save_feedback,
+    apply_feedback_change,
     store_value,
     display_path_metrics,
     display_overall_reaction,
@@ -14,6 +14,7 @@ from path_viewer.components import (
 pw = st.session_state["pw"]
 selected_study = st.session_state["study_select"]
 study = st.session_state["casp_study_root"] / selected_study
+feedback_disabled = not st.user.is_logged_in
 
 st.title("Path Feedback Review")
 
@@ -74,13 +75,24 @@ if pid:
 
         # Feedback callback for this page
         def store_review_path_feedback(path_id):
-            st.session_state['path_feedback'][path_id] = st.session_state[f"review_path_fb_{path_id}"]
-            save_feedback(st.session_state['path_feedback'], study / "path_feedback.parquet", st.session_state["username"], selected_study)
+            apply_feedback_change(
+                st.session_state['path_feedback'],
+                path_id,
+                st.session_state[f"review_path_fb_{path_id}"],
+                study / "path_feedback.parquet",
+                st.session_state["username"],
+                selected_study,
+            )
 
         def store_review_rxn_feedback(prid):
-            st.session_state['pred_rxn_feedback'][prid] = st.session_state[f"review_rxn_fb_{prid}"]
-            save_feedback(st.session_state['pred_rxn_feedback'], study / "reaction_feedback.parquet",
-                          st.session_state["username"], selected_study)
+            apply_feedback_change(
+                st.session_state['pred_rxn_feedback'],
+                prid,
+                st.session_state[f"review_rxn_fb_{prid}"],
+                study / "reaction_feedback.parquet",
+                st.session_state["username"],
+                selected_study,
+            )
 
         # Path metrics
         st.header("Path Metrics")
@@ -103,7 +115,10 @@ if pid:
             key=f"review_path_fb_{pid}",
             on_change=store_review_path_feedback,
             args=(pid,),
+            disabled=feedback_disabled,
         )
+        if feedback_disabled:
+            st.caption("Sign in to leave feedback.")
 
         # Predicted reactions with analogues
         header_left, header_right = st.columns([0.6, 0.4])
@@ -124,6 +139,7 @@ if pid:
                     key=f"review_rxn_fb_{prid}",
                     on_change=store_review_rxn_feedback,
                     args=(prid,),
+                    disabled=feedback_disabled,
                 )
             with col_right:
                 tab_analogue, tab_enzyme = st.tabs(["Analogues", "Enzymes"])

@@ -28,6 +28,7 @@ specs
 # Configs
 config.yaml
 .env
+.streamlit/secrets.toml
 
 
 # typical dev stuff

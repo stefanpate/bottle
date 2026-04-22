@@ -42,6 +42,7 @@ COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 COPY path_viewer ./path_viewer
 COPY src ./src
 COPY scripts ./scripts
+RUN chmod +x /app/scripts/entrypoint.sh
 
 # CASP and known data
 COPY --from=casp . ${CASP_STUDY_ROOT}
@@ -53,5 +54,5 @@ RUN mkdir -p ${FEEDBACK_ROOT}
 
 EXPOSE 8501
 
-CMD ["streamlit", "run", "path_viewer/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+CMD ["/app/scripts/entrypoint.sh"]
 
